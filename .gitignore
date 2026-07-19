@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 *.egg-info/
 dist/
+.coverage
 
 # Hilo — local cache files (rebuildable)
 .vfs/graph/graph.db
