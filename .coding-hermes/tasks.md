@@ -40,7 +40,9 @@ All 31 tests use a bash shim that simulates unshare. None exercise the real Linu
 ## Phase 4: Hermes Integration — Actually Wire It In
 The plugin exists on disk but has never been loaded by a real Hermes gateway.
 
-- [ ] **T4.1: Plugin discovery** — verify Hermes discovers `terminal-jail` plugin, loads hooks, logs version
+**⚠️ Host limitation (2026-07-19):** `unshare --mount-proc` fails on karaHermes-mde-7840hs (Ubuntu 26.04, kernel 7.0.0-27) with "Permission denied." Unprivileged user namespaces cannot mount /proc. This blocks T4.2 (command wrapping E2E) — the plugin wraps commands correctly but execution fails at the OS level. T4.3 (disabled mode) and T4.4 (missing unshare) should still work. Fix options: (a) enable `kernel.unprivileged_userns_clone=1` + fix LSM restrictions, (b) test on a Debian host with relaxed user namespace policy, (c) add `--user` namespace for additional isolation layer (Phase 9).
+
+- [x] **T4.1: Plugin discovery** — verify Hermes discovers `terminal-jail` plugin, loads hooks, logs version (✓ installed to ~/.hermes/plugins/terminal-jail/, plugin.yaml created, enabled, hooks verified functional)
 - [ ] **T4.2: Command wrapping E2E** — run `hermes chat -q "run: echo hello"`, verify terminal tool output shows unshare wrapping in process tree
 - [ ] **T4.3: Disabled mode E2E** — set `HERMES_TERMINAL_JAIL_ENABLED=0`, verify commands pass through unwrapped
 - [ ] **T4.4: Missing unshare E2E** — remove unshare from PATH, verify graceful degrade with warning
