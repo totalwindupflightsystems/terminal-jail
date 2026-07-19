@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="${TERMINAL_JAIL_VERSION:-0.1.0}"
+
+usage() {
+    cat <<'EOF'
+Usage: terminal-jail <command> [args...]
+       terminal-jail --help
+       terminal-jail --version
+
+Run COMMAND in a new Linux PID namespace with a namespace-local /proc.
+Arguments are passed without shell re-parsing.
+EOF
+}
+
+version() {
+    echo "terminal-jail ${VERSION}"
+}
+
+# --- argument parsing (v1: no getopts — --help/--version only recognised
+#     as the sole argument) --------------------------------------------------
+
+if [ $# -eq 0 ]; then
+    usage >&2
+    exit 2
+fi
+
+if [ $# -eq 1 ]; then
+    case "$1" in
+        --help|-h) usage; exit 0 ;;
+        --version|-V) version; exit 0 ;;
+    esac
+fi
+
+# --- preflight --------------------------------------------------------------
+
+if [ "$(uname -s)" != "Linux" ]; then
+    echo "terminal-jail: this CLI requires Linux PID namespaces" >&2
+    exit 2
+fi
+
+if ! command -v unshare >/dev/null 2>&1; then
+    echo "terminal-jail: unshare is required (install util-linux)" >&2
+    exit 2
+fi
+
+# --- launch -----------------------------------------------------------------
+# exec replaces the wrapper so exit status, stdio, and controlling terminal
+# are inherited directly by the unshare / payload chain.
+exec unshare \
+    --pid \
+    --fork \
+    --mount-proc \
+    --kill-child=SIGKILL \
+    bash -c 'exec "$@"' terminal-jail "$@"
