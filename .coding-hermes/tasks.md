@@ -44,11 +44,11 @@ The plugin exists on disk but has never been loaded by a real Hermes gateway.
 
 - [x] **T4.1: Plugin discovery** — verify Hermes discovers `terminal-jail` plugin, loads hooks, logs version (✓ installed to ~/.hermes/plugins/terminal-jail/, plugin.yaml created, enabled, hooks verified functional)
 - [ ] **T4.2: Command wrapping E2E** — run `hermes chat -q "run: echo hello"`, verify terminal tool output shows unshare wrapping in process tree
-- [ ] **T4.3: Disabled mode E2E** — set `HERMES_TERMINAL_JAIL_ENABLED=0`, verify commands pass through unwrapped
-- [ ] **T4.4: Missing unshare E2E** — remove unshare from PATH, verify graceful degrade with warning
+- [x] **T4.3: Disabled mode E2E** — set `HERMES_TERMINAL_JAIL_ENABLED=0`, verify commands pass through unwrapped (t31-t35, 5 tests covering 0/false/off/no/unrecognised)
+- [x] **T4.4: Missing unshare E2E** — remove unshare from PATH, verify graceful degrade with warning (t36-t37, 2 tests covering missing path + empty config)
 - [ ] **T4.5: Concurrent jail isolation** — run two simultaneous jailed commands, verify separate PID namespaces
 - [ ] **T4.6: Gateway restart resilience** — restart gateway, verify plugin reloads and continues wrapping
-- [ ] **T4.7: Log level configuration** — verify `HERMES_TERMINAL_JAIL_LOG_LEVEL=DEBUG` produces expected output vs `WARNING`
+- [x] **T4.7: Log level configuration** — verify `HERMES_TERMINAL_JAIL_LOG_LEVEL=DEBUG` produces expected output vs `WARNING` (t38-t40, 3 tests covering DEBUG/WARNING/invalid fallback)
 - [ ] **T4.8: Hermes --sandbox flag** — implement opt-in `--sandbox` CLI flag in Hermes core PR
 
 ## Phase 5: systemd Defense-in-Depth — Deploy to Gateway

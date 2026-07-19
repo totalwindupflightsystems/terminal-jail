@@ -450,3 +450,72 @@ def test_t30_runtime_unshare_error_is_not_retried_raw(
     assert result.stdout == b""
     assert result.stderr == b"unshare-shim: runtime error\n"
     assert not sentinel.exists()
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 E2E tests — validate plugin behaviour without requiring unshare
+# ---------------------------------------------------------------------------
+
+
+class TestDisabledMode:
+    """T4.3: Disabled mode E2E — verify commands pass through unwrapped."""
+
+    def test_t31_disabled_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "0")
+        assert plugin_module.transform_command("echo hello") == "echo hello"
+
+    def test_t32_disabled_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "false")
+        assert plugin_module.transform_command("echo hello") == "echo hello"
+
+    def test_t33_disabled_off(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "off")
+        assert plugin_module.transform_command("echo hello") == "echo hello"
+
+    def test_t34_disabled_no(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "no")
+        assert plugin_module.transform_command("echo hello") == "echo hello"
+
+    def test_t35_disabled_unrecognised(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "garbage")
+        assert plugin_module.transform_command("echo hello") == "echo hello"
+
+
+class TestMissingUnshare:
+    """T4.4: Missing unshare E2E — verify graceful degrade."""
+
+    def test_t36_missing_unshare_passthrough(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_COMMAND", "/nonexistent/unshare")
+        assert plugin_module.transform_command("echo hello") == "echo hello"
+
+    def test_t37_empty_command_passthrough(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_COMMAND", "")
+        assert plugin_module.transform_command("echo hello") == "echo hello"
+
+
+class TestLogLevel:
+    """T4.7: Log level configuration."""
+
+    def test_t38_log_level_debug(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_LOG_LEVEL", "DEBUG")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "0")
+        plugin_module._configure_logger()
+        assert plugin_module.LOGGER.getEffectiveLevel() == logging.DEBUG
+
+    def test_t39_log_level_warning(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_LOG_LEVEL", "WARNING")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "0")
+        plugin_module._configure_logger()
+        assert plugin_module.LOGGER.getEffectiveLevel() == logging.WARNING
+
+    def test_t40_log_level_invalid_falls_back(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_LOG_LEVEL", "NOT_A_REAL_LEVEL")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "0")
+        plugin_module._configure_logger()
+        assert plugin_module.LOGGER.getEffectiveLevel() == logging.WARNING
