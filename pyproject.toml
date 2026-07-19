@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "terminal-jail"
+version = "0.1.0"
+description = "Wrap Hermes terminal commands in a Linux PID namespace using unshare"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Total Windup Flight Systems" },
+]
+requires-python = ">=3.11"
+dependencies = []
+keywords = ["hermes", "plugin", "terminal", "security", "sandbox"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Plugins",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+
+[project.urls]
+Homepage = "https://github.com/totalwindupflightsystems/terminal-jail"
+Repository = "https://github.com/totalwindupflightsystems/terminal-jail"
+
+[tool.pytest.ini_options]
+markers = [
+    "standalone_cli: tests for standalone/terminal-jail CLI script",
+    "integration: tests requiring real unshare (skip on hosts that block --mount-proc)",
+]
+testpaths = ["plugin"]
+pythonpath = ["."]
