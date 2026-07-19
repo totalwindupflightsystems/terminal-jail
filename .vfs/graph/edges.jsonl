@@ -1,0 +1,17 @@
+{"from":"plugin/test_plugin.py","to":"pkg:logging","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_plugin.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_plugin.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_plugin.py","to":"pkg:shlex","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_plugin.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_plugin.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_plugin.py","to":"pkg:unittest.mock","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_plugin.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_plugin.py","to":"pkg:plugin.terminal_jail.plugin","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_plugin.py","to":"pkg:plugin","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/__init__.py","to":"pkg:plugin.terminal_jail.plugin","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/plugin.py","to":"pkg:logging","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/plugin.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/plugin.py","to":"pkg:shlex","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/plugin.py","to":"pkg:shutil","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/plugin.py","to":"pkg:typing","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/__init__.py","to":"pkg:.plugin","rel":"imports","provenance":"ast_exact","confidence":1.0}
