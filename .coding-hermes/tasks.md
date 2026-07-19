@@ -10,7 +10,7 @@
 ## Phase 1: SPEC — Write Axiom-Level Specs (BLOCKS all implementation)
 Each spec must be exhaustive: exact interfaces, error paths, edge cases, test scenarios. A worker agent given the spec must produce compilable code with zero clarifying questions.
 
-- [ ] **S01: Plugin spec** (`specs/plugin.md`)
+- [x] **S01: Plugin spec** (`specs/plugin.md`)
   - Hook signatures: `terminal.command.transform` and `terminal.command.transform.exec`
   - Input: raw command string → Output: wrapped command string
   - Wrapping: `unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c <command>`
@@ -19,7 +19,7 @@ Each spec must be exhaustive: exact interfaces, error paths, edge cases, test sc
   - Error paths: command too long, special chars, nested quotes
   - Test scenarios
 
-- [ ] **S02: Standalone CLI spec** (`specs/cli.md`)
+- [x] **S02: Standalone CLI spec** (`specs/cli.md`)
   - Interface: `terminal-jail <command> [args...]`
   - Same unshare flags as plugin
   - Preserve stdin/stdout/stderr, preserve exit code
@@ -27,14 +27,14 @@ Each spec must be exhaustive: exact interfaces, error paths, edge cases, test sc
   - Install: `curl .../install.sh | sh`
   - Test scenarios: killpg(1), fork bomb, killall, pip malware
 
-- [ ] **S03: systemd hardening spec** (`specs/systemd.md`)
+- [x] **S03: systemd hardening spec** (`specs/systemd.md`)
   - Each directive with rationale: ProtectProc, PrivateUsers, RestrictNamespaces, NoNewPrivileges, RestrictAddressFamilies, ProtectSystem, CloseOnExec
   - ReadWritePaths for Hermes writable dirs
   - Compatibility: Ubuntu 24.04/26.04
   - Drop-in file format, load order
   - Verification: `systemd-analyze security`, `systemctl show`
 
-- [ ] **S04: Integration spec** (`specs/integration.md`)
+- [x] **S04: Integration spec** (`specs/integration.md`)
   - Defense-in-depth: how plugin + CLI + systemd compose
   - Attack vectors covered by each layer
   - Graceful degradation when a layer is missing
