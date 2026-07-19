@@ -108,8 +108,8 @@ Can't claim process isolation works without data to prove it.
 - [ ] **T10.4: Quarterly security review** — re-evaluate threat model, test against new kernel features
 - [ ] **T10.5: Community PR review SLA** — respond to external PRs within 7 days, review within 14 days
 
-## Audit Gaps (from NEVER-DONE, 2026-07-19)
-- [ ] **AUDIT-01: standalone CLI tests** — `standalone/terminal-jail` (56-line bash script) has zero test coverage. Add tests: flag parsing (--help, --version), error paths (missing unshare, non-Linux OS), command wrapping, exit code propagation.
+|## Audit Gaps (from NEVER-DONE, 2026-07-19)
+|- [x] **AUDIT-01: standalone CLI tests** — `standalone/terminal-jail` (56-line bash script) has zero test coverage. Add tests: flag parsing (--help, --version), error paths (missing unshare, non-Linux OS), command wrapping, exit code propagation. (✓ 15 tests added `1ad1fc2`)
 - [ ] **AUDIT-02: install.sh tests** — `install.sh` (159-line POSIX sh) has zero test coverage. Add tests: dry-run mode, file installation paths, overwrite/backup behavior, error handling (missing deps, no permission).
 - [ ] **AUDIT-03: pyproject.toml / setup.py** — Plugin directory isn't a pip-installable Python package. Create `pyproject.toml` with `[project]` metadata + optional `[tool.pytest.ini_options]` so the plugin can be independently installed.
 - [ ] **AUDIT-04: coverage gap — 7 uncovered statements** — `plugin/terminal_jail/plugin.py` has 92% coverage. Uncovered: NUL byte check (L59-63), non-str type guard (L107-111), budget-check exception handler (L154-159). All edge cases — decide if tests are worth adding.
