@@ -16,7 +16,6 @@ import shlex
 import shutil
 import signal
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -115,7 +114,7 @@ def test_t31c_killpg_one_does_not_kill_host() -> None:
 
     # Run a backgrounded sleep in the jail, then killpg from inside.
     # If the host survived, the test process is still alive.
-    result = run_jailed(
+    _result = run_jailed(
         "bash -c 'sleep 20 & sleep 0.1; kill -TERM -1 2>/dev/null; exit 0'",
     )
     # The jail's init (bash) receives SIGTERM, the jail dies.
@@ -141,7 +140,7 @@ def test_t32_fork_bomb_containment() -> None:
 
     # Run a bounded fork bomb for a very short duration inside the jail.
     # ulimit -u caps user processes inside the namespace.
-    result = run_jailed(
+    _result = run_jailed(
         "ulimit -u 64; "
         "bomb() { bomb | bomb & }; bomb; "
         "true",
@@ -179,7 +178,7 @@ def test_t33_killall_containment() -> None:
     host_pid = host_probe.pid
 
     try:
-        result = run_jailed(
+        _result = run_jailed(
             "killall -9 bash 2>/dev/null; exit 0",
             timeout=5,
         )
