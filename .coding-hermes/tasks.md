@@ -53,4 +53,4 @@ Each spec must be exhaustive: exact interfaces, error paths, edge cases, test sc
 - [ ] Publish to Hermes plugin marketplace — **BLOCKED**: requires marketplace availability
 
 ## Phase 4: Polish
-- [ ] **CI-001 — Add GitHub Actions CI workflow** (Python tests, lint, pip-audit)
+- [x] **CI-001 — Add GitHub Actions CI workflow** (Python tests, lint, pip-audit) — tests: 31 unit, Python 3.11-3.13 matrix
