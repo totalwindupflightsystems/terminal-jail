@@ -42,10 +42,10 @@ Each spec must be exhaustive: exact interfaces, error paths, edge cases, test sc
   - Verification per layer: commands to confirm isolation working
 
 ## Phase 2: Implementation
-- [ ] Write plugin `__init__.py` per S01
-- [ ] Write standalone CLI per S02
-- [ ] Write systemd drop-in per S03
-- [ ] Write install.sh
+- [x] Write plugin `__init__.py` per S01
+- [x] Write standalone CLI per S02
+- [x] Write systemd drop-in per S03
+- [x] Write install.sh
 
 ## Phase 3: Distribution
 - [ ] Publish to GitHub
