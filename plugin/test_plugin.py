@@ -519,3 +519,85 @@ class TestLogLevel:
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "0")
         plugin_module._configure_logger()
         assert plugin_module.LOGGER.getEffectiveLevel() == logging.WARNING
+
+
+class TestEdgeCases:
+    """AUDIT-04: Cover the 7 uncovered statements in plugin.py.
+
+    These are defensive code paths that guard against malicious input:
+    NUL byte injection, non-str type confusion, and unexpected exceptions
+    from the byte-budget check.
+    """
+
+    # ── NUL byte check (L58-63) ──────────────────────────────────────
+
+    def test_t41_nul_byte_in_command_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """If HERMES_TERMINAL_JAIL_COMMAND contains NUL, return None."""
+        # os.environ blocks NUL bytes — mock environ.get to bypass OS guard.
+        monkeypatch.setitem(
+            os.environ, "HERMES_TERMINAL_JAIL_COMMAND", "safe-value"
+        )
+        original_get = os.environ.get
+
+        def _fake_get(key: str, default: object = None) -> object:
+            if key == "HERMES_TERMINAL_JAIL_COMMAND":
+                return "unshare\x00malicious"
+            return original_get(key, default)
+
+        monkeypatch.setattr(os.environ, "get", _fake_get)
+        result = plugin_module._unshare_executable_from_environment()
+        assert result is None
+
+    # ── Non-str type guard (L106-111) ────────────────────────────────
+
+    def test_t42_non_str_input_passthrough_int(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """transform_command with int returns the int unchanged."""
+        caplog.set_level(logging.WARNING)
+        result = plugin_module.transform_command(42)  # type: ignore[arg-type]
+        assert result == 42
+
+    def test_t43_non_str_input_passthrough_bytes(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """transform_command with bytes returns the bytes unchanged."""
+        caplog.set_level(logging.WARNING)
+        result = plugin_module.transform_command(b"echo hello")  # type: ignore[arg-type]
+        assert result == b"echo hello"
+
+    def test_t44_non_str_input_passthrough_none(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """transform_command with None returns None unchanged."""
+        caplog.set_level(logging.WARNING)
+        result = plugin_module.transform_command(None)  # type: ignore[arg-type]
+        assert result is None
+
+    # ── Budget-check exception handler (L154-159) ────────────────────
+
+    def test_t45_byte_budget_check_exception(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        tmp_path: Path,
+    ) -> None:
+        """If _max_command_bytes_from_environment raises unexpectedly,
+        the command passes through unwrapped."""
+        from unittest.mock import patch as mock_patch
+
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        monkeypatch.setenv(
+            "HERMES_TERMINAL_JAIL_COMMAND", str(tmp_path / "unshare")
+        )
+        caplog.set_level(logging.WARNING)
+
+        with mock_patch.object(
+            plugin_module,
+            "_max_command_bytes_from_environment",
+            side_effect=RuntimeError("simulated failure"),
+        ):
+            result = plugin_module.transform_command("echo hi")
+            assert result == "echo hi"
