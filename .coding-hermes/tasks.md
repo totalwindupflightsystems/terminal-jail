@@ -110,11 +110,11 @@ Can't claim process isolation works without data to prove it.
 
 |## Audit Gaps (from NEVER-DONE, 2026-07-19)
 |- [x] **AUDIT-01: standalone CLI tests** — `standalone/terminal-jail` (56-line bash script) has zero test coverage. Add tests: flag parsing (--help, --version), error paths (missing unshare, non-Linux OS), command wrapping, exit code propagation. (✓ 15 tests added `1ad1fc2`)
-- [ ] **AUDIT-02: install.sh tests** — `install.sh` (159-line POSIX sh) has zero test coverage. Add tests: dry-run mode, file installation paths, overwrite/backup behavior, error handling (missing deps, no permission).
+|- [x] **AUDIT-02: install.sh tests** — `install.sh` (159-line POSIX sh) has zero test coverage. Add tests: dry-run mode, file installation paths, overwrite/backup behavior, error handling (missing deps, no permission). (✓ 11 tests added `695cda2`)
 - [ ] **AUDIT-03: pyproject.toml / setup.py** — Plugin directory isn't a pip-installable Python package. Create `pyproject.toml` with `[project]` metadata + optional `[tool.pytest.ini_options]` so the plugin can be independently installed.
 - [ ] **AUDIT-04: coverage gap — 7 uncovered statements** — `plugin/terminal_jail/plugin.py` has 92% coverage. Uncovered: NUL byte check (L59-63), non-str type guard (L107-111), budget-check exception handler (L154-159). All edge cases — decide if tests are worth adding.
-- [ ] **AUDIT-05: DuckBrain seed memory** — `/project/terminal-jail/` namespace has zero memories. Seed with architecture decisions, host limitations, test skip rationale, and model capability notes so future foreman ticks load context.
-- [ ] **AUDIT-06: .coverage in .gitignore** — `.coverage` file is untracked and should be gitignored to prevent accidental commits.
+- [x] **AUDIT-05: DuckBrain seed memory** — `/project/terminal-jail/` namespace seeded with architecture decisions (plugin design, testing strategy, host limitations, project state). ✓ 4 entries written this tick.
+- [x] **AUDIT-06: .coverage in .gitignore** — `.coverage` is already in `.gitignore`. Board was stale — confirmed present. ✓
 
 ## [x] NEVER-DONE — Audit completed 2026-07-19
 - **Priority:** high
