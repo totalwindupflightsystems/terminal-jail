@@ -48,6 +48,9 @@ Each spec must be exhaustive: exact interfaces, error paths, edge cases, test sc
 - [x] Write install.sh
 
 ## Phase 3: Distribution
-- [ ] Publish to GitHub
-- [ ] Submit PR to Hermes core (opt-in sandbox flag)
-- [ ] Publish to Hermes plugin marketplace
+- [x] Publish to GitHub — https://github.com/totalwindupflightsystems/terminal-jail
+- [ ] Submit PR to Hermes core (opt-in sandbox flag) — **BLOCKED**: requires Hermes core maintainer discussion
+- [ ] Publish to Hermes plugin marketplace — **BLOCKED**: requires marketplace availability
+
+## Phase 4: Polish
+- [ ] **CI-001 — Add GitHub Actions CI workflow** (Python tests, lint, pip-audit)
