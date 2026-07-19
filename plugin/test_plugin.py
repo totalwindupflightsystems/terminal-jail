@@ -601,3 +601,105 @@ class TestEdgeCases:
         ):
             result = plugin_module.transform_command("echo hi")
             assert result == "echo hi"
+
+
+# ── T4.6: Gateway restart resilience ──────────────────────────────
+
+
+class TestGatewayRestartResilience:
+    """Verify the plugin survives Hermes gateway restarts (module reload)."""
+
+    def test_t46_reload_preserves_manifest(
+        self,
+        clean_environment: None,
+    ) -> None:
+        """After a simulated reload, the manifest shape is identical."""
+        import sys
+
+        original_manifest = plugin.__manifest__.copy()
+        original_hooks = dict(plugin.hooks)
+
+        # Collect modules belonging to this plugin.
+        plugin_keys = [
+            k for k in sys.modules
+            if k == "plugin" or k.startswith("plugin.")
+        ]
+
+        # Remove them from sys.modules.
+        for key in plugin_keys:
+            del sys.modules[key]
+
+        try:
+            # Reimport fresh.
+            import importlib
+            import plugin as plugin_reloaded
+
+            importlib.reload(plugin_reloaded)
+
+            assert plugin_reloaded.__manifest__["name"] == original_manifest["name"]
+            assert plugin_reloaded.__manifest__["version"] == original_manifest["version"]
+            assert (
+                set(plugin_reloaded.__manifest__["hooks"].keys())
+                == set(original_manifest["hooks"].keys())
+            )
+            assert plugin_reloaded.hooks is plugin_reloaded.__manifest__["hooks"]
+            assert set(plugin_reloaded.hooks.keys()) == set(original_hooks.keys())
+        finally:
+            # Restore modules so later tests are not affected.
+            for key in plugin_keys:
+                if key in sys.modules:
+                    del sys.modules[key]
+            import plugin as plugin_restored  # noqa: F401
+
+    def test_t46_reload_preserves_transform_capability(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """After simulated reload, transform_command still wraps correctly."""
+        import sys
+        import importlib
+
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+
+        plugin_keys = [
+            k for k in sys.modules
+            if k == "plugin" or k.startswith("plugin.")
+        ]
+        for key in plugin_keys:
+            del sys.modules[key]
+
+        try:
+            import plugin as plugin_reloaded
+
+            importlib.reload(plugin_reloaded)
+
+            result = plugin_reloaded.transform_command("echo hello")
+            assert "unshare" in result
+            assert "--pid" in result
+            assert "echo hello" in result
+        finally:
+            for key in plugin_keys:
+                if key in sys.modules:
+                    del sys.modules[key]
+            import plugin  # noqa: F401
+
+    def test_t46_idempotent_import(
+        self,
+        clean_environment: None,
+    ) -> None:
+        """Importing the manifest module twice does not corrupt hook state."""
+        import sys
+        import importlib
+
+        hooks_before = dict(plugin.hooks)
+
+        import plugin as plugin_ref
+
+        importlib.reload(plugin_ref)
+
+        hooks_after = dict(plugin.hooks)
+        assert len(hooks_after) == len(hooks_before)
+        for hook_name in hooks_before:
+            assert hook_name in hooks_after
+            assert callable(hooks_after[hook_name])
