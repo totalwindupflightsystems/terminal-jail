@@ -13,7 +13,7 @@
 - [ ] **HOOK-GAP-02:** Wrap at terminal backend layer — modify the terminal tool's execution path directly instead of via plugin hooks
 - [ ] **HOOK-GAP-03:** systemd sandbox as sole isolation — accept that PID namespace wrapping lives entirely in the systemd layer (Phase 5), plugin provides observability only
 - [x] **HOOK-GAP-04:** Sync installed plugin code to repo — installed `~/.hermes/plugins/terminal-jail/__init__.py` reflects reality (observability-only), repo code still claims `terminal.command.transform` exists (✓ foreman tick 2026-07-20: plugin/__init__.py updated to register-based hooks, 75 tests pass)
-- [ ] **HOOK-GAP-05:** Update S01 Plugin spec — spec describes a hook (`terminal.command.transform`) that doesn't exist. Rewrite to document actual Hermes plugin API and the gap
+- [x] **HOOK-GAP-05:** Update S01 Plugin spec — spec describes a hook (`terminal.command.transform`) that doesn't exist. Rewrite to document actual Hermes plugin API and the gap (✓ foreman tick 2026-07-20)
 
 ## Phase 0: Bootstrap
 - [x] Plugin skeleton (`plugin/__init__.py`)
