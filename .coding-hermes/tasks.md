@@ -145,3 +145,8 @@ Can't claim process isolation works without data to prove it.
 ## [x] NEVER-DONE — Audit completed 2026-07-19
 - **Priority:** high
 - **Result:** 11-point audit run. Specs align with code (✓). Plugin wired to Hermes (✓). CI passing (✓). CI workflow covers test/lint/audit across 3 Python versions (✓). Gaps found: standalone CLI untested, install.sh untested, no pyproject.toml, 92% coverage with 7 edge-case misses, DuckBrain namespace empty, .coverage not gitignored. 6 AUDIT tasks created above. Host limitation (unshare blocked) is OS-level and noted in DuckBrain.
+
+## [ ] Fix CI: Terminal-Jail — 4 consecutive failures (runs #11-#14)
+- **Priority:** HIGH
+- **Root cause:** Unknown — log access denied (token lacks permission for repo owner). Runs #10 passed, then runs #11-#14 all failed consecutively. Most recent: run #14 "feat(obs): DuckBrain metrics exporter (T7.5)".
+- **Action:** Investigate CI failure root cause. Check `gh run list` for conclusion patterns. If logs still inaccessible, try raw API with GITHUB_PAT. Fix and push.
