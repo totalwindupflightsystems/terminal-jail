@@ -117,7 +117,7 @@ Can't claim process isolation works without data to prove it.
 - [ ] **T8.4: CONTRIBUTING.md** — how to add new hardening directives, how to test, code style
 - [ ] **T8.5: Issue templates** — bug report template, feature request template, security vulnerability disclosure
 - [ ] **T8.6: Compatibility matrix** — document tested kernel versions (5.x, 6.x, 7.x), tested Ubuntu versions (24.04, 26.04), tested Hermes versions
-- [ ] **T8.7: Architecture decision records** — ADR for each design choice: why `--kill-child=SIGKILL`, why bash not sh, why no cgroup isolation
+- [x] **T8.7: Architecture decision records** — ADR-001 through ADR-005 covering: PID namespace choice, SIGKILL semantics, bash shell, cgroup deferral, plugin observability architecture (✓ `docs/adr/0001-architecture-decisions.md`, 12,259 bytes, 5 ADRs)
 
 ## Phase 9: Security Hardening — Beyond Day 1
 - [ ] **T9.1: Threat model document** — what attacks does terminal-jail prevent, what does it NOT prevent, what's the residual risk
