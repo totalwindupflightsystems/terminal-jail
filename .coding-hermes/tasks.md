@@ -146,6 +146,12 @@ Can't claim process isolation works without data to prove it.
 - **Priority:** high
 - **Result:** 11-point audit run. Specs align with code (✓). Plugin wired to Hermes (✓). CI passing (✓). CI workflow covers test/lint/audit across 3 Python versions (✓). Gaps found: standalone CLI untested, install.sh untested, no pyproject.toml, 92% coverage with 7 edge-case misses, DuckBrain namespace empty, .coverage not gitignored. 6 AUDIT tasks created above. Host limitation (unshare blocked) is OS-level and noted in DuckBrain.
 
+## [ ] AUDIT-07: Test gap — scripts/metrics-export.py has no tests
+- **Priority:** low
+- **Found by:** NEVER-DONE audit, 2026-07-20 tick, Check 3 (Test Gaps)
+- **Details:** scripts/metrics-export.py (78 lines) has zero dedicated test coverage. It's a DuckBrain metrics export utility with argparse, JSON export, counter reset. Currently validated only by manual execution.
+- **Acceptance:** Add tests for --json output structure, --reset counter behavior, error paths (missing plugin, corrupt counter file), human-readable output format. Target: >80% coverage.
+
 ## [x] Fix CI: Terminal-Jail — 4 consecutive failures (runs #11-#14) → fixed `20847c9` (2026-07-20)
 - **Priority:** HIGH
 - **Root cause:** Ruff lint job failing with 10 errors: unused imports (F401) in `plugin/__init__.py`, `plugin/terminal_jail/__init__.py`, `plugin/terminal_jail/plugin.py`; unused variables (F841) in `_on_transform_terminal_output`. Tests and audit jobs passed — only lint failed.
