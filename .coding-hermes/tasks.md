@@ -1,5 +1,20 @@
 # Terminal-Jail Task Board
 
+## 🔴 HOOK-GAP — Critical Blocker (2026-07-20)
+
+**Hermes core does NOT expose a pre-execution command-transform hook.** The entire plugin architecture assumed `terminal.command.transform` existed. It doesn't. The `pre_tool_call` hook only supports block/allow — it cannot modify command strings. This means **terminal-jail v0.1.0 cannot actually jail commands.** The `transform_command`/`transform_exec_command` functions exist and are tested (75 pass) but are not wired to any execution hook.
+
+**Fixes applied by Bane (2026-07-20):**
+- [x] Fixed `pre_tool_call` signature: `function_name`/`function_args` → `tool_name`/`args`
+- [x] Removed false "command was wrapped in PID namespace" annotation (plugin can only observe)
+
+**Resolution paths:**
+- [ ] **HOOK-GAP-01:** Build `pre_terminal_exec` or `command_transform` hook in Hermes core — allows modifying command string before execution. Submit PR.
+- [ ] **HOOK-GAP-02:** Wrap at terminal backend layer — modify the terminal tool's execution path directly instead of via plugin hooks
+- [ ] **HOOK-GAP-03:** systemd sandbox as sole isolation — accept that PID namespace wrapping lives entirely in the systemd layer (Phase 5), plugin provides observability only
+- [ ] **HOOK-GAP-04:** Sync installed plugin code to repo — installed `~/.hermes/plugins/terminal-jail/__init__.py` reflects reality (observability-only), repo code still claims `terminal.command.transform` exists
+- [ ] **HOOK-GAP-05:** Update S01 Plugin spec — spec describes a hook (`terminal.command.transform`) that doesn't exist. Rewrite to document actual Hermes plugin API and the gap
+
 ## Phase 0: Bootstrap
 - [x] Plugin skeleton (`plugin/__init__.py`)
 - [x] Standalone CLI script
