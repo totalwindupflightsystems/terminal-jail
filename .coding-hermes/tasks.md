@@ -103,10 +103,10 @@ The terminal-jail plugin's `transform_command()` and `transform_exec_command()` 
 ## Phase 7: Observability
 Can't claim process isolation works without data to prove it.
 
-- [ ] **T7.1: Jail metrics** — count of commands wrapped, commands passed through (disabled), commands passed through (unshare missing), jail crashes
-- [ ] **T7.2: Jail crash alert** — if a jailed command dies with signal ≠ exit code, log warning with original command
-- [ ] **T7.3: Byte budget rejections** — log when commands exceed `MAX_COMMAND_BYTES`, track distribution
-- [ ] **T7.4: Performance regression alert** — if command wrapping overhead exceeds 50ms p99, surface warning
+- [x] **T7.1: Jail metrics** — count of commands wrapped, commands passed through (disabled), commands passed through (unshare missing), jail crashes
+- [x] **T7.2: Jail crash alert** — if a jailed command dies with signal ≠ exit code, log warning with original command
+- [x] **T7.3: Byte budget rejections** — log when commands exceed `MAX_COMMAND_BYTES`, track distribution
+- [x] **T7.4: Performance regression alert** — if command wrapping overhead exceeds 50ms p99, surface warning
 - [ ] **T7.5: DuckBrain dashboard** — write jail metrics to DuckBrain namespace, generate daily summary
 - [ ] **T7.6: Prometheus metrics endpoint** — expose jail counters as prometheus metrics (future, if Hermes supports it)
 
