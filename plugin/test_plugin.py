@@ -88,17 +88,18 @@ def run_transformed(command: str) -> subprocess.CompletedProcess[bytes]:
     )
 
 
-def test_t01_generic_hook_registers() -> None:
-    assert plugin.__manifest__["hooks"]["terminal.command.transform"] is plugin.transform_command
-    assert plugin.hooks is plugin.__manifest__["hooks"]
+def test_t01_register_is_callable_and_exports_transforms() -> None:
+    """register() is the Hermes plugin entry point; transforms are importable."""
+    assert callable(plugin.register)
+    assert callable(plugin.transform_command)
+    assert callable(plugin.transform_exec_command)
 
 
-def test_t02_exec_hook_registers() -> None:
-    assert (
-        plugin.__manifest__["hooks"]["terminal.command.transform.exec"]
-        is plugin.transform_exec_command
-    )
-    assert plugin.transform_exec_command is not plugin.transform_command
+def test_t02_transforms_are_distinct() -> None:
+    """transform_command and transform_exec_command exist and are different callables."""
+    assert plugin.transform_command is not plugin.transform_exec_command
+    # But transform_exec_command delegates to transform_command at runtime.
+    assert plugin.transform_exec_command("echo hi") == plugin.transform_command("echo hi")
 
 
 def test_t03_default_wrapping(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -609,15 +610,12 @@ class TestEdgeCases:
 class TestGatewayRestartResilience:
     """Verify the plugin survives Hermes gateway restarts (module reload)."""
 
-    def test_t46_reload_preserves_manifest(
+    def test_t46_reload_preserves_register(
         self,
         clean_environment: None,
     ) -> None:
-        """After a simulated reload, the manifest shape is identical."""
+        """After a simulated reload, register() is preserved and transforms work."""
         import sys
-
-        original_manifest = plugin.__manifest__.copy()
-        original_hooks = dict(plugin.hooks)
 
         # Collect modules belonging to this plugin.
         plugin_keys = [
@@ -636,14 +634,9 @@ class TestGatewayRestartResilience:
 
             importlib.reload(plugin_reloaded)
 
-            assert plugin_reloaded.__manifest__["name"] == original_manifest["name"]
-            assert plugin_reloaded.__manifest__["version"] == original_manifest["version"]
-            assert (
-                set(plugin_reloaded.__manifest__["hooks"].keys())
-                == set(original_manifest["hooks"].keys())
-            )
-            assert plugin_reloaded.hooks is plugin_reloaded.__manifest__["hooks"]
-            assert set(plugin_reloaded.hooks.keys()) == set(original_hooks.keys())
+            assert callable(plugin_reloaded.register)
+            assert callable(plugin_reloaded.transform_command)
+            assert callable(plugin_reloaded.transform_exec_command)
         finally:
             # Restore modules so later tests are not affected.
             for key in plugin_keys:
@@ -688,17 +681,13 @@ class TestGatewayRestartResilience:
         self,
         clean_environment: None,
     ) -> None:
-        """Importing the manifest module twice does not corrupt hook state."""
+        """Importing the plugin module twice does not corrupt register state."""
         import importlib
-
-        hooks_before = dict(plugin.hooks)
 
         import plugin as plugin_ref
 
         importlib.reload(plugin_ref)
 
-        hooks_after = dict(plugin.hooks)
-        assert len(hooks_after) == len(hooks_before)
-        for hook_name in hooks_before:
-            assert hook_name in hooks_after
-            assert callable(hooks_after[hook_name])
+        assert callable(plugin_ref.register)
+        assert callable(plugin_ref.transform_command)
+        assert callable(plugin_ref.transform_exec_command)
