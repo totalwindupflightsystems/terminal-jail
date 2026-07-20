@@ -142,7 +142,7 @@ Can't claim process isolation works without data to prove it.
 - [x] **AUDIT-05: DuckBrain seed memory** — `/project/terminal-jail/` namespace seeded with architecture decisions (plugin design, testing strategy, host limitations, project state). ✓ 4 entries written this tick.
 - [x] **AUDIT-06: .coverage in .gitignore** — `.coverage` is already in `.gitignore`. Board was stale — confirmed present. ✓
 
-## [x] NEVER-DONE — Audit completed 2026-07-19
+## [ ] NEVER-DONE — Audit completed 2026-07-19
 - **Priority:** high
 - **Result:** 11-point audit run. Specs align with code (✓). Plugin wired to Hermes (✓). CI passing (✓). CI workflow covers test/lint/audit across 3 Python versions (✓). Gaps found: standalone CLI untested, install.sh untested, no pyproject.toml, 92% coverage with 7 edge-case misses, DuckBrain namespace empty, .coverage not gitignored. 6 AUDIT tasks created above. Host limitation (unshare blocked) is OS-level and noted in DuckBrain.
 
