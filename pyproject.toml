@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "terminal-jail"
-version = "0.1.0"
+version = "1.0.0"
 description = "Wrap Hermes terminal commands in a Linux PID namespace using unshare"
 readme = "README.md"
 license = { text = "MIT" }
@@ -15,7 +15,7 @@ requires-python = ">=3.11"
 dependencies = []
 keywords = ["hermes", "plugin", "terminal", "security", "sandbox"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Plugins",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
