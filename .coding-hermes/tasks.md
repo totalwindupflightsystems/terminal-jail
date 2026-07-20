@@ -146,7 +146,7 @@ Can't claim process isolation works without data to prove it.
 - **Priority:** high
 - **Result:** 11-point audit run. Specs align with code (✓). Plugin wired to Hermes (✓). CI passing (✓). CI workflow covers test/lint/audit across 3 Python versions (✓). Gaps found: standalone CLI untested, install.sh untested, no pyproject.toml, 92% coverage with 7 edge-case misses, DuckBrain namespace empty, .coverage not gitignored. 6 AUDIT tasks created above. Host limitation (unshare blocked) is OS-level and noted in DuckBrain.
 
-## [ ] AUDIT-07: Test gap — scripts/metrics-export.py has no tests
+## [x] AUDIT-07: Test gap — scripts/metrics-export.py has no tests
 - **Priority:** low
 - **Found by:** NEVER-DONE audit, 2026-07-20 tick, Check 3 (Test Gaps)
 - **Details:** scripts/metrics-export.py (78 lines) has zero dedicated test coverage. It's a DuckBrain metrics export utility with argparse, JSON export, counter reset. Currently validated only by manual execution.
