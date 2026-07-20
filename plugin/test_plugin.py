@@ -689,7 +689,6 @@ class TestGatewayRestartResilience:
         clean_environment: None,
     ) -> None:
         """Importing the manifest module twice does not corrupt hook state."""
-        import sys
         import importlib
 
         hooks_before = dict(plugin.hooks)
