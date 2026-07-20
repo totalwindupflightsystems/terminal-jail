@@ -2,11 +2,11 @@
 
 ## Purpose and security boundary
 
-`terminal-jail` uses a PID namespace to contain commands launched for Hermes Agent. That containment must not depend solely on the plugin or the CLI respecting its own policy. This drop-in applies a second, independently enforced boundary at the `systemd` service-manager layer:
+Terminal-jail's primary PID namespace isolation is delivered through systemd service hardening. The Hermes plugin provides observability only (it cannot wrap commands — Hermes core has no pre-execution command-transform hook). This drop-in is therefore the authoritative containment boundary for `hermes-gateway.service`:
 
-- the gateway process and all of its descendants run with a smaller kernel-visible surface;
-- they cannot acquire privilege through set-ID files or file capabilities;
-- they cannot create a replacement set of namespaces to evade the intended sandbox topology;
+- the gateway process and all of its descendants run in a private user namespace (`PrivateUsers=true`) with a filtered `/proc` view (`ProtectProc=invisible`);
+- they cannot create replacement namespaces to escape the sandbox topology (`RestrictNamespaces=true`);
+- they cannot acquire privilege through set-ID files or file capabilities (`NoNewPrivileges=true`);
 - their filesystem writes and resource consumption are bounded; and
 - networking is denied unless the deployment explicitly requires it.
 

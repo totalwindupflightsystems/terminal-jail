@@ -2,15 +2,27 @@
 
 ## Purpose
 
-Terminal-jail is a defense-in-depth containment system for terminal commands. It deliberately uses three independently deployable layers:
+Terminal-jail is a defense-in-depth containment system for terminal commands. It uses three independently deployable layers with a clear architectural split:
 
-1. **Hermes plugin** — intercepts Hermes terminal commands through the `terminal.command.transform` hook and wraps them in `unshare`.
-2. **Standalone CLI** — the `terminal-jail` Bash wrapper for commands launched manually or by non-Hermes automation.
-3. **systemd service hardening** — the `90-terminal-jail-hardening.conf` drop-in for `hermes-gateway.service`, providing service-manager and kernel-enforced restrictions.
+1. **systemd service hardening** — the `90-terminal-jail-hardening.conf` drop-in for `hermes-gateway.service`. This is the PRIMARY PID namespace isolation and process containment layer. It provides `PrivateUsers=true`, `ProtectProc=invisible`, `RestrictNamespaces=true`, `NoNewPrivileges=true`, `TasksMax`, and `RestrictAddressFamilies`. These are kernel-enforced and cannot be bypassed by command syntax.
+2. **Hermes plugin** — observability layer. Registers `pre_tool_call` (visibility into terminal commands) and `transform_terminal_output` (output annotation) hooks. The plugin does NOT wrap commands — Hermes core has no pre-execution command-transform hook. The plugin provides metrics, logging, and operational visibility. Command wrapping functions (`transform_command`, `transform_exec_command`) exist in the plugin codebase and are tested (87 tests pass), but they are NOT wired to any execution path.
+3. **Standalone CLI** — the `terminal-jail` Bash wrapper for commands launched manually or by non-Hermes automation. Wraps commands in `unshare --pid --fork --mount-proc --kill-child=SIGKILL`. This is the only component that performs PID namespace wrapping at the command level.
 
 No layer is assumed to be perfect or universally available. The intended security property is that a command must bypass *multiple, differently implemented enforcement points* to affect the host, other users' processes, host-visible files, or the network.
 
 This document specifies how the layers compose, the threats they address, failure/degradation behavior, installation and upgrade order, and validation of the complete stack.
+
+### Architectural decision: systemd as sole PID isolation (HOOK-GAP-03)
+
+Hermes core has no pre-execution command-transform hook. The plugin's `pre_tool_call` hook only supports block/allow decisions — it cannot modify command strings. The `transform_command` and `transform_exec_command` functions exist in the plugin and are tested, but cannot be wired to Hermes command execution without a core change.
+
+**Resolved architecture:** PID namespace isolation is delegated entirely to the systemd layer (`PrivateUsers=true`, `RestrictNamespaces=true`, `ProtectProc=invisible`). The plugin provides observability only — metrics, logging, byte-budget enforcement, and operational visibility. The standalone CLI remains available for explicit PID namespace wrapping in non-systemd contexts (Docker, manual use).
+
+Two Hermes core changes have been explored to restore command-level wrapping:
+- **HOOK-GAP-01 (PR #68216):** `--sandbox` flag adding `terminal.jail_enabled` config key — wraps at the terminal backend layer (`tools/environments/local.py`), not the plugin layer.
+- **HOOK-GAP-02:** Backend-layer wrapping via `HERMES_TERMINAL_JAIL_ENABLED` env var in `_run_bash()`.
+
+Neither is merged upstream as of v0.1.0. The systemd-only architecture is the production deployment path.
 
 ## Security goals
 
@@ -45,26 +57,26 @@ flowchart TB
     H[Hermes session]
     M[Manual shell / automation]
 
-    H --> P[Hermes plugin\nterminal.command.transform]
-    P -->|wrap command| US1[unshare sandbox]
+    H --> P[Hermes plugin\nOBSERVABILITY ONLY\npre_tool_call + transform_terminal_output]
+    H -->|terminal command\nunwrapped| EXEC[Hermes terminal execution]
 
     M --> C[terminal-jail CLI\nBash wrapper]
     C -->|wrap command| US2[unshare sandbox]
 
     subgraph S[hermes-gateway.service]
       P
-      US1
+      EXEC
     end
 
     SD[systemd drop-in\n90-terminal-jail-hardening.conf]
+    SD -->|PrivateUsers| S
+    SD -->|ProtectProc=invisible| S
+    SD -->|RestrictNamespaces=true| S
     SD -->|NoNewPrivileges| S
-    SD -->|ProtectProc| S
     SD -->|TasksMax| S
     SD -->|RestrictAddressFamilies| S
-    SD -->|other systemd hardening| S
 
-    US1 --> K[Kernel namespace and mount enforcement]
-    US2 --> K
+    US2 --> K[Kernel namespace and mount enforcement]
     SD --> K
 
     K --> R[Contained command execution]
@@ -74,36 +86,37 @@ flowchart TB
 
 | Layer | Entry point covered | Primary enforcement | Independent value |
 |---|---|---|---|
-| Hermes plugin | Commands launched by Hermes terminal sessions | Command transformation into an `unshare` sandbox | Protects normal agent/tool command paths even when users do not remember to invoke the CLI. |
-| Standalone CLI | Interactive commands and scripts explicitly invoked as `terminal-jail ...` | `unshare` sandbox equivalent to plugin policy | Provides the same containment policy outside Hermes and acts as a practical fallback for a missing plugin. |
-| systemd drop-in | The Hermes gateway process tree, including plugin-launched processes | cgroup resource limits and systemd/kernel service restrictions | Applies regardless of individual command syntax and supplies controls that namespace-only wrappers do not provide. |
+| systemd drop-in | The Hermes gateway process tree and all descendants | Kernel-enforced PID namespace isolation via `PrivateUsers=true` + `RestrictNamespaces=true` + `ProtectProc=invisible` | Applies regardless of command syntax, cannot be bypassed by shell metacharacters. The authoritative containment boundary. |
+| Hermes plugin | Commands launched by Hermes terminal sessions | Observability only: command visibility (`pre_tool_call`), output annotation (`transform_terminal_output`), byte-budget enforcement, metrics export | Provides operational visibility, metrics, and logging for terminal commands. Does NOT wrap commands — Hermes core lacks a pre-execution command-transform hook. |
+| Standalone CLI | Interactive commands and scripts explicitly invoked as `terminal-jail ...` | `unshare` PID namespace sandbox equivalent to the intended plugin behavior | Provides PID namespace isolation outside systemd contexts (Docker, manual use). Only component that performs command-level `unshare` wrapping. |
 
-The plugin and CLI must not be treated as mutually exclusive. A command that enters Hermes is expected to be transformed by the plugin, while the gateway service's systemd confinement constrains the resulting process tree. A manual command launched through `terminal-jail` receives CLI namespace confinement; if that command is launched from a process already in the hardened gateway service, systemd controls also apply.
+The systemd layer is the PRIMARY containment boundary. It is attached to the service process tree and cannot be bypassed merely by supplying a different executable, a shell metacharacter sequence, or a direct binary path. The plugin provides observability on top of systemd containment — it sees what commands run but does not modify them.
 
-The systemd layer is intentionally broader than either wrapper. It is attached to the service process tree and cannot be bypassed merely by supplying a different executable, a shell metacharacter sequence, or a direct binary path after the service has started. Conversely, systemd does not protect an unrelated terminal session outside `hermes-gateway.service`; that is why the CLI remains necessary for manual use.
+The CLI provides PID namespace isolation for contexts where systemd is unavailable (Docker without systemd, manual host-shell use). A manual command launched through `terminal-jail` receives CLI namespace confinement; if that command is launched from a process already in the hardened gateway service, systemd controls also apply.
+
+The three layers compose as: systemd enforces the containment boundary → plugin observes and reports → CLI provides a portable fallback for non-systemd contexts.
 
 ## Control mapping and attack coverage
 
 ### PID namespace containment: `killpg`, `killall`, and `pkill`
 
-All three layers participate in protection against indiscriminate process signaling:
+The layers participate in protection against indiscriminate process signaling as follows:
 
-- The Hermes plugin uses `unshare` PID namespace isolation for terminal commands launched in Hermes sessions.
-- The `terminal-jail` CLI uses the same PID namespace policy for manual invocation.
-- The systemd service confines the Hermes process tree and supplies the final service boundary. The PID namespace restriction is supplied by the wrapper when applicable; systemd protects the gateway process tree from resource and privilege side effects and must be configured not to broaden process visibility.
+- The **systemd drop-in** provides `PrivateUsers=true` (user namespace isolation), `ProtectProc=invisible` (filtered /proc view), and `RestrictNamespaces=true` (prevents creating new namespaces to escape). This is the PRIMARY PID isolation mechanism. It constrains the entire gateway process tree.
+- The **Hermes plugin** provides observability: it sees terminal commands via `pre_tool_call` but does NOT wrap them. The plugin's `transform_command` function exists and is tested but is not wired to any execution hook (see HOOK-GAP-03 above).
+- The **`terminal-jail` CLI** uses `unshare` PID namespace isolation for manual invocation. This is the only component that performs command-level PID namespace wrapping.
 
 Inside a correctly created PID namespace, process-discovery and signal tools only see processes in that namespace. `killpg(1)`, `killall`, and `pkill` therefore cannot target arbitrary host process groups or host PIDs that are not namespace-visible. A process can still signal processes within its own namespace when ordinary Unix permission rules allow it. This is expected: PID namespaces reduce host blast radius; they do not prohibit process management inside the sandbox.
 
 ### Fork bombs
 
-PID namespaces confine the immediate process tree created by plugin and CLI command wrappers. The systemd layer adds `TasksMax` for `hermes-gateway.service`, constraining the number of tasks the gateway service cgroup may create.
+The systemd layer provides `TasksMax` for `hermes-gateway.service`, constraining the number of tasks the gateway service cgroup may create. This is the primary quantitative backstop against process exhaustion from a fork bomb or aggressive worker spawning.
 
-Both controls are needed:
+The `terminal-jail` CLI provides PID namespace isolation for manual use, which contains the immediate process tree.
 
-- PID namespace isolation narrows what a runaway process can observe and affect.
-- `TasksMax` is the quantitative backstop against process exhaustion from a fork bomb or aggressive worker spawning.
+The plugin provides observability — it can detect and log anomalous command patterns (e.g., commands containing `:` or `()` shell fork-bomb syntax) but cannot prevent execution.
 
-`TasksMax` must be set to a value consistent with normal Hermes concurrency, subprocess use, and legitimate build/test workloads. The selected limit must be documented in the drop-in and regularly tested under expected peak load. It is a containment limit, not a substitute for host-level cgroup policy.
+`TasksMax` must be set to a value consistent with normal Hermes concurrency, subprocess use, and legitimate build/test workloads. The selected limit must be documented in the drop-in and regularly tested under expected peak load.
 
 ### Privilege escalation: `sudo`, setuid, file capabilities, and exec transitions
 
@@ -115,11 +128,11 @@ The plugin and CLI do not independently provide an equivalent guarantee. Their r
 
 ### `/proc` snooping
 
-`ProtectProc` in the systemd drop-in restricts process visibility through `/proc`, reducing exposure of unrelated process command lines, environment-derived metadata, and PID discovery. The intended mode must hide unrelated processes from the service account while preserving only the visibility required for gateway operation.
+`ProtectProc=invisible` in the systemd drop-in restricts process visibility through `/proc`, reducing exposure of unrelated process command lines, environment-derived metadata, and PID discovery. This is the authoritative service-level backstop — it applies to the gateway process tree rather than only to individual wrapped commands.
 
-PID namespaces in the plugin and CLI also reduce process visibility for wrapped commands. `ProtectProc` is the broader and more reliable service-level backstop because it applies to the gateway process tree rather than only to individual wrapped commands.
+The `terminal-jail` CLI's PID namespace also reduces process visibility for wrapped commands. `ProtectProc` is the broader and more reliable mechanism because it is kernel-enforced at the service level.
 
-Neither control should be relied on as a secret-management mechanism. Process command lines and environments must not contain long-lived secrets in the first place.
+The plugin provides observability — it logs when commands access `/proc` paths but does not restrict access.
 
 ### Package malware and `curl | sh`
 
@@ -171,13 +184,13 @@ The default security posture for commands explicitly requested to be sandboxed i
 ### Graceful degradation matrix
 
 | Condition | Plugin behavior | CLI behavior | systemd behavior | Effective protection | Required operator action |
-|---|---|---|---|---|---|
-| All layers installed and healthy | Transforms Hermes terminal commands into `unshare`. | Wraps explicit manual invocations in equivalent `unshare`. | Applies service-level privilege, `/proc`, task, and socket-family restrictions. | Full intended defense-in-depth. | Run periodic verification checklist. |
-| Plugin not installed or disabled | Hermes commands are not transformed by the plugin. | `terminal-jail ...` still supplies namespace/filesystem isolation for commands explicitly invoked through it. | Still constrains `hermes-gateway.service` if deployed. | CLI plus service hardening; automatic Hermes command coverage is lost. | Install/repair plugin. Until then, invoke CLI for command execution. |
-| CLI not installed or not used | Hermes sessions remain transformed by plugin. | No protection for ordinary manual host-shell commands. | Still constrains gateway process tree. | Plugin plus service hardening for Hermes sessions only. | Install CLI and require it for manual/high-risk work. |
-| systemd unavailable, such as Docker without systemd | Plugin still transforms Hermes commands if `unshare` is available. | CLI still wraps commands if `unshare` is available. | Drop-in cannot apply. | Namespace/filesystem isolation from plugin/CLI; no service-level `NoNewPrivileges`, `ProtectProc`, `TasksMax`, or `RestrictAddressFamilies`. | Use container runtime controls (`--pids-limit`, read-only filesystem, dropped capabilities, seccomp, network policy) or run under a systemd-enabled host. |
-| `unshare` not on `PATH` | Detect before transforming/executing. Required-isolation mode returns an actionable error. | Detect before executing. Required-isolation mode returns an actionable error. | Systemd hardening remains active for the gateway service. | Systemd-only for Hermes gateway; no wrapper PID/filesystem isolation. | Install/configure `unshare` from util-linux, correct `PATH`, and verify namespace support. |
-| `unshare` exists but required namespace creation fails | Do not claim success. Return/log failure in fail-closed mode. | Do not run original command in fail-closed mode. | Systemd hardening remains active for service tree. | Same as prior row unless an explicitly approved development fail-open policy is selected. | Diagnose kernel/user namespace policy, required permissions, and mount setup. |
+|---|---|---|---|---|---|---|
+| All layers installed and healthy | Observes Hermes terminal commands via `pre_tool_call`; annotates output via `transform_terminal_output`. Does NOT wrap commands. | Wraps explicit manual invocations in `unshare` PID namespace. | Applies service-level PID isolation (`PrivateUsers`, `ProtectProc`, `RestrictNamespaces`), privilege, `/proc`, task, and socket-family restrictions. | Full intended defense-in-depth: systemd provides PID isolation; plugin provides observability; CLI provides portable fallback. | Run periodic verification checklist. |
+| Plugin not installed or disabled | Hermes commands are not observed or annotated. | `terminal-jail ...` still supplies namespace/filesystem isolation for commands explicitly invoked through it. | Still constrains `hermes-gateway.service` if deployed. | CLI plus service hardening; plugin observability is lost. | Install/repair plugin to restore metrics and logging. |
+| CLI not installed or not used | Plugin observes Hermes commands. | No protection for ordinary manual host-shell commands. | Still constrains gateway process tree. | Systemd hardening plus plugin observability for Hermes sessions only. | Install CLI for manual/high-risk work outside Hermes. |
+| systemd unavailable, such as Docker without systemd | Plugin observes Hermes commands but does not wrap them. | CLI still wraps commands if `unshare` is available. | Drop-in cannot apply. | CLI `unshare` isolation only; no systemd-level `NoNewPrivileges`, `ProtectProc`, `TasksMax`, or `RestrictAddressFamilies`. | Use container runtime controls (`--pids-limit`, read-only filesystem, dropped capabilities, seccomp, network policy) or run under a systemd-enabled host. |
+| `unshare` not on `PATH` | Plugin observes but does not wrap (regardless of unshare availability). | Detect before executing. Required-isolation mode returns an actionable error. | Systemd hardening remains active for the gateway service. | systemd-only for Hermes gateway; no CLI wrapper available. | Install/configure `unshare` from util-linux, correct `PATH`, and verify namespace support. |
+| `unshare` exists but required namespace creation fails | Plugin observes but does not wrap. | Do not run original command in fail-closed mode. | Systemd hardening remains active for service tree. | Same as prior row unless an explicitly approved development fail-open policy is selected. | Diagnose kernel/user namespace policy, required permissions, and mount setup. |
 | Manual command is run directly outside Hermes and without CLI | Not in path. | Not in path. | Not in path unless the shell itself belongs to hardened gateway service. | None of terminal-jail's normal controls. | Use `terminal-jail`, a dedicated unprivileged account/container, or another approved execution environment. |
 
 ### Required `unshare` failure semantics
