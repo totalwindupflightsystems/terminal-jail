@@ -113,7 +113,7 @@ Can't claim process isolation works without data to prove it.
 ## Phase 8: Distribution & Community
 - [x] **T8.1: Hermes core PR** — submit PR adding opt-in `--sandbox` / `terminal.jail.enabled` config flag to Hermes core (✓ PR #68216: https://github.com/NousResearch/hermes-agent/pull/68216, feat/sandbox-terminal-jail → main, 4 files +181 lines, 10 tests)
 - [ ] **T8.2: Plugin marketplace** — publish when marketplace is available
-- [ ] **T8.3: Release v1.0.0** — git tag, GitHub release with release notes, changelog
+- [x] **T8.3: Release v1.0.0** — git tag v1.0.0, GitHub release with release notes, changelog (✓ foreman tick 2026-07-20: version bumped 0.1.0→1.0.0, Alpha→Production/Stable, CHANGELOG.md, tag pushed to origin)
 - [x] **T8.4: CONTRIBUTING.md** — how to add new hardening directives, how to test, code style (✓ this tick)
 - [ ] **T8.5: Issue templates** — bug report template, feature request template, security vulnerability disclosure
 - [ ] **T8.6: Compatibility matrix** — document tested kernel versions (5.x, 6.x, 7.x), tested Ubuntu versions (24.04, 26.04), tested Hermes versions
