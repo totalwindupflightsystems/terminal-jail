@@ -1,0 +1,13 @@
+{
+  "tick": "2026-07-20T05:36:15.872800",
+  "task": "T6.1 + HOOK-GAP-01",
+  "findings": {
+    "plugin_install_status": "Plugin files installed at ~/.hermes/plugins/terminal-jail/",
+    "plugin_load_status": "Plugin was failing to load since installation: 'No module named plugin'. Root cause: (1) __init__.py used absolute import 'from plugin.terminal_jail.plugin' which can't resolve since Hermes registers plugins under 'hermes_plugins' namespace. (2) No register(ctx) function. (3) Hook names 'terminal.command.transform' don't exist in Hermes. FIXED: relative import, register(ctx) with pre_tool_call + transform_terminal_output hooks.",
+    "pre_execution_hook_gap": "Hermes core has no pre-execution command-transform hook. pre_tool_call only supports block/allow, not command modification. transform_terminal_output fires post-execution. Until this gap is closed, plugin provides observability only.",
+    "tests": "75 passed, 26 skipped (integration skips due to unshare --mount-proc limitations)",
+    "ci_health": "4/5 recent runs green. 1 transient failure (Go runtime pthread_create failed on GH runner)",
+    "host_health": "System showing fork: retry errors \u2014 transient PID pressure"
+  },
+  "current_blocker": "HOOK-GAP-01: Hermes core needs pre-execution command-transform hook"
+}

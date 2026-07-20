@@ -66,13 +66,24 @@ The drop-in file exists but has never been applied to the actual hermes-gateway 
 ## Phase 6: Production Deployment — This Gateway
 The plugin must actually run on karaHermes-mde-7840hs before it can be called "done."
 
-- [ ] **T6.1: Install plugin** — symlink or copy to `~/.hermes/plugins/terminal-jail/`
-- [ ] **T6.2: Dry-run deployment** — enable with `HERMES_TERMINAL_JAIL_ENABLED=true`, observe wrapping in logs for 24h, NO systemd hardening yet
+- [x] **T6.1: Install plugin** — symlink or copy to `~/.hermes/plugins/terminal-jail/` (✓ files installed, plugin loads via Hermes' import system, `pre_tool_call` + `transform_terminal_output` hooks registered. ⚠️ **Pre-execution command wrapping blocked — see HOOK-GAP-01 below**)
+- [ ] **T6.2: Dry-run deployment** — enable with `HERMES_TERMINAL_JAIL_ENABLED=true`, observe wrapping in logs for 24h, NO systemd hardening yet. ⚠️ BLOCKED: wrapping requires HOOK-GAP-01 first
 - [ ] **T6.3: Monitor overhead** — track gateway CPU/memory before/after plugin, ensure <2% overhead
 - [ ] **T6.4: Worker foreman isolation** — verify coding-hermes workers get jailed, foreman sessions get jailed
 - [ ] **T6.5: Deploy systemd hardening** — apply drop-in after 24h stable dry-run, restart gateway
 - [ ] **T6.6: Monitor for 48h** — track gateway restarts, SIGKILLs, OOM events; compare to pre-jail baseline
 - [ ] **T6.7: Rollback plan** — document exact commands to disable plugin + remove systemd drop-in in under 60 seconds
+
+## HOOK-GAP-01: Hermes Core Pre-Execution Command-Transform Hook (BLOCKS all Phase 6)
+The terminal-jail plugin's `transform_command()` and `transform_exec_command()` functions (167 lines, tested) are ready to wrap terminal commands in `unshare --pid --fork --mount-proc --kill-child=SIGKILL`. BUT: Hermes core has NO pre-execution command-transform hook. The existing hooks are:
+- `pre_tool_call` — can only BLOCK or ALLOW tools, cannot modify command strings
+- `transform_terminal_output` — fires AFTER execution, can only transform output
+
+**Required Hermes core change:** Add a pre-execution hook (e.g. `pre_terminal_command`) that receives the command string and can return a modified command. The plugin would register `transform_command` on this hook.
+
+**Existing workaround (T4.8):** The `--sandbox` flag was implemented in Hermes core fork (commit `40ae3f6e1`, branch `fix/cron-repeat-int-format`) but not merged upstream. That flag adds `terminal.jail_enabled` config key and wrapping at the config layer rather than the plugin layer.
+
+**Timeline:** Until either (a) Hermes upstream merges `--sandbox`/`terminal.jail_enabled` or (b) Hermes adds a pre-execution hook, this plugin provides observability only.
 
 ## Phase 7: Observability
 Can't claim process isolation works without data to prove it.
