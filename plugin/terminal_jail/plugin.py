@@ -5,7 +5,7 @@ import os
 import shlex
 import shutil
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final
 
 LOGGER: Final[logging.Logger] = logging.getLogger("terminal_jail")

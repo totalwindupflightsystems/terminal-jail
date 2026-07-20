@@ -20,17 +20,11 @@ HOOK-GAP-01), this plugin provides:
 from __future__ import annotations
 
 import logging
-import os
-import shlex
-import shutil
 from typing import Any
 
 from .plugin import (
-    _configure_logger,
     _enabled_from_environment,
     _unshare_executable_from_environment,
-    transform_command,
-    transform_exec_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,9 +73,6 @@ def _on_transform_terminal_output(
     Since we can't inject the jail prefix pre-execution, we annotate the
     output to indicate whether this command was jailed.
     """
-    jail_enabled = _enabled_from_environment()
-    unshare_available = _unshare_executable_from_environment() is not None
-
     return None  # Don't modify output
 
 
