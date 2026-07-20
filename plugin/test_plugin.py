@@ -28,6 +28,7 @@ def clean_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ENVIRONMENT_VARIABLES:
         monkeypatch.delenv(name, raising=False)
     plugin_module.LOGGER.setLevel(logging.WARNING)
+    plugin_module.reset_metrics()
 
 
 def expected_wrapped(command: str, executable: str = "/test/bin/unshare") -> str:
@@ -691,3 +692,223 @@ class TestGatewayRestartResilience:
         assert callable(plugin_ref.register)
         assert callable(plugin_ref.transform_command)
         assert callable(plugin_ref.transform_exec_command)
+
+
+# ── T7.1–T7.4: Observability metrics ──────────────────────────────
+
+
+class TestMetrics:
+    """Verify observability counters (T7.1-T7.4)."""
+
+    def test_t71_metrics_disabled_counter(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T7.1: commands_passed_disabled increments when jail is off."""
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "0")
+        plugin_module.reset_metrics()
+
+        plugin_module.transform_command("echo hi")
+        metrics = plugin_module.get_metrics()
+        assert metrics.commands_passed_disabled == 1
+        assert metrics.commands_wrapped == 0
+
+    def test_t71_metrics_no_unshare_counter(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T7.1: commands_passed_no_unshare increments when unshare is missing."""
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_COMMAND", "nonexistent-unshare")
+        plugin_module.reset_metrics()
+
+        plugin_module.transform_command("echo hi")
+        metrics = plugin_module.get_metrics()
+        assert metrics.commands_passed_no_unshare == 1
+        assert metrics.commands_wrapped == 0
+
+    def test_t71_metrics_wrapped_counter(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """T7.1: commands_wrapped increments on successful wrap."""
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        plugin_module.reset_metrics()
+
+        plugin_module.transform_command("echo hi")
+        metrics = plugin_module.get_metrics()
+        assert metrics.commands_wrapped == 1
+
+    def test_t71_metrics_multiple_calls(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """T7.1: counters accumulate across multiple calls."""
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        plugin_module.reset_metrics()
+
+        for _ in range(3):
+            plugin_module.transform_command("echo hi")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "0")
+        plugin_module.transform_command("echo no-jail")
+        plugin_module.transform_command("echo no-jail-2")
+
+        metrics = plugin_module.get_metrics()
+        assert metrics.commands_wrapped == 3
+        assert metrics.commands_passed_disabled == 2
+
+    def test_t72_jail_crash_on_build_failure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T7.2: jail_crashes increments when shlex.quote raises."""
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_COMMAND", "/bin/unshare")
+        plugin_module.reset_metrics()
+
+        # Monkeypatch shlex.quote to simulate a crash during wrapping.
+        import shlex as shlex_mod
+
+        original_quote = shlex_mod.quote
+        try:
+            shlex_mod.quote = lambda x: (_ for _ in ()).throw(
+                RuntimeError("simulated crash")
+            )
+            result = plugin_module.transform_command("echo hi")
+            assert result == "echo hi"  # Passes through on crash
+        finally:
+            shlex_mod.quote = original_quote
+
+        metrics = plugin_module.get_metrics()
+        assert metrics.jail_crashes == 1
+
+    def test_t72_jail_crash_on_budget_exception(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """T7.2: jail_crashes increments when budget check throws."""
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        plugin_module.reset_metrics()
+
+        original = plugin_module._max_command_bytes_from_environment
+        try:
+            plugin_module._max_command_bytes_from_environment = (
+                lambda: (_ for _ in ()).throw(RuntimeError("simulated"))
+            )
+            result = plugin_module.transform_command("echo hi")
+            assert result == "echo hi"
+        finally:
+            plugin_module._max_command_bytes_from_environment = original
+
+        metrics = plugin_module.get_metrics()
+        assert metrics.jail_crashes == 1
+
+    def test_t73_byte_budget_rejection_counter(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """T7.3: byte_budget_rejections increments when command exceeds budget."""
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES", "10")
+        plugin_module.reset_metrics()
+
+        result = plugin_module.transform_command("echo this is a long command")
+        assert result == "echo this is a long command"  # Passes through
+        metrics = plugin_module.get_metrics()
+        assert metrics.byte_budget_rejections == 1
+
+    def test_t73_byte_budget_under_limit_no_rejection(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """T7.3: no budget rejection when command fits."""
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES", "999999")
+        plugin_module.reset_metrics()
+
+        result = plugin_module.transform_command("echo hi")
+        assert "unshare" in result
+        metrics = plugin_module.get_metrics()
+        assert metrics.byte_budget_rejections == 0
+        assert metrics.commands_wrapped == 1
+
+    def test_t74_performance_regression_below_threshold(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """T7.4: no alert when wrap overhead is below 50ms threshold."""
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        plugin_module.reset_metrics()
+
+        # Run a command — wrap overhead is nanoseconds, well below 50ms.
+        plugin_module.transform_command("echo hi")
+        metrics = plugin_module.get_metrics()
+        assert metrics.perf_regression_alert_count == 0
+        assert metrics.wrap_count == 1
+        assert metrics.wrap_time_ns_total > 0
+
+    def test_t74_performance_timing_is_recorded(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """T7.4: wrap_time_ns_total and wrap_count are populated."""
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        plugin_module.reset_metrics()
+
+        for _ in range(5):
+            plugin_module.transform_command("echo hi")
+
+        metrics = plugin_module.get_metrics()
+        assert metrics.wrap_count == 5
+        assert metrics.wrap_time_ns_total > 0
+        # 5 sub-microsecond wraps should be well under 50ms.
+        assert metrics.perf_regression_alert_count == 0
+
+    def test_t74_performance_regression_triggers_above_threshold(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """T7.4: alert triggers when wrap overhead exceeds 50ms threshold."""
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        plugin_module.reset_metrics()
+
+        # Prime with 100 fast wraps to establish a low average.
+        for _ in range(100):
+            plugin_module.transform_command("echo hi")
+
+        # Simulate one slow wrap by directly calling _check_performance_regression.
+        slow_ns = 60_000_000  # 60ms — above the 50ms threshold
+        plugin_module._check_performance_regression(slow_ns)
+
+        metrics = plugin_module.get_metrics()
+        assert metrics.perf_regression_alert_count == 1
+
+    def test_reset_metrics_clears_all(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """reset_metrics() clears all counters to zero."""
+        install_successful_unshare_shim(tmp_path, monkeypatch)
+        # Metrics already reset by fixture; accumulate some counts.
+        plugin_module.transform_command("echo hi")
+        assert plugin_module.get_metrics().commands_wrapped >= 1
+
+        plugin_module.reset_metrics()
+        metrics = plugin_module.get_metrics()
+        assert metrics.commands_wrapped == 0
+        assert metrics.commands_passed_disabled == 0
+        assert metrics.commands_passed_no_unshare == 0
+        assert metrics.jail_crashes == 0
+        assert metrics.byte_budget_rejections == 0
+        assert metrics.wrap_count == 0
+        assert metrics.wrap_time_ns_total == 0
+        assert metrics.perf_regression_alert_count == 0

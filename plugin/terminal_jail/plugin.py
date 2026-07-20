@@ -4,6 +4,8 @@ import logging
 import os
 import shlex
 import shutil
+import time
+from dataclasses import dataclass, field
 from typing import Final
 
 LOGGER: Final[logging.Logger] = logging.getLogger("terminal_jail")
@@ -11,6 +13,53 @@ LOGGER: Final[logging.Logger] = logging.getLogger("terminal_jail")
 _TRUTHY: Final[set[str]] = {"1", "true", "yes", "on"}
 _FALSY: Final[set[str]] = {"", "0", "false", "no", "off"}
 _DEFAULT_MAX_COMMAND_BYTES: Final[int] = 131072
+_PERF_REGRESSION_THRESHOLD_NS: Final[int] = 50_000_000  # 50 ms
+
+
+@dataclass
+class Metrics:
+    """Observability counters for terminal-jail plugin (T7.1-T7.4)."""
+
+    commands_wrapped: int = 0
+    commands_passed_disabled: int = 0
+    commands_passed_no_unshare: int = 0
+    jail_crashes: int = 0
+    byte_budget_rejections: int = 0
+    wrap_time_ns_total: int = 0
+    wrap_count: int = 0
+    perf_regression_alert_count: int = 0
+
+
+_metrics: Metrics = Metrics()
+
+
+def get_metrics() -> Metrics:
+    """Return the current metrics snapshot (for tests and observability)."""
+    return _metrics
+
+
+def reset_metrics() -> None:
+    """Reset all metrics counters to zero (for tests)."""
+    global _metrics
+    _metrics = Metrics()
+
+
+def _check_performance_regression(elapsed_ns: int) -> None:
+    """Check if wrap overhead exceeds the 50ms p99 threshold (T7.4)."""
+    _metrics.wrap_time_ns_total += elapsed_ns
+    _metrics.wrap_count += 1
+    if _metrics.wrap_count < 100:
+        return  # Not enough data for a meaningful p99 estimate
+    avg_ns = _metrics.wrap_time_ns_total / _metrics.wrap_count
+    if elapsed_ns > _PERF_REGRESSION_THRESHOLD_NS and elapsed_ns > avg_ns * 3:
+        _metrics.perf_regression_alert_count += 1
+        LOGGER.warning(
+            "terminal-jail: performance regression detected — wrap overhead "
+            "%d ns (avg %.0f ns, threshold %d ns)",
+            elapsed_ns,
+            avg_ns,
+            _PERF_REGRESSION_THRESHOLD_NS,
+        )
 
 
 def _configure_logger() -> None:
@@ -116,11 +165,13 @@ def transform_command(command: str) -> str:
 
     # Step 4: disabled?
     if not _enabled_from_environment():
+        _metrics.commands_passed_disabled += 1
         return command
 
     # Step 5: locate unshare.
     unshare_path = _unshare_executable_from_environment()
     if unshare_path is None:
+        _metrics.commands_passed_no_unshare += 1
         LOGGER.warning(
             "terminal-jail: unshare executable not found; "
             "PID namespace isolation unavailable, running command without jail"
@@ -128,6 +179,7 @@ def transform_command(command: str) -> str:
         return command
 
     # Step 6: build wrapped command.
+    t0 = time.monotonic_ns()
     try:
         prefix = (
             f"{shlex.quote(unshare_path)} --pid --fork --mount-proc "
@@ -135,6 +187,7 @@ def transform_command(command: str) -> str:
         )
         wrapped = prefix + shlex.quote(command)
     except Exception:
+        _metrics.jail_crashes += 1
         LOGGER.warning(
             "terminal-jail: failed to build wrapped command",
             exc_info=True,
@@ -145,6 +198,7 @@ def transform_command(command: str) -> str:
     try:
         budget = _max_command_bytes_from_environment()
         if len(wrapped.encode("utf-8")) > budget:
+            _metrics.byte_budget_rejections += 1
             LOGGER.warning(
                 "terminal-jail: wrapped command exceeds byte budget "
                 "(%d bytes); running command without jail",
@@ -152,6 +206,7 @@ def transform_command(command: str) -> str:
             )
             return command
     except Exception:
+        _metrics.jail_crashes += 1
         LOGGER.warning(
             "terminal-jail: byte-budget check failed",
             exc_info=True,
@@ -159,6 +214,9 @@ def transform_command(command: str) -> str:
         return command
 
     # Step 9: return wrapped.
+    _metrics.commands_wrapped += 1
+    elapsed = time.monotonic_ns() - t0
+    _check_performance_regression(elapsed)
     return wrapped
 
 

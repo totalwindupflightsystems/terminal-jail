@@ -25,7 +25,7 @@ import shlex
 import shutil
 from typing import Any
 
-from .terminal_jail.plugin import (
+from .plugin import (
     _configure_logger,
     _enabled_from_environment,
     _unshare_executable_from_environment,
