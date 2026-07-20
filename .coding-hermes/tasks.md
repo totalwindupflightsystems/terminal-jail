@@ -114,7 +114,7 @@ Can't claim process isolation works without data to prove it.
 - [x] **T8.1: Hermes core PR** — submit PR adding opt-in `--sandbox` / `terminal.jail.enabled` config flag to Hermes core (✓ PR #68216: https://github.com/NousResearch/hermes-agent/pull/68216, feat/sandbox-terminal-jail → main, 4 files +181 lines, 10 tests)
 - [ ] **T8.2: Plugin marketplace** — publish when marketplace is available
 - [ ] **T8.3: Release v1.0.0** — git tag, GitHub release with release notes, changelog
-- [ ] **T8.4: CONTRIBUTING.md** — how to add new hardening directives, how to test, code style
+- [x] **T8.4: CONTRIBUTING.md** — how to add new hardening directives, how to test, code style (✓ this tick)
 - [ ] **T8.5: Issue templates** — bug report template, feature request template, security vulnerability disclosure
 - [ ] **T8.6: Compatibility matrix** — document tested kernel versions (5.x, 6.x, 7.x), tested Ubuntu versions (24.04, 26.04), tested Hermes versions
 - [x] **T8.7: Architecture decision records** — ADR-001 through ADR-005 covering: PID namespace choice, SIGKILL semantics, bash shell, cgroup deferral, plugin observability architecture (✓ `docs/adr/0001-architecture-decisions.md`, 12,259 bytes, 5 ADRs)
@@ -146,11 +146,12 @@ Can't claim process isolation works without data to prove it.
 - **Priority:** high
 - **Result:** 11-point audit run. Specs align with code (✓). Plugin wired to Hermes (✓). CI passing (✓). CI workflow covers test/lint/audit across 3 Python versions (✓). Gaps found: standalone CLI untested, install.sh untested, no pyproject.toml, 92% coverage with 7 edge-case misses, DuckBrain namespace empty, .coverage not gitignored. 6 AUDIT tasks created above. Host limitation (unshare blocked) is OS-level and noted in DuckBrain.
 
-## [x] AUDIT-07: Test gap — scripts/metrics-export.py has no tests
+## [x] AUDIT-07: Test gap — scripts/metrics-export.py has no tests (✓ committed eb1e05b)
 - **Priority:** low
 - **Found by:** NEVER-DONE audit, 2026-07-20 tick, Check 3 (Test Gaps)
 - **Details:** scripts/metrics-export.py (78 lines) has zero dedicated test coverage. It's a DuckBrain metrics export utility with argparse, JSON export, counter reset. Currently validated only by manual execution.
 - **Acceptance:** Add tests for --json output structure, --reset counter behavior, error paths (missing plugin, corrupt counter file), human-readable output format. Target: >80% coverage.
+- **Result:** 21 tests in `plugin/test_metrics_export.py` (347 lines). All pass. Board was stale — committed `eb1e05b` on 2026-07-20.
 
 ## [x] Fix CI: Terminal-Jail — 4 consecutive failures (runs #11-#14) → fixed `20847c9` (2026-07-20)
 - **Priority:** HIGH
