@@ -54,14 +54,14 @@ The plugin exists on disk but has never been loaded by a real Hermes gateway.
 ## Phase 5: systemd Defense-in-Depth — Deploy to Gateway
 The drop-in file exists but has never been applied to the actual hermes-gateway service.
 
-- [ ] **T5.1: Deploy drop-in** — copy `90-terminal-jail-hardening.conf` to `/etc/systemd/system/hermes-gateway.service.d/`
-- [ ] **T5.2: Verify with systemd-analyze** — run `systemd-analyze security hermes-gateway.service` before/after, document score improvement
-- [ ] **T5.3: Verify ProtectProc=invisible** — confirm `/proc` from inside gateway only shows gateway processes
-- [ ] **T5.4: Verify PrivateUsers=true** — confirm UID mapping isolation via `/proc/self/uid_map`
-- [ ] **T5.5: Verify RestrictNamespaces=~pid** — confirm gateway cannot create new PID namespaces (defense against escape)
-- [ ] **T5.6: Verify RestrictAddressFamilies** — confirm only AF_UNIX and AF_NETLINK sockets work
-- [ ] **T5.7: Verify ProtectSystem=strict** — confirm read-only filesystem with only whitelisted writable paths
-- [ ] **T5.8: Rollback procedure** — document how to safely remove drop-in and restart without downtime
+- [ ] **T5.1: Redeploy drop-in** — deployed version at `/etc/systemd/system/hermes-gateway.service.d/90-terminal-jail-hardening.conf` is the OLD aggressive config (pre-graduated). Needs `sudo cp` of the graduated version + `systemctl daemon-reload`. BLOCKED: no sudo on this host.
+- [ ] **T5.2: Verify with systemd-analyze** — run `systemd-analyze security hermes-gateway.service` before/after, document score improvement. BLOCKED: needs T5.1 first.
+- [ ] **T5.3: Verify ProtectProc=invisible** — confirm `/proc` from inside gateway only shows gateway processes. BLOCKED: needs restart.
+- [ ] **T5.4: Verify PrivateUsers=true** — confirm UID mapping isolation via `/proc/self/uid_map`. BLOCKED: needs restart.
+- [ ] **T5.5: Verify RestrictNamespaces=~pid** — confirm gateway cannot create new PID namespaces (defense against escape). BLOCKED: needs restart.
+- [ ] **T5.6: Verify RestrictAddressFamilies** — confirm only AF_UNIX and AF_NETLINK sockets work. BLOCKED: needs restart.
+- [ ] **T5.7: Verify ProtectSystem=strict** — confirm read-only filesystem with only whitelisted writable paths. BLOCKED: needs restart.
+- [x] **T5.8: Rollback procedure** — documented in `systemd/90-terminal-jail-hardening.conf` ROLLBACK PROCEDURE section. Covers full removal (<10s downtime), per-directive troubleshooting, and verification steps. (✓ commit `5aba940`)
 
 ## Phase 6: Production Deployment — This Gateway
 The plugin must actually run on karaHermes-mde-7840hs before it can be called "done."
