@@ -9,7 +9,7 @@
 - [x] Removed false "command was wrapped in PID namespace" annotation (plugin can only observe)
 
 **Resolution paths:**
-- [ ] **HOOK-GAP-01:** Build `pre_terminal_exec` or `command_transform` hook in Hermes core — allows modifying command string before execution. Submit PR.
+- [x] **HOOK-GAP-01:** Build `pre_terminal_exec` or `command_transform` hook in Hermes core — allows modifying command string before execution. Submit PR. (✓ PR submitted: https://github.com/NousResearch/hermes-agent/pull/68216 — `--sandbox` flag on `feat/sandbox-terminal-jail` branch, 4 files, +181 lines, 10 tests)
 - [ ] **HOOK-GAP-02:** Wrap at terminal backend layer — modify the terminal tool's execution path directly instead of via plugin hooks
 - [ ] **HOOK-GAP-03:** systemd sandbox as sole isolation — accept that PID namespace wrapping lives entirely in the systemd layer (Phase 5), plugin provides observability only
 - [x] **HOOK-GAP-04:** Sync installed plugin code to repo — installed `~/.hermes/plugins/terminal-jail/__init__.py` reflects reality (observability-only), repo code still claims `terminal.command.transform` exists (✓ foreman tick 2026-07-20: plugin/__init__.py updated to register-based hooks, 75 tests pass)
@@ -111,7 +111,7 @@ Can't claim process isolation works without data to prove it.
 - [ ] **T7.6: Prometheus metrics endpoint** — expose jail counters as prometheus metrics (future, if Hermes supports it)
 
 ## Phase 8: Distribution & Community
-- [ ] **T8.1: Hermes core PR** — submit PR adding opt-in `--sandbox` / `terminal.jail.enabled` config flag to Hermes core
+- [x] **T8.1: Hermes core PR** — submit PR adding opt-in `--sandbox` / `terminal.jail.enabled` config flag to Hermes core (✓ PR #68216: https://github.com/NousResearch/hermes-agent/pull/68216, feat/sandbox-terminal-jail → main, 4 files +181 lines, 10 tests)
 - [ ] **T8.2: Plugin marketplace** — publish when marketplace is available
 - [ ] **T8.3: Release v1.0.0** — git tag, GitHub release with release notes, changelog
 - [ ] **T8.4: CONTRIBUTING.md** — how to add new hardening directives, how to test, code style
