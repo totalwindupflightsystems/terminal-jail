@@ -107,7 +107,7 @@ Can't claim process isolation works without data to prove it.
 - [x] **T7.2: Jail crash alert** — if a jailed command dies with signal ≠ exit code, log warning with original command
 - [x] **T7.3: Byte budget rejections** — log when commands exceed `MAX_COMMAND_BYTES`, track distribution
 - [x] **T7.4: Performance regression alert** — if command wrapping overhead exceeds 50ms p99, surface warning
-- [ ] **T7.5: DuckBrain dashboard** — write jail metrics to DuckBrain namespace, generate daily summary
+- [x] **T7.5: DuckBrain dashboard** — write jail metrics to DuckBrain namespace, generate daily summary (✓ `scripts/metrics-export.py` created, metrics snapshot written to DuckBrain)
 - [ ] **T7.6: Prometheus metrics endpoint** — expose jail counters as prometheus metrics (future, if Hermes supports it)
 
 ## Phase 8: Distribution & Community
