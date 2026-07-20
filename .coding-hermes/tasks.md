@@ -146,7 +146,8 @@ Can't claim process isolation works without data to prove it.
 - **Priority:** high
 - **Result:** 11-point audit run. Specs align with code (✓). Plugin wired to Hermes (✓). CI passing (✓). CI workflow covers test/lint/audit across 3 Python versions (✓). Gaps found: standalone CLI untested, install.sh untested, no pyproject.toml, 92% coverage with 7 edge-case misses, DuckBrain namespace empty, .coverage not gitignored. 6 AUDIT tasks created above. Host limitation (unshare blocked) is OS-level and noted in DuckBrain.
 
-## [ ] Fix CI: Terminal-Jail — 4 consecutive failures (runs #11-#14)
+## [x] Fix CI: Terminal-Jail — 4 consecutive failures (runs #11-#14) → fixed `20847c9` (2026-07-20)
 - **Priority:** HIGH
-- **Root cause:** Unknown — log access denied (token lacks permission for repo owner). Runs #10 passed, then runs #11-#14 all failed consecutively. Most recent: run #14 "feat(obs): DuckBrain metrics exporter (T7.5)".
-- **Action:** Investigate CI failure root cause. Check `gh run list` for conclusion patterns. If logs still inaccessible, try raw API with GITHUB_PAT. Fix and push.
+- **Root cause:** Ruff lint job failing with 10 errors: unused imports (F401) in `plugin/__init__.py`, `plugin/terminal_jail/__init__.py`, `plugin/terminal_jail/plugin.py`; unused variables (F841) in `_on_transform_terminal_output`. Tests and audit jobs passed — only lint failed.
+- **Fix:** Removed unused imports (`os`, `shlex`, `shutil`, `_configure_logger`, `transform_command`, `transform_exec_command`, `field`), removed unused variables (`jail_enabled`, `unshare_available` from `_on_transform_terminal_output`), marked re-exports with `# noqa: F401`. 87 tests pass. Ruff clean.
+- **Commit:** `20847c9`
