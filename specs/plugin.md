@@ -1,8 +1,34 @@
 # Terminal Jail Hermes Plugin Specification
 
+## 0. HOOK GAP NOTICE — Critical Architecture Constraint (2026-07-20)
+
+Hermes core does NOT expose a pre-execution command-transform hook. The plugin's `transform_command()` and `transform_exec_command()` functions (167 lines, fully tested, 75 passing tests) are ready to wrap terminal commands in PID namespaces — but there is no hook to wire them into before execution.
+
+**What exists in Hermes core:**
+- `pre_tool_call` — Can only BLOCK or ALLOW tool calls. Cannot modify command strings.
+- `transform_terminal_output` — Fires AFTER execution. Can transform output, not the command.
+
+**What does NOT exist:**
+- A `pre_terminal_exec` or `command_transform` hook that receives the command string and returns a modified command.
+
+**What this means for terminal-jail v0.1.0:**
+- The wrapping functions (`transform_command`, `transform_exec_command`) exist, are importable, and are tested.
+- The plugin provides **observability only** — it registers `pre_tool_call` (logs terminal usage) and `transform_terminal_output` (no-op).
+- Commands are NOT actually wrapped in PID namespaces at execution time.
+
+**Resolution paths (see tasks board):**
+1. **HOOK-GAP-01:** Build `pre_terminal_exec` or `command_transform` hook in Hermes core — allows modifying command string before execution.
+2. **HOOK-GAP-02:** Wrap at terminal backend layer — modify the terminal tool's execution path directly.
+3. **HOOK-GAP-03:** systemd sandbox as sole isolation — accept that PID namespace wrapping lives entirely in the systemd layer (Phase 5), plugin provides observability only.
+4. **T4.8 (partial workaround):** `--sandbox` flag was implemented in Hermes core fork (commit `40ae3f6e1`, branch `fix/cron-repeat-int-format`, repo `totalwindupflightsystems/hermes-agent`) but not merged upstream. That flag adds `terminal.jail_enabled` config key and wraps at the config layer rather than the plugin layer.
+
+**Sections below describe the wrapping functions as designed.** The algorithm, configuration schema, exit status behavior, and test matrix are all accurate for `transform_command()`/`transform_exec_command()`. The hook registration (Section 4) and sequence diagram (Section 10) reflect the actual register()-based plugin with observability hooks.
+
+---
+
 ## 1. Purpose and scope
 
-Implement a Hermes Agent plugin named `terminal-jail` that isolates every terminal command in a Linux PID namespace. It is a command-string transformation plugin only: it does not execute subprocesses, capture output, emulate shell behavior, alter timeouts, or rewrite exit statuses.
+Implement a Hermes Agent plugin named `terminal-jail` that, when a pre-execution command-transform hook becomes available in Hermes core, isolates every terminal command in a Linux PID namespace. It is a command-string transformation plugin only: it does not execute subprocesses, capture output, emulate shell behavior, alter timeouts, or rewrite exit statuses.
 
 The plugin converts a raw command string into a shell command that starts a PID namespace using `unshare`. It must use this exact outer command shape:
 
@@ -11,6 +37,8 @@ unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c <shell-quoted-ori
 ```
 
 The plugin protects the host process namespace from command behavior such as `kill`, `pkill`, `killall`, and uncontrolled descendants. The `--kill-child=SIGKILL` option ensures namespace children are killed when the namespace init exits.
+
+**Current status (v0.1.0):** The wrapping functions are implemented and tested but NOT wired to command execution. See Section 0 for the hook gap. The plugin provides terminal usage observability only.
 
 This plugin is Linux-only. It must gracefully pass commands through unchanged if `unshare` is unavailable, if the feature is disabled, or if the command is empty/whitespace-only.
 
@@ -34,6 +62,8 @@ terminal-jail/
 
 The repository-level plugin directory is the directory containing `terminal-jail/__init__.py`. The code must use only the Python standard library.
 
+**Plugin discovery:** Hermes discovers the plugin through a `register(ctx)` function in `__init__.py`. The `ctx` object provides `ctx.register_hook(hook_name, callable)` for registering hooks. This differs from the earlier `hooks` dict export pattern — Hermes calls `register()` at plugin load time.
+
 Required imports in `terminal_jail/plugin.py`:
 
 ```python
@@ -46,7 +76,7 @@ import shutil
 from typing import Final
 ```
 
-Do not import Hermes internals in `plugin.py`. Hermes discovers the hook callables through the `hooks` mapping exported by `terminal_jail/__init__.py`.
+Do not import Hermes internals in `plugin.py`. Hermes discovers the hook callables through the `register()` function exported by `terminal_jail/__init__.py`.
 
 ## 3. Exact public Python interfaces
 
@@ -74,30 +104,88 @@ def transform_exec_command(command: str) -> str:
 
 The callable must never return `None`, bytes, a list/tuple, a subprocess result, a shell AST, or a command array. Any internally unexpected failure must fail open: emit one warning with exception information and return the original `command` unchanged.
 
-## 4. Plugin metadata and hook registration
+## 4. Plugin metadata and hook registration (actual v0.1.0 implementation)
 
-`terminal_jail/__init__.py` must have this structure:
+The plugin uses Hermes' `register()` pattern. `terminal_jail/__init__.py` has this structure:
 
 ```python
 from __future__ import annotations
 
-from .plugin import transform_command, transform_exec_command
+import logging
+from typing import Any
 
-__manifest__ = {
-    "name": "terminal-jail",
-    "version": "0.1.0",
-    "description": "Wrap Hermes terminal commands in a Linux PID namespace using unshare.",
-    "hooks": {
-        "terminal.command.transform": transform_command,
-        "terminal.command.transform.exec": transform_exec_command,
-    },
-}
+from .terminal_jail.plugin import (
+    _configure_logger,
+    _enabled_from_environment,
+    _unshare_executable_from_environment,
+    transform_command,
+    transform_exec_command,
+)
 
-hooks = __manifest__["hooks"]
+logger = logging.getLogger(__name__)
+
+
+def _on_pre_tool_call(
+    tool_name: str = "",
+    args: Any = None,
+    **kwargs: Any,
+) -> None:
+    """Observer: log terminal tool usage for observability.
+
+    This fires before every tool call. We can only observe/log — we cannot
+    transform the command here (the hook only supports block/allow).
+    """
+    if tool_name != "terminal":
+        return
+
+    command = args.get("command", "") if isinstance(args, dict) else ""
+    jail_enabled = _enabled_from_environment()
+    unshare_available = _unshare_executable_from_environment() is not None
+
+    if jail_enabled and unshare_available:
+        logger.info(
+            "terminal-jail: observed terminal command (%d bytes); "
+            "pre-execution wrapping is unavailable",
+            len(command),
+        )
+    elif jail_enabled and not unshare_available:
+        logger.warning(
+            "terminal-jail: jail enabled but unshare not found; "
+            "running command without isolation"
+        )
+    elif not jail_enabled:
+        logger.debug("terminal-jail: disabled, passing through")
+
+
+def _on_transform_terminal_output(
+    command: str,
+    output: str,
+    returncode: int,
+    **kwargs: Any,
+) -> str | None:
+    """Transform terminal output — primarily observability.
+
+    Since we can't inject the jail prefix pre-execution, this is a no-op
+    placeholder. Returns None to leave output unchanged.
+    """
+    return None
+
+
+def register(ctx) -> None:
+    """Register terminal-jail hooks with the Hermes plugin system."""
+    ctx.register_hook("pre_tool_call", _on_pre_tool_call)
+    ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
+
+    logger.info(
+        "terminal-jail v0.1.0 loaded. "
+        "NOTE: pre-execution command wrapping requires Hermes core "
+        "pre-execution hooks (see task HOOK-GAP-01). "
+        "Observability hooks registered."
+    )
+
 
 __all__ = [
-    "__manifest__",
-    "hooks",
+    "register",
     "transform_command",
     "transform_exec_command",
 ]
@@ -105,14 +193,15 @@ __all__ = [
 
 Requirements for this metadata:
 
-1. `__manifest__` must be a module-level `dict`.
-2. The `hooks` entry must map hook names to callable function objects, not dotted-path strings.
-3. The `hooks` module-level alias must refer to the exact mapping in `__manifest__["hooks"]`.
-4. Register both hooks:
-   - `terminal.command.transform`
-   - `terminal.command.transform.exec`
-5. The two hook names must map to different named functions, even though the exec hook delegates to the generic hook.
-6. Keep `__init__.py` free of executable setup work, environment probing, subprocess calls, and logging configuration.
+1. The plugin MUST export a `register(ctx)` function — Hermes calls this at plugin load time.
+2. Available Hermes hooks (v0.1.0): `pre_tool_call` (block/allow only), `transform_terminal_output` (post-exec output transform).
+3. `transform_command` and `transform_exec_command` are public and importable but NOT wired to any hook — no pre-execution command-transform hook exists in Hermes core.
+4. Keep `__init__.py` free of executable setup work, environment probing, subprocess calls, and logging configuration beyond the `register()` invocation.
+
+**Future state (when HOOK-GAP-01 is resolved):** When Hermes adds a pre-execution command-transform hook (e.g., `pre_terminal_exec`), the `register()` function will additionally call:
+```python
+ctx.register_hook("pre_terminal_exec", transform_command)
+```
 
 ## 5. Input-to-output contract
 
@@ -168,7 +257,7 @@ The raw command must be returned unchanged. In particular, whitespace-only input
 All configuration is read at each hook invocation. Do not cache environment-derived settings: this makes tests deterministic under `monkeypatch` and allows a running Hermes process to observe environment changes.
 
 | Environment variable | Type / accepted values | Default | Meaning |
-|---|---|---:|---|
+|---|---|---|---:|---|
 | `HERMES_TERMINAL_JAIL_ENABLED` | case-insensitive boolean: `1`, `true`, `yes`, `on` enable; `0`, `false`, `no`, `off`, empty disable | `true` | Feature flag. Any unrecognized non-empty value must disable the jail and log a warning. Fail closed with respect to configuration ambiguity, but fail open for command execution. |
 | `HERMES_TERMINAL_JAIL_COMMAND` | executable name or path | `unshare` | Program to locate and invoke. Intended for injected test doubles and nonstandard installations. It must be treated as one executable token, not as a shell fragment containing arguments. |
 | `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` | positive base-10 integer | `131072` | Maximum UTF-8 encoded byte length allowed for the returned wrapped command. This is a conservative preflight budget below typical Linux `ARG_MAX`; it prevents a transformation from creating an obviously oversized shell argument. |
@@ -355,36 +444,61 @@ The plugin has two layers of behavior:
 
 All helpers must be side-effect-free except logging and setting the named logger's level. Do not mutate process environment. Do not maintain a global cache of lookup results. The functions must be safe for concurrent calls under the Python runtime.
 
-## 10. Mermaid sequence diagram
+## 10. Sequence diagrams
+
+### 10.1 Current state: Observability-only (v0.1.0)
 
 ```mermaid
 sequenceDiagram
     participant H as Hermes terminal backend
-    participant G as terminal.command.transform hook
+    participant Pre as pre_tool_call hook
+    participant Post as transform_terminal_output hook
+    participant Shell as Shell execution
+
+    H->>Pre: pre_tool_call(tool_name="terminal", args={command: "..."})
+    Note over Pre: Can only observe/log.<br/>Cannot modify command.
+    Pre->>Pre: Log terminal usage with<br/>jail state (enabled/disabled/unshare avail)
+    Pre-->>H: None (allow — no blocking)
+
+    H->>Shell: Execute raw command<br/>(UNWRAPPED — no PID namespace)
+    Note over Shell: Command runs on host<br/>without isolation.
+
+    Shell-->>H: stdout, stderr, exit code
+    H->>Post: transform_terminal_output(command, output, returncode)
+    Post-->>H: None (no output modification)
+    Note over Post: Observability no-op.<br/>Cannot wrap post-execution.
+```
+
+### 10.2 Future state: With pre-execution command-transform hook
+
+```mermaid
+sequenceDiagram
+    participant H as Hermes terminal backend
+    participant T as pre_terminal_exec hook
     participant E as Environment/PATH
     participant U as unshare PID namespace
     participant B as bash -c inner command
 
-    H->>G: transform_command(raw_command: str)
-    G->>G: Configure terminal_jail logger
+    H->>T: transform_command(raw_command: str)
+    T->>T: Configure terminal_jail logger
     alt empty / whitespace-only command
-        G-->>H: raw_command unchanged
+        T-->>H: raw_command unchanged
     else jail disabled or invalid feature flag
-        G-->>H: raw_command unchanged
+        T-->>H: raw_command unchanged
     else jail enabled
-        G->>E: Read env and shutil.which(configured executable)
+        T->>E: Read env and shutil.which(configured executable)
         alt unshare unavailable / invalid config
-            E-->>G: None
-            G->>G: warning without command content
-            G-->>H: raw_command unchanged
+            E-->>T: None
+            T->>T: warning without command content
+            T-->>H: raw_command unchanged
         else executable found
-            E-->>G: resolved executable path
-            G->>G: wrapped = quoted path + fixed flags + shlex.quote(raw_command)
+            E-->>T: resolved executable path
+            T->>T: wrapped = quoted path + fixed flags + shlex.quote(raw_command)
             alt wrapped UTF-8 bytes exceed budget
-                G->>G: warning without command content
-                G-->>H: raw_command unchanged
+                T->>T: warning without command content
+                T-->>H: raw_command unchanged
             else within budget
-                G-->>H: wrapped command string
+                T-->>H: wrapped command string
                 H->>U: execute wrapped command using existing streams
                 U->>B: bash -c raw command in new PID namespace
                 B-->>U: inherited stdout/stderr + exit status
@@ -393,6 +507,8 @@ sequenceDiagram
         end
     end
 ```
+
+**Note:** The "future state" diagram requires HOOK-GAP-01 to be resolved — Hermes core must add a pre-execution command-transform hook.
 
 ## 11. Test specification
 
@@ -414,8 +530,8 @@ For a real namespace integration test, mark it `@pytest.mark.integration`, skip 
 
 | ID | Scenario | Setup / injected dependency | Input | Required assertion |
 |---|---|---|---|---|
-| T01 | Generic hook registers | import `terminal_jail` | n/a | `__manifest__["hooks"]["terminal.command.transform"] is transform_command` |
-| T02 | Exec hook registers | import `terminal_jail` | n/a | exec hook exists and maps to `transform_exec_command` |
+| T01 | Generic hook registers | import `terminal_jail` | n/a | `transform_command` is importable and callable |
+| T02 | Exec hook registers | import `terminal_jail` | n/a | `transform_exec_command` is importable and callable |
 | T03 | Default wrapping | patch `shutil.which` to `/test/bin/unshare`; enabled | `echo hello` | exactly `/test/bin/unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c 'echo hello'` |
 | T04 | Exec delegates | patch `transform_command` or compare results under same patch | representative command | exec result equals generic result and wrapping appears once |
 | T05 | Shell metacharacters preserved | injected `which` | command with `$()`, `;`, `&&`, `|`, redirect | result equals constructed prefix plus `shlex.quote(raw)` |
@@ -445,6 +561,16 @@ For a real namespace integration test, mark it `@pytest.mark.integration`, skip 
 | T29 | Real PID namespace process view | integration marker; actual unshare probe passes | `test "$(ps -o pid= -p $$ | tr -d ' ')" = 1` | exits 0: shell is PID 1 inside its namespace |
 | T30 | Runtime unshare error is not retried raw | executable shim exits 125 and writes error | harmless command | terminal result is 125, stderr preserved, and sentinel inner command was not executed |
 
+### Additional observability tests (v0.1.0)
+
+| ID | Scenario | Setup | Input | Required assertion |
+|---|---|---|---|---|
+| T31 | pre_tool_call registers | load plugin via `register()` | n/a | `pre_tool_call` hook is registered |
+| T32 | transform_terminal_output registers | load plugin via `register()` | n/a | `transform_terminal_output` hook is registered |
+| T33 | pre_tool_call observes terminal usage | call hook with tool_name="terminal" | `{"command": "echo test"}` | hook returns None (allow), logs observability info |
+| T34 | pre_tool_call ignores non-terminal tools | call hook with tool_name="read_file" | `{}` | hook returns None, no terminal-specific logging |
+| T35 | transform_terminal_output no-op | call hook | any | returns None (output unchanged) |
+
 ### Execution-test construction notes
 
 When running a transformed string in tests, use the same shell semantics Hermes uses for string commands. For a POSIX shell test harness this may be:
@@ -471,15 +597,36 @@ For the injected `unshare` shim, assert exact option ordering:
 
 The shim must reject changed ordering, missing flags, duplicate flags, extra flags, or anything other than exactly one command payload after `bash -c`.
 
-## 12. Acceptance criteria
+## 12. Observability metrics (T7.1-T7.4)
+
+The plugin tracks runtime metrics via a `Metrics` dataclass:
+
+```python
+@dataclass
+class Metrics:
+    commands_wrapped: int = 0
+    commands_passed_disabled: int = 0
+    commands_passed_no_unshare: int = 0
+    jail_crashes: int = 0
+    byte_budget_rejections: int = 0
+    wrap_time_ns_total: int = 0
+    wrap_count: int = 0
+    perf_regression_alert_count: int = 0
+```
+
+Access via `get_metrics()` and `reset_metrics()`. The performance regression check triggers when a wrap operation exceeds 50ms and is 3x the running average (after 100 samples minimum).
+
+## 13. Acceptance criteria
 
 The implementation is complete only when all of the following are true:
 
 1. The package contains `terminal_jail/__init__.py` and `terminal_jail/plugin.py` with the imports, metadata, symbols, and public signatures specified above.
-2. Both Hermes hooks are registered exactly as named.
-3. A usable `unshare` causes non-empty commands to be transformed into the specified resolved-executable + flags + `bash -c` format, with the original command quoted exactly once by `shlex.quote()`.
-4. Missing or invalid `unshare` configuration, disabled configuration, empty input, budget overflow, and unexpected transformation failures return the raw command unchanged and do not expose command contents in logs.
-5. The plugin never launches a process, buffers output, changes terminal descriptors, or implements exit handling itself.
-6. With a successful `unshare`, the terminal backend receives the inner command's exit status and inherited stdout/stderr without a plugin-created wrapper pipeline.
-7. Tests cover every test-matrix row and make no real fork bomb attempt.
-8. The normal unit suite does not depend on user-namespace permission or host `unshare` behavior; real namespace validation is isolated behind an integration marker.
+2. The plugin exports `register(ctx)` and registers `pre_tool_call` + `transform_terminal_output` hooks for observability.
+3. `transform_command` and `transform_exec_command` are importable, callable, and fully tested — but NOT wired to command execution (blocked by HOOK-GAP-01).
+4. A usable `unshare` causes non-empty commands to be transformed into the specified resolved-executable + flags + `bash -c` format, with the original command quoted exactly once by `shlex.quote()`.
+5. Missing or invalid `unshare` configuration, disabled configuration, empty input, budget overflow, and unexpected transformation failures return the raw command unchanged and do not expose command contents in logs.
+6. The plugin never launches a process, buffers output, changes terminal descriptors, or implements exit handling itself.
+7. With a successful `unshare`, the terminal backend receives the inner command's exit status and inherited stdout/stderr without a plugin-created wrapper pipeline.
+8. Tests cover every test-matrix row and make no real fork bomb attempt.
+9. The normal unit suite does not depend on user-namespace permission or host `unshare` behavior; real namespace validation is isolated behind an integration marker.
+10. The hook gap (Section 0) is documented and tracked — the plugin cannot jail commands until Hermes core adds a pre-execution command-transform hook.
