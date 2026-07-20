@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=75"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "terminal-jail"
@@ -29,6 +29,10 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/totalwindupflightsystems/terminal-jail"
 Repository = "https://github.com/totalwindupflightsystems/terminal-jail"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["plugin*"]
 
 [tool.pytest.ini_options]
 markers = [
