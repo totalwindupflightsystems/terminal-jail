@@ -115,8 +115,8 @@ Can't claim process isolation works without data to prove it.
 - [ ] **T8.2: Plugin marketplace** — publish when marketplace is available
 - [x] **T8.3: Release v1.0.0** — git tag v1.0.0, GitHub release with release notes, changelog (✓ foreman tick 2026-07-20: version bumped 0.1.0→1.0.0, Alpha→Production/Stable, CHANGELOG.md, tag pushed to origin)
 - [x] **T8.4: CONTRIBUTING.md** — how to add new hardening directives, how to test, code style (✓ this tick)
-- [ ] **T8.5: Issue templates** — bug report template, feature request template, security vulnerability disclosure
-- [ ] **T8.6: Compatibility matrix** — document tested kernel versions (5.x, 6.x, 7.x), tested Ubuntu versions (24.04, 26.04), tested Hermes versions
+- [x] **T8.5: Issue templates** — bug report template, feature request template, config.yml with security disclosure link (✓ `e0b8a06`)
+- [x] **T8.6: Compatibility matrix** — document tested kernel versions, distributions, util-linux versions, Hermes versions, Python versions (✓ `e0b8a06`)
 - [x] **T8.7: Architecture decision records** — ADR-001 through ADR-005 covering: PID namespace choice, SIGKILL semantics, bash shell, cgroup deferral, plugin observability architecture (✓ `docs/adr/0001-architecture-decisions.md`, 12,259 bytes, 5 ADRs)
 
 ## Phase 9: Security Hardening — Beyond Day 1
