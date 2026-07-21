@@ -70,7 +70,7 @@ sudo systemctl restart hermes-gateway
 ## Install
 
 ```bash
-curl -fsSL https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v0.1.0/install.sh | sh
+curl -fsSL https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v1.0.0/install.sh | sh
 ```
 
 Or set a custom install directory:

@@ -11,7 +11,7 @@ Hermes core does NOT expose a pre-execution command-transform hook. The plugin's
 **What does NOT exist:**
 - A `pre_terminal_exec` or `command_transform` hook that receives the command string and returns a modified command.
 
-**What this means for terminal-jail v0.1.0:**
+**What this means for terminal-jail v1.0.0:**
 - The wrapping functions (`transform_command`, `transform_exec_command`) exist, are importable, and are tested.
 - The plugin provides **observability only** — it registers `pre_tool_call` (logs terminal usage) and `transform_terminal_output` (no-op).
 - Commands are NOT actually wrapped in PID namespaces at execution time.
@@ -38,7 +38,7 @@ unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c <shell-quoted-ori
 
 The plugin protects the host process namespace from command behavior such as `kill`, `pkill`, `killall`, and uncontrolled descendants. The `--kill-child=SIGKILL` option ensures namespace children are killed when the namespace init exits.
 
-**Current status (v0.1.0):** The wrapping functions are implemented and tested but NOT wired to command execution. See Section 0 for the hook gap. The plugin provides terminal usage observability only.
+**Current status (v1.0.0):** The wrapping functions are implemented and tested but NOT wired to command execution. See Section 0 for the hook gap. The plugin provides terminal usage observability only.
 
 This plugin is Linux-only. It must gracefully pass commands through unchanged if `unshare` is unavailable, if the feature is disabled, or if the command is empty/whitespace-only.
 
@@ -104,7 +104,7 @@ def transform_exec_command(command: str) -> str:
 
 The callable must never return `None`, bytes, a list/tuple, a subprocess result, a shell AST, or a command array. Any internally unexpected failure must fail open: emit one warning with exception information and return the original `command` unchanged.
 
-## 4. Plugin metadata and hook registration (actual v0.1.0 implementation)
+## 4. Plugin metadata and hook registration (actual implementation)
 
 The plugin uses Hermes' `register()` pattern. `terminal_jail/__init__.py` has this structure:
 
@@ -446,7 +446,7 @@ All helpers must be side-effect-free except logging and setting the named logger
 
 ## 10. Sequence diagrams
 
-### 10.1 Current state: Observability-only (v0.1.0)
+### 10.1 Current state: Observability-only (v1.0.0)
 
 ```mermaid
 sequenceDiagram
@@ -561,7 +561,7 @@ For a real namespace integration test, mark it `@pytest.mark.integration`, skip 
 | T29 | Real PID namespace process view | integration marker; actual unshare probe passes | `test "$(ps -o pid= -p $$ | tr -d ' ')" = 1` | exits 0: shell is PID 1 inside its namespace |
 | T30 | Runtime unshare error is not retried raw | executable shim exits 125 and writes error | harmless command | terminal result is 125, stderr preserved, and sentinel inner command was not executed |
 
-### Additional observability tests (v0.1.0)
+### Additional observability tests (v1.0.0)
 
 | ID | Scenario | Setup | Input | Required assertion |
 |---|---|---|---|---|

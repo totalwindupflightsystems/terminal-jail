@@ -1,5 +1,5 @@
 name: terminal-jail
-version: "0.1.0"
+version: "1.0.0"
 description: >-
   Wrap Hermes terminal commands in a Linux PID namespace using unshare.
   Provides PID namespace isolation for every terminal command executed
