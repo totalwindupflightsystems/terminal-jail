@@ -122,8 +122,8 @@ Can't claim process isolation works without data to prove it.
 ## Phase 9: Security Hardening — Beyond Day 1
 - [x] **T9.1: Threat model document** — what attacks does terminal-jail prevent, what does it NOT prevent, what's the residual risk (✓ `docs/threat-model.md`, 25KB, 10 sections, residual risk matrix, attack surface map, 21 threats analyzed, 11 recommendations)
 - [x] **T9.2: Penetration test plan** — specific attacks to try: namespace escape via /proc, ptrace attachment, cgroup escape, seccomp bypass (✓ `b806d7e` — `docs/pentest-plan.md`, 55 scenarios, 12 attack vectors, 1082 lines)
-- [ ] **T9.3: Dependency audit** — plugin has zero deps, but verify no transitive risk from Hermes SDK
-- [ ] **T9.4: Supply chain** — sign releases with GPG, verify install.sh doesn't introduce attack surface
+- [x] **T9.3: Dependency audit** — plugin has zero deps, verify no transitive risk from Hermes SDK (✓ foreman tick 2026-07-20: `docs/dependency-audit.md`, 7 stdlib imports, zero third-party, zero network/filesystem/subprocess at runtime, zero Hermes SDK transitive risk. Verdict: MINIMAL.)
+- [~] **T9.4: Supply chain** — sign releases with GPG, verify install.sh doesn't introduce attack surface (✓ supply chain doc written: `docs/supply-chain.md`. install.sh passes all security checks. ⚠️ GPG signing blocked: no GPG keypair exists. Manual key generation required.)
 - [ ] **T9.5: Seccomp profile** — optional seccomp filter that further restricts syscalls inside the jail (landlock?)
 - [ ] **T9.6: User namespace support** — explore `unshare --user` for additional UID isolation layer
 
