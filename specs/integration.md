@@ -22,7 +22,7 @@ Two Hermes core changes have been explored to restore command-level wrapping:
 - **HOOK-GAP-01 (PR #68216):** `--sandbox` flag adding `terminal.jail_enabled` config key — wraps at the terminal backend layer (`tools/environments/local.py`), not the plugin layer.
 - **HOOK-GAP-02:** Backend-layer wrapping via `HERMES_TERMINAL_JAIL_ENABLED` env var in `_run_bash()`.
 
-Neither is merged upstream as of v0.1.0. The systemd-only architecture is the production deployment path.
+Neither is merged upstream as of v1.0.0. The systemd-only architecture is the production deployment path.
 
 ## Security goals
 

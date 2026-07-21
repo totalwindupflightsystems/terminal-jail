@@ -3,7 +3,7 @@
 set -eu
 
 # --- defaults ----------------------------------------------------------------
-TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-0.1.0}"
+TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.0.0}"
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
 

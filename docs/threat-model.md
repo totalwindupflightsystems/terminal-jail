@@ -21,7 +21,7 @@ Terminal-jail consists of three independently deployable layers:
 | Layer | Function | Status | Enforcement |
 |-------|----------|--------|-------------|
 | **systemd drop-in** | PID namespace isolation, privilege restriction, /proc filtering, network restriction, resource limits | Primary containment boundary | Kernel-enforced |
-| **Hermes plugin** | Terminal command observability, metrics, byte-budget enforcement | Observability only (v0.1.0) | Python hooks |
+| **Hermes plugin** | Terminal command observability, metrics, byte-budget enforcement | Observability only (v1.0.0) | Python hooks |
 | **Standalone CLI** | `unshare` PID namespace wrapping for manual/automated use | Portable fallback | User-invoked |
 
 ### 2.2 Trust Boundaries
