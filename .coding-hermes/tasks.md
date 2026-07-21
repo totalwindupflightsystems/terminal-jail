@@ -121,7 +121,7 @@ Can't claim process isolation works without data to prove it.
 
 ## Phase 9: Security Hardening — Beyond Day 1
 - [x] **T9.1: Threat model document** — what attacks does terminal-jail prevent, what does it NOT prevent, what's the residual risk (✓ `docs/threat-model.md`, 25KB, 10 sections, residual risk matrix, attack surface map, 21 threats analyzed, 11 recommendations)
-- [ ] **T9.2: Penetration test plan** — specific attacks to try: namespace escape via /proc, ptrace attachment, cgroup escape, seccomp bypass
+- [x] **T9.2: Penetration test plan** — specific attacks to try: namespace escape via /proc, ptrace attachment, cgroup escape, seccomp bypass (✓ `b806d7e` — `docs/pentest-plan.md`, 55 scenarios, 12 attack vectors, 1082 lines)
 - [ ] **T9.3: Dependency audit** — plugin has zero deps, but verify no transitive risk from Hermes SDK
 - [ ] **T9.4: Supply chain** — sign releases with GPG, verify install.sh doesn't introduce attack surface
 - [ ] **T9.5: Seccomp profile** — optional seccomp filter that further restricts syscalls inside the jail (landlock?)
