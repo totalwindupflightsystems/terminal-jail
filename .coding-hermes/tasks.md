@@ -120,7 +120,7 @@ Can't claim process isolation works without data to prove it.
 - [x] **T8.7: Architecture decision records** — ADR-001 through ADR-005 covering: PID namespace choice, SIGKILL semantics, bash shell, cgroup deferral, plugin observability architecture (✓ `docs/adr/0001-architecture-decisions.md`, 12,259 bytes, 5 ADRs)
 
 ## Phase 9: Security Hardening — Beyond Day 1
-- [ ] **T9.1: Threat model document** — what attacks does terminal-jail prevent, what does it NOT prevent, what's the residual risk
+- [x] **T9.1: Threat model document** — what attacks does terminal-jail prevent, what does it NOT prevent, what's the residual risk (✓ `docs/threat-model.md`, 25KB, 10 sections, residual risk matrix, attack surface map, 21 threats analyzed, 11 recommendations)
 - [ ] **T9.2: Penetration test plan** — specific attacks to try: namespace escape via /proc, ptrace attachment, cgroup escape, seccomp bypass
 - [ ] **T9.3: Dependency audit** — plugin has zero deps, but verify no transitive risk from Hermes SDK
 - [ ] **T9.4: Supply chain** — sign releases with GPG, verify install.sh doesn't introduce attack surface
