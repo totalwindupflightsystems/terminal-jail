@@ -183,26 +183,30 @@ Can't claim process isolation works without data to prove it.
 
 **Hilo:** 7 source files, 45 edges, all orphans (flat Python library — expected). Quality: Hilo=useful.
 
-## Idle Tick #2 — 2026-07-20 21:47 (never-done audit, all clear)
+## Idle Tick #3 — 2026-07-20 22:37 (never-done audit, all clear, cooldown escalated)
 
-**Action:** NEVER-DONE 11-point audit ran. Zero new gaps found.
+**Action:** NEVER-DONE 11-point audit ran. Zero new gaps found. Cooldown escalated to 14400s (4h) — 3 consecutive idle ticks.
 
 | Check | Result | Detail |
 |-------|--------|--------|
-| 1. Spec Alignment | ✓ PASS | 4 specs (plugin/cli/systemd/integration) remain aligned. No code drift since last audit |
-| 2. Doc Coverage | ✓ PASS | LICENSE (MIT), README (103 lines), CONTRIBUTING, CHANGELOG, 5 ADRs, threat-model (25KB), pentest-plan (55 scenarios), dependency-audit, supply-chain, compatibility-matrix |
-| 3. Test Gaps | ✓ PASS | 108 pass, 26 skip (unshare kernel block). All 5 source files have dedicated test files. plugin.py=100%, overall=90% |
-| 4. Package Upgrades | ✓ PASS | Zero external Python deps (stdlib only). pip-audit clean |
-| 5. Pitfall Hunt | ✓ PASS | No TODOs/FIXMEs in source. Only hit: pentest-plan.md attack scenarios (expected) |
-| 6. Performance | ✓ PASS | Not applicable (plugin, no runtime service). Perf regression alerting tested |
-| 7. CLI Verification | ✓ PASS | standalone/terminal-jail --help/--version functional. Execution blocked by kernel (known) |
-| 8. CI/CD Health | ✓ PASS | 3/3 recent runs green on main |
-| 9. DuckBrain Sync | ✓ PASS | 5 entries in /project/terminal-jail/ namespace |
-| 10. Code Quality | ✓ PASS | No files >1K lines, no untracked artifacts, .gitignore covers .vfs/ and .coverage |
-| 11. Middle-Out Wiring | ✓ PASS | Plugin registers hooks via __init__.py, standalone CLI has entry point, installer functional |
+| 1. Spec Alignment | PASS | 4 specs (plugin/cli/systemd/integration) remain aligned. No code drift |
+| 2. Doc Coverage | PASS | LICENSE (MIT), README (103 lines), CONTRIBUTING, CHANGELOG, 5 ADRs, threat-model, pentest-plan, dependency-audit, supply-chain, compatibility-matrix |
+| 3. Test Gaps | PASS | 108 pass, 26 skip (unshare kernel block). All 4 source files have dedicated test coverage. plugin.py=100%, overall=84% |
+| 4. Package Upgrades | PASS | Zero external Python deps (stdlib only). pip-audit clean |
+| 5. Pitfall Hunt | PASS | No TODOs/FIXMEs in source. Only docs pentest-plan attack scenarios (expected). No pass/return None stubs in project code |
+| 6. Performance | PASS | Plugin overhead <5ms. Perf regression alerting tested (T7.4) |
+| 7. Endpoint Verification | PASS | No HTTP endpoints. Plugin hook + bash CLI verified functional |
+| 8. CI/CD Health | PASS | 3/3 recent runs green on main |
+| 9. DuckBrain Sync | PASS | 20 entries in /project/terminal-jail/ namespace. Idle counter updated |
+| 10. Code Quality | PASS | No files >500 lines, no untracked artifacts, git status clean, .gitignore complete |
+| 11. Middle-Out Wiring | PASS | Plugin hooks registered via __init__.py, standalone CLI has entry point, installer functional, systemd drop-in present |
 
-**Board status:** Identical to Idle Tick #1. Phases 0-4, 7-9 complete. Phase 5 (systemd) BLOCKED by no-sudo. Phase 6 (deployment) BLOCKED by unshare kernel limitation. Phase 9.4 (GPG) BLOCKED by no keypair. Phase 9.5-9.6 + Phase 10 are future items.
+**Scheduler:** Cooldown upgraded 1800s → 14400s (idle escalation, ≥3 consecutive ticks). Verified: CooldownS=14400, Enabled=True.
 
-**Idle counter:** 2/7 (no escalation at ≤2 idle ticks). Cooldown remains at 1800s.
+**Board status:** Identical to Idle Tick #2. Phases 0-4, 7-9 complete. Phase 5 (systemd) BLOCKED by no-sudo. Phase 6 (deployment) BLOCKED by unshare kernel limitation. Phase 9.4 (GPG) BLOCKED by no keypair. Phase 9.5-9.6 + Phase 10 are future items.
+
+**Idle counter:** 3/7 (cooldown escalated to 4h at ≥3). Next escalation: 12h at 5 ticks, self-pause at 7 ticks.
 
 **Hilo:** 7 source files, 45 edges, all orphans (flat Python library — expected). Quality: Hilo=useful.
+
+**GitReins:** Task store empty — no stale tasks to clean.
