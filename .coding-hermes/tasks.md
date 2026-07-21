@@ -158,3 +158,27 @@ Can't claim process isolation works without data to prove it.
 - **Root cause:** Ruff lint job failing with 10 errors: unused imports (F401) in `plugin/__init__.py`, `plugin/terminal_jail/__init__.py`, `plugin/terminal_jail/plugin.py`; unused variables (F841) in `_on_transform_terminal_output`. Tests and audit jobs passed — only lint failed.
 - **Fix:** Removed unused imports (`os`, `shlex`, `shutil`, `_configure_logger`, `transform_command`, `transform_exec_command`, `field`), removed unused variables (`jail_enabled`, `unshare_available` from `_on_transform_terminal_output`), marked re-exports with `# noqa: F401`. 87 tests pass. Ruff clean.
 - **Commit:** `20847c9`
+
+## Idle Tick #1 — 2026-07-20 21:09 (never-done audit, all clear)
+
+**Action:** NEVER-DONE 11-point audit ran. Zero new gaps found.
+
+| Check | Result | Detail |
+|-------|--------|--------|
+| 1. Spec Alignment | ✓ PASS | 4 specs (plugin/cli/systemd/integration) match code. Plugin spec accurately documents observability-only limitation |
+| 2. Doc Coverage | ✓ PASS | LICENSE (MIT), README (103 lines), CONTRIBUTING, CHANGELOG, 5 docs/ files, ADR records |
+| 3. Test Gaps | ✓ PASS | 108 pass, 26 skip (unshare kernel block). All source files have dedicated tests |
+| 4. Package Upgrades | ✓ PASS | Zero external Python deps (stdlib only) |
+| 5. Pitfall Hunt | ✓ PASS | No TODOs/FIXMEs, no stubs, no hardcoded paths |
+| 6. Performance | ✓ PASS | Perf regression alerting tested (test_t74_*), timing instrumented |
+| 7. CLI Verification | ✓ PASS | standalone/terminal-jail --help works, install.sh functional (11 tests) |
+| 8. CI/CD Health | ✓ PASS | 3/3 recent runs green on main |
+| 9. DuckBrain Sync | ✓ PASS | 15 entries in /project/terminal-jail/ namespace |
+| 10. Code Quality | ✓ PASS | No files >1K lines, no untracked artifacts, .gitignore clean |
+| 11. Middle-Out Wiring | ✓ PASS | Plugin registers hooks via __init__.py, standalone CLI has entry point |
+
+**Board status:** Phases 0-4, 7-9 complete. Phase 5 (systemd) BLOCKED by no-sudo. Phase 6 (deployment) BLOCKED by unshare kernel limitation. Phase 9.4 (GPG) BLOCKED by no keypair. Phase 9.5-9.6 + Phase 10 are future items. No new actionable tasks.
+
+**Idle counter:** 1/7 (no action at ≤2 idle ticks). Cooldown at 1800s.
+
+**Hilo:** 7 source files, 45 edges, all orphans (flat Python library — expected). Quality: Hilo=useful.
