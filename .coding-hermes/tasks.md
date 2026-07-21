@@ -31,6 +31,6 @@
 **Phase 8 (Distribution):** Hermes core PR submitted, v1.0.0 release, CONTRIBUTING.md, issue templates, compatibility matrix, 5 ADRs.
 **Phase 9 (Security):** Threat model (25KB, 21 threats), penetration test plan (55 scenarios), dependency audit (zero deps), supply chain doc. GPG + seccomp + user namespaces pending.
 **HOOK-GAP:** Hermes core lacks pre-execution command-transform hook. Resolution paths: Hermes core PR for `--sandbox` flag (submitted), terminal backend wrapper, systemd-only isolation. Plugin provides observability only until hook exists.
-**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 108 pass / 26 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). Zero new gaps found in never-done audit. Cooldown at 14400s (4h). Idle tick #5.
+**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 108 pass / 26 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (5 entries: 2 decisions, 2 pitfalls, 1 status). Cooldown at 14400s (4h). Idle tick #6 — all clear.
 
 ## [ ] NEVER-DONE — Run 11-point audit next tick
