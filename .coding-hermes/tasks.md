@@ -210,3 +210,29 @@ Can't claim process isolation works without data to prove it.
 **Hilo:** 7 source files, 45 edges, all orphans (flat Python library — expected). Quality: Hilo=useful.
 
 **GitReins:** Task store empty — no stale tasks to clean.
+
+## Idle Tick #4 — 2026-07-21 00:13 (zombie tick, minimal sweep, cooldown re-fixed)
+
+**⚠️ ZOMBIE detected.** Cron job `3568974b187f` is PAUSED ("Paused by scheduler migration — daemon on :9090") but the scheduler daemon spawned this tick via Fleet TOML `ApplyFleetConfig` upsert. Cooldown reverted 14400s → 1800s (daemon restart). Re-fixed to 14400s via API PUT.
+
+**Action:** Minimal discovery sweep only (BAIL EARLY pattern). Full 11-point audit skipped — project genuinely complete, zero actionable tasks, no code changes to audit.
+
+| Check | Result | Detail |
+|-------|--------|--------|
+| Build | PASS | Plugin imports OK |
+| Tests | PASS | 108 pass, 26 skip (unshare kernel block) |
+| TODOs | PASS | Zero TODOs/FIXMEs/HACKs in source |
+| Git Status | PASS | Clean, nothing uncommitted |
+| CI/CD | PASS | Latest run green (run #29799047907, idle tick #3) |
+
+**Scheduler:** Cooldown reverted to 1800s by daemon restart → re-fixed to 14400s via API PUT (reversion #1). Verified: CooldownS=14400, Enabled=True, NamespaceID=coding-hermes.
+
+**Board status:** Unchanged from Idle Tick #3. Phases 0-4, 7-9 complete. Phase 5 (systemd) BLOCKED by no-sudo. Phase 6 (deployment) BLOCKED by unshare kernel limitation. Phase 9.4 (GPG) BLOCKED by no keypair. Phase 9.5-9.6 + Phase 10 are future items.
+
+**Idle counter:** 4/7. Cooldown at 4h (re-fixed from daemon reversion). Next escalation: 12h at 5 ticks, escalate to Bane with disable instructions at 7 ticks.
+
+**Zombie kill root cause:** Fleet TOML `ApplyFleetConfig` upsert on daemon restart re-enables all TOML projects regardless of cron pause state. Permanent fix requires `enabled = false` in the fleet TOML config file — API disables and cron pauses do not survive daemon restart.
+
+**Hilo:** Skipped (no code changes since last warm — 7 files, 45 edges).
+
+**GitReins:** Task store empty — no stale tasks to clean.
