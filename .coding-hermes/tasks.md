@@ -9,11 +9,11 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
-| U01-G5 | Combined `--user --seccomp` test | Medium | 2 | — | +testing | MiniMax-M3 | — | Kimi-K3 |
-| U01-G6 | Seccomp env var naming inconsistency — doc note | Low | 1 | — | +docs | — | Foreman-direct (mechanical) | — |
+| U01-G5 | Combined `--user --seccomp` test | Medium | 2 | — | +testing | MiniMax-M3 | ✅ DONE (dbb2f5c) | Kimi-K3 |
+| U01-G6 | Seccomp env var naming inconsistency — doc note | Low | 1 | — | +docs | — | ✅ DONE (0e7e07b) | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**U01 update 2026-07-22 04:55:** G6 (doc fix) completed — README env var table now lists `TERMINAL_JAIL_SECCOMP` with naming inconsistency note and `HERMES_TERMINAL_JAIL_USER_NS`. G5 pending — needs test for combined `--user --seccomp`. **Idle counter: RESET to 0** (new actionable work discovered). **Cooldown: reset to 900s** (speed-up on new work — U01-G5 is actionable).
+**U01 update 2026-07-22 05:20:** G5 completed (commit `dbb2f5c`) — added `test_combined_user_seccomp` to standalone CLI tests. G6 (doc fix) completed. All 6 audit gaps now resolved (4 fixed in prior tick, 2 fixed this tick). **Idle counter: 0** (real work completed). **Cooldown: 900s** (active project).
 
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
