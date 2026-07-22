@@ -57,6 +57,8 @@ Configuration via environment variables:
 | `HERMES_TERMINAL_JAIL_COMMAND` | `unshare` | Path to `unshare` binary |
 | `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` | `131072` | Max command length for logging |
 | `HERMES_TERMINAL_JAIL_LOG_LEVEL` | `WARNING` | Python logging level |
+| `HERMES_TERMINAL_JAIL_USER_NS` | `false` | Enable user namespace isolation (`true`/`false`/`1`/`0`) |
+| `TERMINAL_JAIL_SECCOMP` ⚠️ | `0` | Enable seccomp BPF filter (`1`/`true`/`yes`/`on`). **Note:** does not use `HERMES_TERMINAL_JAIL_` prefix — legacy naming from pre-plugin seccomp module. |
 
 ### systemd Hardening (PRIMARY isolation)
 

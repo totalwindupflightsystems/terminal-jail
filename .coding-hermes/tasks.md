@@ -9,9 +9,9 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
+| U01-G5 | Combined `--user --seccomp` test | Medium | 2 | — | +testing | MiniMax-M3 | — | Kimi-K3 |
+| U01-G6 | Seccomp env var naming inconsistency — doc note | Low | 1 | — | +docs | — | Foreman-direct (mechanical) | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
-| U01-G5 | Add test for combined `--user --seccomp` in standalone CLI | Low | 1 | — | +testing, +standalone-cli | DS-V4-Flash | Low | GLM-5.2 |
-| U01-G6 | Document seccomp env var naming convention (TERMINAL_JAIL_SECCOMP vs HERMES_TERMINAL_JAIL_*) | Low | 1 | — | +docs | — | Foreman-direct (mechanical doc fix) | — |
 
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
