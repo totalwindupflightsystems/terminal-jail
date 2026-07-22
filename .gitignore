@@ -10,3 +10,7 @@ uv.lock
 .vfs/graph/graph.db
 .vfs/graph/graph.db.wal
 .vfs/graph/.last_warm
+
+# T10.1 — kernel watchdog runtime state
+scripts/.kernel-watchdog-state
+logs/
