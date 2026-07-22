@@ -84,7 +84,7 @@ def register(ctx) -> None:
     ctx.register_hook("transform_terminal_output", _on_transform_terminal_output)
 
     logger.info(
-        "terminal-jail v0.1.0 loaded. "
+        "terminal-jail v1.0.0 loaded. "
         "NOTE: pre-execution command wrapping requires Hermes core "
         "pre-execution hooks (see task HOOK-GAP-01). "
         "Observability hooks registered."

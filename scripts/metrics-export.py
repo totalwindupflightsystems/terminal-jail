@@ -31,9 +31,9 @@ def _metrics_to_dict() -> dict:
     d = dataclasses.asdict(m)
     d["timestamp"] = datetime.now(timezone.utc).isoformat()
     d["project"] = "terminal-jail"
-    d["version"] = "0.1.0"
+    d["version"] = "1.0.0"
     # Derived fields for dashboarding
-    total_commands = m.commands_wrapped + m.commands_passed_disabled + m.commands_passed_no_unshare
+    total_commands = m.commands_wrapped + m.commands_wrapped_user_ns + m.commands_passed_disabled + m.commands_passed_no_unshare
     d["total_commands_observed"] = total_commands
     d["wrap_rate"] = m.commands_wrapped / total_commands if total_commands > 0 else 0.0
     d["crash_rate"] = m.jail_crashes / total_commands if total_commands > 0 else 0.0
@@ -60,6 +60,7 @@ def main() -> None:
         print("=== terminal-jail metrics ===")
         print(f"  timestamp:                {data['timestamp']}")
         print(f"  commands_wrapped:         {data['commands_wrapped']}")
+        print(f"  commands_wrapped_user_ns: {data['commands_wrapped_user_ns']}")
         print(f"  commands_passed_disabled: {data['commands_passed_disabled']}")
         print(f"  commands_passed_no_unshare: {data['commands_passed_no_unshare']}")
         print(f"  jail_crashes:             {data['jail_crashes']}")

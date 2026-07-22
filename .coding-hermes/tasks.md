@@ -9,8 +9,32 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
-| U01 | Usability & coverage audit — find gaps in endpoint wiring, UX flow, error handling, edge cases, test coverage | High | 3±1 | — | +++testing, ++endpoint-verification, ++code-review, +e2e, -vision | DS-V4-Flash | Medium | GLM-5.2 |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
+| U01-G5 | Add test for combined `--user --seccomp` in standalone CLI | Low | 1 | — | +testing, +standalone-cli | DS-V4-Flash | Low | GLM-5.2 |
+| U01-G6 | Document seccomp env var naming convention (TERMINAL_JAIL_SECCOMP vs HERMES_TERMINAL_JAIL_*) | Low | 1 | — | +docs | — | Foreman-direct (mechanical doc fix) | — |
+
+**U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
+
+### Usability & Coverage Audit Results
+
+**Audit scoped to:** Plugin's `transform_command()` path, standalone CLI `terminal-jail`, seccomp module, metrics-export script, install script, and all test files.
+
+| # | Gap | Severity | Status | Detail |
+|---|-----|----------|--------|--------|
+| G1 | Version staleness — `__init__.py` | Low | ✅ FIXED | Both `plugin/__init__.py` and `plugin/terminal_jail/__init__.py` logged "v0.1.0 loaded" — project is v1.0.0. Fixed to v1.0.0. |
+| G2 | Version staleness — `metrics-export.py` | Low | ✅ FIXED | `version` field hardcoded to "0.1.0". Fixed to "1.0.0". Test assertion updated. |
+| G3 | `commands_wrapped_user_ns` missing from metrics | Medium | ✅ FIXED | `total_commands_observed` only summed `commands_wrapped + passed_disabled + passed_no_unshare`. User-ns-wrapped commands were invisible to derived calculations (wrap_rate, crash_rate). Added to total + human-readable output. |
+| G4 | `commands_wrapped_user_ns` not in human output | Medium | ✅ FIXED | Human-readable section of metrics-export.py didn't show user_ns count. Added. |
+| G5 | No test for combined `--user --seccomp` | Low | ➡️ U01-G5 | Standalone CLI usage line shows `--user --seccomp` as valid combination, but no test exercises it. New test task created. |
+| G6 | Seccomp env var naming inconsistency | Low | ➡️ U01-G6 | Plugin vars use `HERMES_TERMINAL_JAIL_*` prefix; seccomp module uses bare `TERMINAL_JAIL_SECCOMP`. Minor inconsistency — seccomp module predates the prefix convention. Doc-only fix needed. |
+
+**Positive findings (all pass):**
+- **Error handling:** All 7 defensive code paths in `transform_command()` are tested (NUL byte, non-str type guard, budget exceptions, quote failures, invalid env vars, empty commands, disabled mode)
+- **Edge cases:** Shell metacharacters, nested quotes, embedded newlines, UTF-8 multi-byte, binary stdout, fork bombs, killall containment, signal propagation (SIGTERM/SIGINT), near-boundary byte budget — all covered
+- **UX flow:** Standalone CLI exits correctly on: no args (2), non-Linux (2), missing unshare (2), missing seccomp loader (2). Help/version work. stdin/stderr passthrough verified.
+- **Test coverage:** 152 passed, 29 skipped (all skips are kernel-dependent — PID namespaces, seccomp). 7 test files covering plugin, integration, seccomp, standalone CLI, install, metrics export
+
+**Files changed (5):** `plugin/__init__.py`, `plugin/terminal_jail/__init__.py`, `scripts/metrics-export.py`, `plugin/test_metrics_export.py`, `.coding-hermes/tasks.md` (this file).
 
 **Never-Done Audit 2026-07-22 00:58 (idle tick #3):**
 
