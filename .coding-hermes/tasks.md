@@ -31,6 +31,6 @@
 **Phase 8 (Distribution):** Hermes core PR submitted, v1.0.0 release, CONTRIBUTING.md, issue templates, compatibility matrix, 5 ADRs.
 **Phase 9 (Security):** Threat model (25KB, 21 threats), penetration test plan (55 scenarios), dependency audit (zero deps), supply chain doc. GPG + seccomp + user namespaces pending.
 **HOOK-GAP:** Hermes core lacks pre-execution command-transform hook. Resolution paths: Hermes core PR for `--sandbox` flag (submitted), terminal backend wrapper, systemd-only isolation. Plugin provides observability only until hook exists.
-**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 108 pass / 26 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (5 entries: 2 decisions, 2 pitfalls, 1 status). Cooldown at 14400s (4h). Idle tick #6 — all clear.
+**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 108 pass / 26 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (27 entries). Cooldown at 1800s (30m — reverted from 14400 after daemon restart). **Idle counter: 0** (reset — productive tick 2026-07-21 20:30: committed Hilo manifest.yaml). All 11 never-done checks pass with zero findings beyond the .vfs commit.
 
 ## [ ] NEVER-DONE — Run 11-point audit next tick
