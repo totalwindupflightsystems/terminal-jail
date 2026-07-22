@@ -50,7 +50,7 @@ Completed 2026-07-21. Commit `24d0a38`. 128-line `scripts/kernel-watchdog.sh`: m
 | 10. Code Quality | ✅ PASS | No files > 500 lines. No untracked build artifacts. `.gitignore` clean. |
 | 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired to both hooks. CLI standalone executable. install.sh present. systemd drop-in present. All imports verified. |
 
-**Verdict: ALL 11 CHECKS PASS.** No new tasks created. Project is genuinely complete — all actionable tasks are BLOCKED by host kernel/sudo limitations. Idle tick #1. Next tick → #2.
+**Verdict: ALL 11 CHECKS PASS.** No new tasks created. Project is genuinely complete — all actionable tasks are BLOCKED by host kernel/sudo limitations. Idle counter: 0 — reset after T10.1 kernel watchdog completion.
 
 ## [x] T9.5 — Seccomp profile: optional syscall filter inside jail
 
