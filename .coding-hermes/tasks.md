@@ -9,7 +9,7 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
-| T10.1-T10.5 | Phase 10: Maintenance — T10.1 ✅ kernel watchdog, unshare tracking, LKML, quarterly review, PR SLA | Low | 2-3 | None | +infra, +documentation | DeepSeek V4 Flash | T10.1 done (commit 24d0a38). T10.2-T10.5 remain — mechanical | — |
+| T10.1-T10.5 | Phase 10: Maintenance — T10.1 ✅ kernel watchdog, T10.2 ✅ unshare tracker, LKML, quarterly review, PR SLA | Low | 2-3 | None | +infra, +documentation | DeepSeek V4 Flash | T10.1 done (24d0a38), T10.2 done (73488d3). T10.3-T10.5 remain — mechanical | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
 **Assumptions:** Host kernel 7.0.0-27 blocks `unshare --mount-proc` for unprivileged users; systemd tasks require sudo (unavailable); GPG keypair requires manual generation; user namespace `--map-auto`/`--map-root-user` blocked by AppArmor (kernel.apparmor_restrict_unprivileged_userns=1) — process runs as nobody without UID mapping.
