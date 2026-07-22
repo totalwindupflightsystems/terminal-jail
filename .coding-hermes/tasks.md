@@ -9,11 +9,25 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
-| U01-G5 | Combined `--user --seccomp` test | Medium | 2 | — | +testing | MiniMax-M3 | ✅ DONE (dbb2f5c) | Kimi-K3 |
-| U01-G6 | Seccomp env var naming inconsistency — doc note | Low | 1 | — | +docs | — | ✅ DONE (0e7e07b) | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**U01 update 2026-07-22 05:22:** G5 completed (commit `dbb2f5c`) — added `test_combined_user_seccomp` to standalone CLI tests. G6 (doc fix) completed. All 6 audit gaps now resolved (4 fixed in prior tick, 2 fixed this tick). **Idle counter: 1** (G5/G6 done, discovery sweep clean — all remaining tasks BLOCKED). **Cooldown: 900s** (idle ticks 1-2, escalate to 4h at tick 3).
+**Never-Done Audit 2026-07-22 05:26 (idle tick #2):**
+
+| Check | Result | Detail |
+|-------|--------|--------|
+| 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd), 1793 total lines |
+| 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, 1 ADR, 9 docs (2028 lines) |
+| 3. Test Gaps | ✅ PASS | 153 pass, 29 skip (kernel-dependent). Zero TODOs/FIXMEs in source |
+| 4. Package Upgrades | ✅ PASS | Zero external Python deps. No vulnerabilities |
+| 5. Pitfall Hunt | ✅ PASS | No TODOs/FIXMEs. No stub functions |
+| 6. Performance | ✅ N/A | CLI plugin — no benchmarks needed |
+| 7. Endpoint/CLI | ✅ PASS | `--help` and `--version` work correctly (v1.0.0) |
+| 8. CI/CD | ✅ PASS | All 3 recent CI runs green |
+| 9. DuckBrain | ✅ PASS | 43 entries across 14 categories |
+| 10. Code Quality | ✅ PASS | Ruff clean. `.gitignore` covers build artifacts, Hilo cache, runtime state |
+| 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired to both hooks. CLI standalone. install.sh + systemd drop-in present |
+
+**Verdict: ALL 11 CHECKS PASS.** Zero new tasks created. U01-G5/G6 completed — all 6 audit gaps now resolved. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 2** (was 1). **Cooldown: 900s** (idle ticks 1-2, escalate to 4h at tick 3). Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected).
 
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
