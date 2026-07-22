@@ -13,6 +13,8 @@
 | U01-G6 | Seccomp env var naming inconsistency — doc note | Low | 1 | — | +docs | — | Foreman-direct (mechanical) | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
+**U01 update 2026-07-22 04:55:** G6 (doc fix) completed — README env var table now lists `TERMINAL_JAIL_SECCOMP` with naming inconsistency note and `HERMES_TERMINAL_JAIL_USER_NS`. G5 pending — needs test for combined `--user --seccomp`. **Idle counter: RESET to 0** (new actionable work discovered). **Cooldown: reset to 900s** (speed-up on new work — U01-G5 is actionable).
+
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
 ### Usability & Coverage Audit Results
