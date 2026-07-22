@@ -9,7 +9,7 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
-| T10.1-T10.5 | Phase 10: Maintenance — kernel watchdog, unshare tracking, LKML, quarterly review, PR SLA | Low | 2-3 | None | +infra, +documentation | DeepSeek V4 Flash | Mechanical monitoring/process tasks | — |
+| T10.1-T10.5 | Phase 10: Maintenance — T10.1 ✅ kernel watchdog, unshare tracking, LKML, quarterly review, PR SLA | Low | 2-3 | None | +infra, +documentation | DeepSeek V4 Flash | T10.1 done (commit 24d0a38). T10.2-T10.5 remain — mechanical | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
 **Assumptions:** Host kernel 7.0.0-27 blocks `unshare --mount-proc` for unprivileged users; systemd tasks require sudo (unavailable); GPG keypair requires manual generation; user namespace `--map-auto`/`--map-root-user` blocked by AppArmor (kernel.apparmor_restrict_unprivileged_userns=1) — process runs as nobody without UID mapping.
@@ -29,9 +29,13 @@
 **Phase 8 (Distribution):** Hermes core PR submitted, v1.0.0 release, CONTRIBUTING.md, issue templates, compatibility matrix, 5 ADRs.
 **Phase 9 (Security):** Threat model (25KB, 21 threats), penetration test plan (55 scenarios), dependency audit (zero deps), supply chain doc. **T9.5 (Seccomp) DONE** (commit `6f81001`): 484-line seccomp module with dual-arch BPF filter (x86_64, aarch64), standalone loader script, CLI `--seccomp` integration, 37 unit tests. **T9.6 (User Namespaces) DONE** (commit `00668b7`): optional `--user` flag via `HERMES_TERMINAL_JAIL_USER_NS` env var. Adds user namespace isolation (nobody=65534), drops `--mount-proc` (incompatible with unprivileged user NS). 7 new unit tests. Standalone CLI `--user` flag. AppArmor blocks UID mapping on kernel 7.0.0-27, so process runs as nobody without explicit mapping — provides UID-based file isolation. GPG pending.
 **HOOK-GAP:** Hermes core lacks pre-execution command-transform hook. Resolution paths: Hermes core PR for `--sandbox` flag (submitted), terminal backend wrapper, systemd-only isolation. Plugin provides observability only until hook exists.
-**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 152 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (31 entries — updated). Cooldown at 1800s (30m). **Idle counter: 0** — reset after productive tick (T9.6 user namespace).
+**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 152 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (31 entries — updated). Cooldown at 1800s (30m). **Idle counter: 0** — reset after productive tick (T10.1 kernel watchdog + typo fixes).
 
-**Never-Done Audit 2026-07-21 21:53:**
+## [x] T10.1 — Kernel compatibility watchdog script
+
+Completed 2026-07-21. Commit `24d0a38`. 128-line `scripts/kernel-watchdog.sh`: monitors `unprivileged_userns_clone`, AppArmor restrict, and unshare binary availability. JSON and human-readable output. State tracking for regression detection. Two typo bugs (`$USRNS_CLONE_PATH` → `$USERNS_CLONE_PATH`) fixed by foreman before commit. Guard: PASS. Script verified functional on kernel 7.0.0-27.
+
+**Never-Done Audit 2026-07-21 22:38:**
 | Check | Result | Detail |
 |-------|--------|--------|
 | 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd), 1793 total lines, cover all 4 source files |
