@@ -91,7 +91,7 @@ def test_json_output_field_types():
     # Metadata fields
     assert isinstance(data["timestamp"], str)
     assert data["project"] == "terminal-jail"
-    assert data["version"] == "0.1.0"
+    assert data["version"] == "1.0.0"
 
 
 def test_json_derived_values_with_zeros():
