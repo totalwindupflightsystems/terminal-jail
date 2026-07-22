@@ -9,18 +9,23 @@ SCRIPT_DIR="${0%/*}"
 SCRIPT_DIR="$(cd "$SCRIPT_DIR" && pwd)"
 SECCOMP_LOADER="${SCRIPT_DIR}/seccomp-loader.py"
 USE_SECCOMP=0
+USE_USER_NS=0
 
 usage() {
     cat <<'EOF'
 Usage: terminal-jail <command> [args...]
+       terminal-jail --user <command> [args...]
        terminal-jail --seccomp <command> [args...]
+       terminal-jail --user --seccomp <command> [args...]
        terminal-jail --help
        terminal-jail --version
 
-Run COMMAND in a new Linux PID namespace with a namespace-local /proc.
-Arguments are passed without shell re-parsing.
+Run COMMAND in a new Linux PID namespace. Arguments are passed without
+shell re-parsing.
 
 Options:
+  --user         Add user namespace isolation (process runs as nobody=65534).
+                 Incompatible with --mount-proc; /proc shows host PIDs.
   --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
                  (mount, pivot_root, kexec_load, etc.) inside the jail.
                  Controlled by TERMINAL_JAIL_SECCOMP env var (default off).
@@ -45,15 +50,27 @@ if [ $# -eq 1 ]; then
     esac
 fi
 
-# Check for --seccomp as first positional argument
-if [ "$1" = "--seccomp" ]; then
-    USE_SECCOMP=1
-    shift
-    if [ $# -eq 0 ]; then
-        echo "terminal-jail: --seccomp requires a command" >&2
-        usage >&2
-        exit 2
-    fi
+# Parse optional flags: --user and --seccomp (any order, both before command).
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --user)
+            USE_USER_NS=1
+            shift
+            ;;
+        --seccomp)
+            USE_SECCOMP=1
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [ $# -eq 0 ]; then
+    echo "terminal-jail: a command is required" >&2
+    usage >&2
+    exit 2
 fi
 
 # --- preflight ----------------------------------------------------------------
@@ -70,6 +87,18 @@ fi
 
 # --- launch -------------------------------------------------------------------
 
+# Build unshare flags.
+UNSHARE_FLAGS="--pid --fork --kill-child=SIGKILL"
+
+if [ "$USE_USER_NS" -eq 1 ]; then
+    # --user provides UID isolation (nobody=65534).
+    # Do NOT add --mount-proc — it requires CAP_SYS_ADMIN and is incompatible
+    # with unprivileged user namespaces.
+    UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
+else
+    UNSHARE_FLAGS="$UNSHARE_FLAGS --mount-proc"
+fi
+
 if [ "$USE_SECCOMP" -eq 1 ]; then
     if [ ! -f "$SECCOMP_LOADER" ]; then
         echo "terminal-jail: seccomp loader not found at ${SECCOMP_LOADER}" >&2
@@ -79,16 +108,10 @@ if [ "$USE_SECCOMP" -eq 1 ]; then
     # The seccomp filter must be applied inside the PID namespace.
     # We use the loader script which applies the filter, then exec's the command.
     exec unshare \
-        --pid \
-        --fork \
-        --mount-proc \
-        --kill-child=SIGKILL \
+        $UNSHARE_FLAGS \
         bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
 else
     exec unshare \
-        --pid \
-        --fork \
-        --mount-proc \
-        --kill-child=SIGKILL \
+        $UNSHARE_FLAGS \
         bash -c 'exec "$@"' terminal-jail "$@"
 fi
