@@ -9,15 +9,14 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
-| T9.6 | User namespace support — explore `unshare --user` for UID isolation | Low | 5 | None | ++security, ++backend | GLM-5.2 | Additional isolation layer; kernel namespace interaction | DeepSeek V4 Pro |
 | T10.1-T10.5 | Phase 10: Maintenance — kernel watchdog, unshare tracking, LKML, quarterly review, PR SLA | Low | 2-3 | None | +infra, +documentation | DeepSeek V4 Flash | Mechanical monitoring/process tasks | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**Assumptions:** Host kernel 7.0.0-27 blocks `unshare --mount-proc` for unprivileged users; systemd tasks require sudo (unavailable); GPG keypair requires manual generation; T9.6 is future/optional feature.
+**Assumptions:** Host kernel 7.0.0-27 blocks `unshare --mount-proc` for unprivileged users; systemd tasks require sudo (unavailable); GPG keypair requires manual generation; user namespace `--map-auto`/`--map-root-user` blocked by AppArmor (kernel.apparmor_restrict_unprivileged_userns=1) — process runs as nobody without UID mapping.
 
-**Routing Notes:** Majority of open tasks are BLOCKED by infrastructure/host limitations — no model can resolve them. Phase 5 requires sudo. Phase 6 requires kernel policy change. T9.6 (user namespaces) is the next code task. Maintenance tasks are mechanical.
+**Routing Notes:** Majority of open tasks are BLOCKED by infrastructure/host limitations — no model can resolve them. Phase 5 requires sudo. Phase 6 requires kernel policy change. Maintenance tasks are mechanical. No code tasks remaining.
 
-**Execution Order:** T9.6 (user namespaces — code) → T5.x/T6.x (when unblocked). T10.x ongoing.
+**Execution Order:** T10.x ongoing (mechanical maintenance). T5.x/T6.x when unblocked.
 
 **Escalation Conditions:** User namespace exploration touches kernel security boundary → GLM-5.2 primary, DeepSeek V4 Pro fallback.
 
@@ -28,9 +27,9 @@
 **Phase 4 (Hermes Integration):** Plugin discovered + loaded, command wrapping verified at Python level, disabled mode + missing unshare graceful degradation tested. `--sandbox` flag implemented in Hermes core fork (PR #68216 submitted).
 **Phase 7 (Observability):** Jail metrics, crash alerts, byte budget rejection tracking, perf regression alerts, DuckBrain dashboard, metrics export script.
 **Phase 8 (Distribution):** Hermes core PR submitted, v1.0.0 release, CONTRIBUTING.md, issue templates, compatibility matrix, 5 ADRs.
-**Phase 9 (Security):** Threat model (25KB, 21 threats), penetration test plan (55 scenarios), dependency audit (zero deps), supply chain doc. **T9.5 (Seccomp) DONE** (commit `6f81001`): 484-line seccomp module with dual-arch BPF filter (x86_64, aarch64), standalone loader script, CLI `--seccomp` integration, 37 unit tests. GPG + user namespaces pending.
+**Phase 9 (Security):** Threat model (25KB, 21 threats), penetration test plan (55 scenarios), dependency audit (zero deps), supply chain doc. **T9.5 (Seccomp) DONE** (commit `6f81001`): 484-line seccomp module with dual-arch BPF filter (x86_64, aarch64), standalone loader script, CLI `--seccomp` integration, 37 unit tests. **T9.6 (User Namespaces) DONE** (commit `00668b7`): optional `--user` flag via `HERMES_TERMINAL_JAIL_USER_NS` env var. Adds user namespace isolation (nobody=65534), drops `--mount-proc` (incompatible with unprivileged user NS). 7 new unit tests. Standalone CLI `--user` flag. AppArmor blocks UID mapping on kernel 7.0.0-27, so process runs as nobody without explicit mapping — provides UID-based file isolation. GPG pending.
 **HOOK-GAP:** Hermes core lacks pre-execution command-transform hook. Resolution paths: Hermes core PR for `--sandbox` flag (submitted), terminal backend wrapper, systemd-only isolation. Plugin provides observability only until hook exists.
-**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 145 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (31 entries — updated). Cooldown at 1800s (30m). **Idle counter: 1** — idle tick #1, 2026-07-21 21:53.
+**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 152 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (31 entries — updated). Cooldown at 1800s (30m). **Idle counter: 0** — reset after productive tick (T9.6 user namespace).
 
 **Never-Done Audit 2026-07-21 21:53:**
 | Check | Result | Detail |
@@ -52,5 +51,29 @@
 ## [x] T9.5 — Seccomp profile: optional syscall filter inside jail
 
 Completed 2026-07-21. Commit `6f81001`. 484-line `seccomp.py` (BPF filter generation, dual-arch x86_64/aarch64), 62-line `seccomp-loader.py` (standalone exec wrapper), CLI `--seccomp` integration, 37 tests (33 passed + 3 skipped PT-004 integration + 1 subprocess). Seccomp filter verified functional — blocks mount/kexec/pivot_root on x86_64 and aarch64. Guard: PASS.
+
+## [x] T9.6 — User namespace support: optional `--user` flag for UID isolation
+
+Completed 2026-07-21. Commit `00668b7`. Exploration + implementation of `unshare --user` for UID isolation:
+
+**Exploration findings:**
+- `unshare --user` works on kernel 7.0.0-27 (Ubuntu 26.04), AppArmor enabled
+- `--map-auto` and `--map-root-user` fail: `newuidmap: write to uid_map failed: Operation not permitted`
+- Root cause: `kernel.apparmor_restrict_unprivileged_userns=1` blocks uid_map writes
+- `/etc/subuid` has entries (kara:100000:65536), `newuidmap`/`newgidmap` binaries present
+- Without mapping, process runs as nobody (uid=65534) — still provides file-level isolation
+- `--mount-proc` is incompatible with `--user` (requires CAP_SYS_ADMIN)
+- Combined `--user --pid --fork` works correctly
+- `--kill-child=SIGKILL` works with user namespaces
+
+**Implementation:**
+- New env var: `HERMES_TERMINAL_JAIL_USER_NS` (truthy/falsy, defaults to `false`)
+- When enabled: prefix changes to `unshare --user --pid --fork --kill-child=SIGKILL`
+- `--mount-proc` is dropped (incompatible)
+- New metrics counter: `commands_wrapped_user_ns`
+- Standalone CLI: `--user` flag support, while-loop argument parsing for combinable flags
+- 7 new unit tests (TestUserNamespaceT96): truthy/falsy, metrics, unrecognized value
+
+Files changed: `plugin.py` (+46/-22), `test_plugin.py` (+112), `standalone/terminal-jail` (+61/-24). 195 insertions, 24 deletions. 152 tests pass, 29 skip. Guard: PASS.
 
 ## [ ] NEVER-DONE — Run 11-point audit next tick
