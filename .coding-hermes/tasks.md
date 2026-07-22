@@ -11,6 +11,24 @@
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
+**Never-Done Audit 2026-07-22 00:58 (idle tick #3):**
+
+|| Check | Result | Detail |
+||-------|--------|--------|
+|| 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd), 1793 total lines |
+|| 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, ADRs, 9 docs — all present |
+|| 3. Test Gaps | ✅ PASS | 152 pass, 29 skip (kernel-dependent). Zero TODOs/FIXMEs in source |
+|| 4. Package Upgrades | ✅ PASS | Zero external Python deps. No vulnerabilities |
+|| 5. Pitfall Hunt | ✅ PASS | No TODOs/FIXMEs in source. No stub functions. `.gitleaks.toml` absent — project has no secrets, zero deps |
+|| 6. Performance | ✅ N/A | CLI plugin — no benchmarks needed |
+|| 7. Endpoint/CLI | ✅ PASS | `--help` and `--version` work correctly |
+|| 8. CI/CD | ✅ PASS | All 3 recent CI runs green (success) |
+|| 9. DuckBrain | ✅ PASS | 37 entries in `/project/terminal-jail/` namespace across 10 categories |
+|| 10. Code Quality | ✅ PASS | No lint errors, clean git status, `.gitignore` covers build artifacts |
+|| 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired to both hooks. CLI standalone. install.sh + systemd drop-in present |
+
+**Verdict: ALL 11 CHECKS PASS.** No new tasks. All actionable tasks BLOCKED by host kernel/sudo. Idle counter: 3 (escalated from 2). Cooldown: 14400s (4h — graduated slowdown). Next tick: ~05:00. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected).
+
 **Assumptions:** Host kernel 7.0.0-27 blocks `unshare --mount-proc` for unprivileged users; systemd tasks require sudo (unavailable); GPG keypair requires manual generation; user namespace `--map-auto`/`--map-root-user` blocked by AppArmor (kernel.apparmor_restrict_unprivileged_userns=1) — process runs as nobody without UID mapping.
 
 **Routing Notes:** Majority of open tasks are BLOCKED by infrastructure/host limitations — no model can resolve them. Phase 5 requires sudo. Phase 6 requires kernel policy change. Maintenance tasks are mechanical. No code tasks remaining.
@@ -28,7 +46,7 @@
 **Phase 8 (Distribution):** Hermes core PR submitted, v1.0.0 release, CONTRIBUTING.md, issue templates, compatibility matrix, 5 ADRs.
 **Phase 9 (Security):** Threat model (25KB, 21 threats), penetration test plan (55 scenarios), dependency audit (zero deps), supply chain doc. **T9.5 (Seccomp) DONE** (commit `6f81001`): 484-line seccomp module with dual-arch BPF filter (x86_64, aarch64), standalone loader script, CLI `--seccomp` integration, 37 unit tests. **T9.6 (User Namespaces) DONE** (commit `00668b7`): optional `--user` flag via `HERMES_TERMINAL_JAIL_USER_NS` env var. Adds user namespace isolation (nobody=65534), drops `--mount-proc` (incompatible with unprivileged user NS). 7 new unit tests. Standalone CLI `--user` flag. AppArmor blocks UID mapping on kernel 7.0.0-27, so process runs as nobody without explicit mapping — provides UID-based file isolation. GPG pending.
 **HOOK-GAP:** Hermes core lacks pre-execution command-transform hook. Resolution paths: Hermes core PR for `--sandbox` flag (submitted), terminal backend wrapper, systemd-only isolation. Plugin provides observability only until hook exists.
-**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 152 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (31 entries — updated). Cooldown at 1800s (30m). **Idle counter: 1** — first idle tick after Phase 10 completion (T10.3-T10.5 docs). Phase 10 fully closed.
+**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 152 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (37 entries). Cooldown: 14400s (4h — idle tick #3 escalation). **Idle counter: 3** — all actionable tasks BLOCKED by host kernel/sudo.
 
 ## [x] T10.1 — Kernel compatibility watchdog script
 
