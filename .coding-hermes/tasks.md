@@ -13,7 +13,7 @@
 | U01-G6 | Seccomp env var naming inconsistency — doc note | Low | 1 | — | +docs | — | ✅ DONE (0e7e07b) | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**U01 update 2026-07-22 05:20:** G5 completed (commit `dbb2f5c`) — added `test_combined_user_seccomp` to standalone CLI tests. G6 (doc fix) completed. All 6 audit gaps now resolved (4 fixed in prior tick, 2 fixed this tick). **Idle counter: 0** (real work completed). **Cooldown: 900s** (active project).
+**U01 update 2026-07-22 05:22:** G5 completed (commit `dbb2f5c`) — added `test_combined_user_seccomp` to standalone CLI tests. G6 (doc fix) completed. All 6 audit gaps now resolved (4 fixed in prior tick, 2 fixed this tick). **Idle counter: 1** (G5/G6 done, discovery sweep clean — all remaining tasks BLOCKED). **Cooldown: 900s** (idle ticks 1-2, escalate to 4h at tick 3).
 
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
