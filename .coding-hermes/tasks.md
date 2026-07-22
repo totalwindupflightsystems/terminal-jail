@@ -11,7 +11,7 @@
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**Never-Done Audit 2026-07-22 05:26 (idle tick #2):**
+**Never-Done Audit 2026-07-22 05:29 (idle tick #3):**
 
 | Check | Result | Detail |
 |-------|--------|--------|
@@ -23,11 +23,11 @@
 | 6. Performance | ✅ N/A | CLI plugin — no benchmarks needed |
 | 7. Endpoint/CLI | ✅ PASS | `--help` and `--version` work correctly (v1.0.0) |
 | 8. CI/CD | ✅ PASS | All 3 recent CI runs green |
-| 9. DuckBrain | ✅ PASS | 43 entries across 14 categories |
+| 9. DuckBrain | ✅ PASS | 44 entries across 14 categories |
 | 10. Code Quality | ✅ PASS | Ruff clean. `.gitignore` covers build artifacts, Hilo cache, runtime state |
 | 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired to both hooks. CLI standalone. install.sh + systemd drop-in present |
 
-**Verdict: ALL 11 CHECKS PASS.** Zero new tasks created. U01-G5/G6 completed — all 6 audit gaps now resolved. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 2** (was 1). **Cooldown: 900s** (idle ticks 1-2, escalate to 4h at tick 3). Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected).
+**Verdict: ALL 11 CHECKS PASS.** Zero new tasks created. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 3** (was 2). **Cooldown: 43200s** (12h — max graduation, confirmed via scheduler API GET). Scheduler already at deep-idle; no PUT needed. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected).
 
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
