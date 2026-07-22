@@ -19,8 +19,10 @@ ENVIRONMENT_VARIABLES = (
     "HERMES_TERMINAL_JAIL_COMMAND",
     "HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES",
     "HERMES_TERMINAL_JAIL_LOG_LEVEL",
+    "HERMES_TERMINAL_JAIL_USER_NS",
 )
 FIXED_OPTIONS = "--pid --fork --mount-proc --kill-child=SIGKILL bash -c "
+FIXED_OPTIONS_USER_NS = "--user --pid --fork --kill-child=SIGKILL bash -c "
 
 
 @pytest.fixture(autouse=True)
@@ -911,4 +913,114 @@ class TestMetrics:
         assert metrics.byte_budget_rejections == 0
         assert metrics.wrap_count == 0
         assert metrics.wrap_time_ns_total == 0
+
+
+class TestUserNamespaceT96:
+    """T9.6: User namespace isolation — ``--user`` flag for UID isolation."""
+
+    def test_userns_default_disabled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When HERMES_TERMINAL_JAIL_USER_NS is unset, wrapping uses --mount-proc."""
+        monkeypatch.setattr(plugin_module.shutil, "which",
+                            lambda value: "/test/bin/unshare")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
+
+        result = plugin_module.transform_command("echo hi")
+        assert "--user" not in result
+        assert "--mount-proc" in result
+        assert "--pid" in result
+        assert "--fork" in result
+
+    def test_userns_enabled_adds_user_flag(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """HERMES_TERMINAL_JAIL_USER_NS=1 adds --user, drops --mount-proc."""
+        monkeypatch.setattr(plugin_module.shutil, "which",
+                            lambda value: "/test/bin/unshare")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", "1")
+
+        result = plugin_module.transform_command("echo hi")
+        assert "--user" in result
+        assert "--mount-proc" not in result
+        assert "--pid" in result
+        assert "--fork" in result
+
+    def test_userns_enabled_truthy_values(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """HERMES_TERMINAL_JAIL_USER_NS accepts truthy values (true/yes/on/1)."""
+        monkeypatch.setattr(plugin_module.shutil, "which",
+                            lambda value: "/test/bin/unshare")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
+
+        for value in ("true", "yes", "on", "1"):
+            monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", value)
+            result = plugin_module.transform_command("echo hi")
+            assert "--user" in result, f"value={value!r}"
+            assert "--mount-proc" not in result, f"value={value!r}"
+
+    def test_userns_falsy_values_keep_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """HERMES_TERMINAL_JAIL_USER_NS with falsy values keeps --mount-proc."""
+        monkeypatch.setattr(plugin_module.shutil, "which",
+                            lambda value: "/test/bin/unshare")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
+
+        for value in ("false", "0", "no", "off", ""):
+            monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", value)
+            result = plugin_module.transform_command("echo hi")
+            assert "--user" not in result, f"value={value!r}"
+            assert "--mount-proc" in result, f"value={value!r}"
+
+    def test_userns_unrecognized_defaults_to_disabled(
+        self, monkeypatch: pytest.MonkeyPatch, caplog
+    ) -> None:
+        """Unrecognised value defaults to disabled with a warning."""
+        monkeypatch.setattr(plugin_module.shutil, "which",
+                            lambda value: "/test/bin/unshare")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", "perhaps")
+
+        with caplog.at_level(logging.WARNING):
+            result = plugin_module.transform_command("echo hi")
+
+        assert "--user" not in result
+        assert "--mount-proc" in result
+        assert "HERMES_TERMINAL_JAIL_USER_NS" in caplog.text
+
+    def test_userns_metrics_counter(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """commands_wrapped_user_ns increments when user NS is active."""
+        monkeypatch.setattr(plugin_module.shutil, "which",
+                            lambda value: "/test/bin/unshare")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", "1")
+        plugin_module.reset_metrics()
+
+        assert plugin_module.get_metrics().commands_wrapped_user_ns == 0
+        assert plugin_module.get_metrics().commands_wrapped == 0
+
+        plugin_module.transform_command("echo hi")
+        metrics = plugin_module.get_metrics()
+        assert metrics.commands_wrapped_user_ns == 1
+        assert metrics.commands_wrapped == 0
+
+    def test_userns_disabled_does_not_count_user_ns(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """commands_wrapped (not _user_ns) increments when user NS is disabled."""
+        monkeypatch.setattr(plugin_module.shutil, "which",
+                            lambda value: "/test/bin/unshare")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", "false")
+        plugin_module.reset_metrics()
+
+        plugin_module.transform_command("echo hi")
+        metrics = plugin_module.get_metrics()
+        assert metrics.commands_wrapped_user_ns == 0
+        assert metrics.commands_wrapped == 1
         assert metrics.perf_regression_alert_count == 0

@@ -21,6 +21,7 @@ class Metrics:
     """Observability counters for terminal-jail plugin (T7.1-T7.4)."""
 
     commands_wrapped: int = 0
+    commands_wrapped_user_ns: int = 0
     commands_passed_disabled: int = 0
     commands_passed_no_unshare: int = 0
     jail_crashes: int = 0
@@ -147,6 +148,28 @@ def _max_command_bytes_from_environment() -> int:
     return value
 
 
+def _user_ns_enabled_from_environment() -> bool:
+    """Check whether the user-namespace isolation layer (T9.6) is enabled.
+
+    When *disabled* (default), the jail uses only ``--pid --fork --mount-proc``.
+    When *enabled*, the jail adds ``--user`` and drops ``--mount-proc`` (which
+    requires ``CAP_SYS_ADMIN`` and is incompatible with unprivileged user
+    namespaces).
+    """
+    raw = os.environ.get("HERMES_TERMINAL_JAIL_USER_NS", "false")
+    value = raw.strip().lower()
+    if value in _FALSY:
+        return False
+    if value in _TRUTHY:
+        return True
+    LOGGER.warning(
+        "terminal-jail: unrecognised value %r for "
+        "HERMES_TERMINAL_JAIL_USER_NS; defaulting to disabled",
+        raw,
+    )
+    return False
+
+
 def transform_command(command: str) -> str:
     """Transform a generic Hermes terminal command into a PID-namespace command."""
     _configure_logger()
@@ -181,10 +204,20 @@ def transform_command(command: str) -> str:
     # Step 6: build wrapped command.
     t0 = time.monotonic_ns()
     try:
-        prefix = (
-            f"{shlex.quote(unshare_path)} --pid --fork --mount-proc "
-            "--kill-child=SIGKILL bash -c "
-        )
+        user_ns = _user_ns_enabled_from_environment()
+        if user_ns:
+            # --user provides UID isolation (process runs as nobody=65534).
+            # --mount-proc requires CAP_SYS_ADMIN and is incompatible with
+            # unprivileged user namespaces; omit it when user NS is active.
+            prefix = (
+                f"{shlex.quote(unshare_path)} --user --pid --fork "
+                "--kill-child=SIGKILL bash -c "
+            )
+        else:
+            prefix = (
+                f"{shlex.quote(unshare_path)} --pid --fork --mount-proc "
+                "--kill-child=SIGKILL bash -c "
+            )
         wrapped = prefix + shlex.quote(command)
     except Exception:
         _metrics.jail_crashes += 1
@@ -214,7 +247,10 @@ def transform_command(command: str) -> str:
         return command
 
     # Step 9: return wrapped.
-    _metrics.commands_wrapped += 1
+    if user_ns:
+        _metrics.commands_wrapped_user_ns += 1
+    else:
+        _metrics.commands_wrapped += 1
     elapsed = time.monotonic_ns() - t0
     _check_performance_regression(elapsed)
     return wrapped
