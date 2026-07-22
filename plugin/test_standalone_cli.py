@@ -194,3 +194,17 @@ def test_stderr_passthrough(cli_path: Path) -> None:
     result = _run_cli(cli_path, "bash", "-c", "echo 'to-stderr' >&2")
     if result.returncode == 0:
         assert b"to-stderr" in result.stderr
+
+
+@pytest.mark.standalone_cli
+def test_combined_user_seccomp(cli_path: Path) -> None:
+    result = _run_cli(cli_path, "--user", "--seccomp", "echo", "combined-test")
+    if result.returncode == 0:
+        assert "combined-test" in result.stdout.decode("utf-8")
+    else:
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        assert (
+            "Permission denied" in stderr
+            or "Operation not permitted" in stderr
+            or result.returncode in (159, -31)
+        )
