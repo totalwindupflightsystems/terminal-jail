@@ -9,7 +9,7 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
-| T10.1-T10.5 | Phase 10: Maintenance — T10.1 ✅ kernel watchdog, T10.2 ✅ unshare tracker, LKML, quarterly review, PR SLA | Low | 2-3 | None | +infra, +documentation | DeepSeek V4 Flash | T10.1 done (24d0a38), T10.2 done (73488d3). T10.3-T10.5 remain — mechanical | — |
+| T10.1-T10.5 | ~~Phase 10: Maintenance~~ ✅ ALL DONE — T10.1 watchdog (24d0a38), T10.2 unshare tracker (73488d3), T10.3 LKML monitoring (docs/lkml-monitoring.md), T10.4 quarterly review (docs/quarterly-review.md), T10.5 PR SLA (docs/pr-sla.md) | Low | 2-3 | None | +infra, +documentation | — | All 5 sub-tasks complete. Phase 10 closed. | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
 **Assumptions:** Host kernel 7.0.0-27 blocks `unshare --mount-proc` for unprivileged users; systemd tasks require sudo (unavailable); GPG keypair requires manual generation; user namespace `--map-auto`/`--map-root-user` blocked by AppArmor (kernel.apparmor_restrict_unprivileged_userns=1) — process runs as nobody without UID mapping.
@@ -80,4 +80,16 @@ Completed 2026-07-21. Commit `00668b7`. Exploration + implementation of `unshare
 
 Files changed: `plugin.py` (+46/-22), `test_plugin.py` (+112), `standalone/terminal-jail` (+61/-24). 195 insertions, 24 deletions. 152 tests pass, 29 skip. Guard: PASS.
 
-## [ ] NEVER-DONE — Run 11-point audit next tick
+## [x] T10.3 — LKML monitoring guide: docs/lkml-monitoring.md
+
+Completed 2026-07-21. Foreman-direct (mechanical doc). 106-line guide covering: key kernel subsystems and interfaces to watch, LKML monitoring channels (lore.kernel.org, RSS feeds, kernel release changelogs), automated weekly check script template, 4-tier response protocol (critical 48h → low next review). Cross-references kernel-watchdog.sh (T10.1) and unshare-tracker.sh (T10.2).
+
+## [x] T10.4 — Quarterly review checklist: docs/quarterly-review.md
+
+Completed 2026-07-21. Foreman-direct (mechanical doc). 106-line checklist covering 9 areas: kernel compatibility, test suite, standalone CLI, Hermes integration, security review, documentation, CI/CD, community/issues, roadmap. Includes review sign-off table and post-review actions. Quarterly cadence aligned with kernel release cycle (~9 weeks).
+
+## [x] T10.5 — PR & Issue SLA: docs/pr-sla.md
+
+Completed 2026-07-21. Foreman-direct (mechanical doc). 91-line SLA covering: response time targets by severity (critical 24h → low 2 weeks), triage labels, severity classification (4 tiers), escalation path, maintenance windows, staleness policy (30-180 days), and quarterly metrics tracking.
+
+## [x] NEVER-DONE — Run 11-point audit next tick
