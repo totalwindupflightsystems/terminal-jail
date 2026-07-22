@@ -28,13 +28,13 @@
 **Phase 8 (Distribution):** Hermes core PR submitted, v1.0.0 release, CONTRIBUTING.md, issue templates, compatibility matrix, 5 ADRs.
 **Phase 9 (Security):** Threat model (25KB, 21 threats), penetration test plan (55 scenarios), dependency audit (zero deps), supply chain doc. **T9.5 (Seccomp) DONE** (commit `6f81001`): 484-line seccomp module with dual-arch BPF filter (x86_64, aarch64), standalone loader script, CLI `--seccomp` integration, 37 unit tests. **T9.6 (User Namespaces) DONE** (commit `00668b7`): optional `--user` flag via `HERMES_TERMINAL_JAIL_USER_NS` env var. Adds user namespace isolation (nobody=65534), drops `--mount-proc` (incompatible with unprivileged user NS). 7 new unit tests. Standalone CLI `--user` flag. AppArmor blocks UID mapping on kernel 7.0.0-27, so process runs as nobody without explicit mapping — provides UID-based file isolation. GPG pending.
 **HOOK-GAP:** Hermes core lacks pre-execution command-transform hook. Resolution paths: Hermes core PR for `--sandbox` flag (submitted), terminal backend wrapper, systemd-only isolation. Plugin provides observability only until hook exists.
-**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 152 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (31 entries — updated). Cooldown at 1800s (30m). **Idle counter: 0** — reset after productive tick (T10.1 kernel watchdog + typo fixes).
+**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 152 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (31 entries — updated). Cooldown at 1800s (30m). **Idle counter: 1** — first idle tick after Phase 10 completion (T10.3-T10.5 docs). Phase 10 fully closed.
 
 ## [x] T10.1 — Kernel compatibility watchdog script
 
 Completed 2026-07-21. Commit `24d0a38`. 128-line `scripts/kernel-watchdog.sh`: monitors `unprivileged_userns_clone`, AppArmor restrict, and unshare binary availability. JSON and human-readable output. State tracking for regression detection. Two typo bugs (`$USRNS_CLONE_PATH` → `$USERNS_CLONE_PATH`) fixed by foreman before commit. Guard: PASS. Script verified functional on kernel 7.0.0-27.
 
-**Never-Done Audit 2026-07-21 22:38:**
+**Never-Done Audit 2026-07-21 23:52:**
 | Check | Result | Detail |
 |-------|--------|--------|
 | 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd), 1793 total lines, cover all 4 source files |
@@ -49,7 +49,7 @@ Completed 2026-07-21. Commit `24d0a38`. 128-line `scripts/kernel-watchdog.sh`: m
 | 10. Code Quality | ✅ PASS | No files > 500 lines. No untracked build artifacts. `.gitignore` clean. |
 | 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired to both hooks. CLI standalone executable. install.sh present. systemd drop-in present. All imports verified. |
 
-**Verdict: ALL 11 CHECKS PASS.** No new tasks created. Project is genuinely complete — all actionable tasks are BLOCKED by host kernel/sudo limitations. Idle counter: 0 — reset after T10.1 kernel watchdog completion.
+**Verdict: ALL 11 CHECKS PASS (re-audit at 23:52).** No new tasks created. Phase 10 fully closed — T10.1 watchdog ✅, T10.2 unshare tracker ✅, T10.3 LKML monitoring guide ✅, T10.4 quarterly review checklist ✅, T10.5 PR SLA ✅. All actionable tasks are BLOCKED by host kernel/sudo limitations. Idle counter: 1. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (86 edges, 12 files).
 
 ## [x] T9.5 — Seccomp profile: optional syscall filter inside jail
 
@@ -91,4 +91,4 @@ Completed 2026-07-21. Foreman-direct (mechanical doc). 106-line checklist coveri
 
 Completed 2026-07-21. Foreman-direct (mechanical doc). 91-line SLA covering: response time targets by severity (critical 24h → low 2 weeks), triage labels, severity classification (4 tiers), escalation path, maintenance windows, staleness policy (30-180 days), and quarterly metrics tracking.
 
-## [x] NEVER-DONE — Run 11-point audit next tick
+## [ ] NEVER-DONE — Run 11-point audit next tick
