@@ -13,4 +13,6 @@ uv.lock
 
 # T10.1 — kernel watchdog runtime state
 scripts/.kernel-watchdog-state
+# T10.2 — unshare tracker runtime state
+scripts/.unshare-tracker-state
 logs/
