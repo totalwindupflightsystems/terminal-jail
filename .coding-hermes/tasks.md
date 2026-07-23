@@ -11,23 +11,23 @@
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**Never-Done Audit 2026-07-22 20:45 (idle tick #6):**
+**Never-Done Audit 2026-07-22 21:37 (idle tick #7 — ESCALATION):**
 
 | Check | Result | Detail |
 |-------|--------|--------|
 | 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd), 1793 total lines |
-| 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, 9 docs (2028 lines) |
+| 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, 8 docs (2028 lines) |
 | 3. Test Gaps | ✅ PASS | 153 pass, 29 skip (kernel-dependent). Zero TODOs/FIXMEs in source |
-| 4. Package Upgrades | ✅ PASS | Zero external Python deps. No vulnerabilities |
+| 4. Package Upgrades | ✅ PASS | Zero external Python deps (`dependencies = []`). Ruff clean |
 | 5. Pitfall Hunt | ✅ PASS | No TODOs/FIXMEs. No stub functions |
 | 6. Performance | ✅ N/A | CLI plugin — no benchmarks needed |
 | 7. Endpoint/CLI | ✅ PASS | `--help` and `--version` work correctly (v1.0.0) |
-| 8. CI/CD | ✅ PASS | All 3 recent CI runs green |
-| 9. DuckBrain | ✅ PASS | 48 entries across 14+ categories (2 new this tick) |
+| 8. CI/CD | ✅ PASS | All 5 recent CI runs green (success) |
+| 9. DuckBrain | ✅ PASS | 48 entries across 14+ categories |
 | 10. Code Quality | ✅ PASS | Ruff clean. `.gitignore` covers build artifacts, Hilo cache, runtime state |
 | 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired to both hooks. CLI standalone. install.sh + systemd drop-in present |
 
-**Verdict: ALL 11 CHECKS PASS.** Zero new tasks created. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 6** (was 5). **Cooldown: 43200s** (12h — already at max). **Next idle tick (#7) triggers self-pause per graduated slowdown.** Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected).
+**Verdict: ALL 11 CHECKS PASS.** Zero new tasks. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 7** (was 6). **⚠️ ESCALATION TO BANE:** 7 consecutive idle ticks. Scheduler cooldown was reset to 1800s by daemon restart (known pitfall — should be 43200s max). All 11 NEVER-DONE checks consistently pass with zero findings. Project is feature-complete pending host-level blockers (sudo for systemd, kernel policy for unshare, manual GPG keygen). **Decision needed:** disable project (`Enabled=false` via scheduler API) or keep running idle audits. Foreman cannot self-disable per protocol. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected). Guard: PASS.
 
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
