@@ -30,6 +30,25 @@
 
 **Verdict: ALL 12 CHECKS PASS.** Zero new tasks. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 9** (was 8). **⚠️ COOLDOWN REVERSION DETECTED AND FIXED (3rd consecutive tick):** CooldownS was 1800 at tick start (fleet TOML/daemon restart reverted it from 43200). Fixed via PUT → verified 43200 with GET. This is the cooldown-reset-on-restart bug documented in coding-hermes-cron. Reversions: tick #7, #8, #9 — all found 1800 before fixing. **ESCALATED TO BANE at tick #7** — no action received. Project is feature-complete pending host-level blockers (sudo for systemd, kernel policy for unshare, manual GPG keygen, scheduler cooldown-reset-on-restart). Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected). Guard: PASS (153/29, 5.6s). Ruff clean.
 
+**Never-Done Audit 2026-07-23 04:13 (idle tick #10):**
+
+| Check | Result | Detail |
+|-------|--------|--------|
+| 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd), 1793 total lines |
+| 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, 8 docs + 1 ADR (2028 lines) |
+| 3. Test Gaps | ✅ PASS | 153 pass, 29 skip (kernel-dependent). Zero TODOs/FIXMEs |
+| 4. Package Upgrades | ✅ PASS | Zero external Python deps (`dependencies = []`). Ruff clean |
+| 5. Pitfall Hunt | ✅ PASS | No TODOs/FIXMEs. No stub functions |
+| 6. Performance | ✅ N/A | CLI plugin — no benchmarks needed |
+| 7. Endpoint/CLI | ✅ PASS | `--help` and `--version` work (v1.0.0). Combined `--user --seccomp echo "test"` → exit 159 (seccomp kill correct) |
+| 8. CI/CD | ✅ PASS | All 5 recent CI runs green (success). Remote: totalwindupflightsystems/terminal-jail |
+| 9. DuckBrain | ✅ PASS | 48 entries across 14+ categories (list_keys confirmed) |
+| 10. Code Quality | ✅ PASS | Ruff clean. Git status clean. `.gitignore` covers Hilo cache, runtime state |
+| 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired (5 hook refs). CLI standalone. install.sh + systemd drop-in present |
+| 12. Usability | ✅ PASS | `--user --seccomp echo "test"` — seccomp kills jailed process (exit 159), correct behavior |
+
+**Verdict: ALL 12 CHECKS PASS.** Zero new tasks. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 10** (was 9). **⚠️ COOLDOWN REVERSION DETECTED AND FIXED (4th consecutive tick):** CooldownS was 1800 at tick start (fleet TOML/daemon restart reverted it from 43200). Fixed via PUT → verified 43200 with GET. This is the cooldown-reset-on-restart bug documented in coding-hermes-cron. Reversions: tick #7, #8, #9, #10 — all found 1800 before fixing. **ESCALATED TO BANE at tick #7** — no action received after 3 additional ticks. Project is feature-complete pending host-level blockers (sudo for systemd, kernel policy for unshare, manual GPG keygen, scheduler cooldown-reset-on-restart). **At 10 idle ticks, the cooldown-reset-on-restart is the ONLY remaining active concern** — the project itself is complete. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected). Guard: PASS (153/29). Ruff clean.
+
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
 ### Usability & Coverage Audit Results
@@ -107,8 +126,8 @@
 **Phase 8 (Distribution):** Hermes core PR submitted, v1.0.0 release, CONTRIBUTING.md, issue templates, compatibility matrix, 5 ADRs.
 **Phase 9 (Security):** Threat model (25KB, 21 threats), penetration test plan (55 scenarios), dependency audit (zero deps), supply chain doc. **T9.5 (Seccomp) DONE** (commit `6f81001`): 484-line seccomp module with dual-arch BPF filter (x86_64, aarch64), standalone loader script, CLI `--seccomp` integration, 37 unit tests. **T9.6 (User Namespaces) DONE** (commit `00668b7`): optional `--user` flag via `HERMES_TERMINAL_JAIL_USER_NS` env var. Adds user namespace isolation (nobody=65534), drops `--mount-proc` (incompatible with unprivileged user NS). 7 new unit tests. Standalone CLI `--user` flag. AppArmor blocks UID mapping on kernel 7.0.0-27, so process runs as nobody without explicit mapping — provides UID-based file isolation. GPG pending.
 **HOOK-GAP:** Hermes core lacks pre-execution command-transform hook. Resolution paths: Hermes core PR for `--sandbox` flag (submitted), terminal backend wrapper, systemd-only isolation. Plugin provides observability only until hook exists.
-**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 153 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (48 entries). **Idle counter: 9** — all actionable tasks BLOCKED by host kernel/sudo. Cooldown reverted to 1800 for the 3rd consecutive tick (cooldown-reset-on-restart bug).
-**Cooldown reversions:** Tick #7 (fixed 1800→43200), Tick #8 (fixed 1800→43200), Tick #9 (fixed 1800→43200). All three ticks found cooldown at 1800. Fleet TOML re-applies on scheduler daemon restart.
+**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 153 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (48 entries). **Idle counter: 10** — all actionable tasks BLOCKED by host kernel/sudo. Cooldown reverted to 1800 for the 4th consecutive tick (cooldown-reset-on-restart bug).
+**Cooldown reversions:** Tick #7 (fixed 1800→43200), Tick #8 (fixed 1800→43200), Tick #9 (fixed 1800→43200), Tick #10 (fixed 1800→43200). All four ticks found cooldown at 1800. Fleet TOML re-applies on scheduler daemon restart.
 
 ## [x] T10.1 — Kernel compatibility watchdog script
 
