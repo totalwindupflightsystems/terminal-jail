@@ -11,7 +11,7 @@
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**Never-Done Audit 2026-07-22 05:29 (idle tick #3):**
+**Never-Done Audit 2026-07-23 01:13 (idle tick #5):**
 
 | Check | Result | Detail |
 |-------|--------|--------|
@@ -27,7 +27,7 @@
 | 10. Code Quality | ✅ PASS | Ruff clean. `.gitignore` covers build artifacts, Hilo cache, runtime state |
 | 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired to both hooks. CLI standalone. install.sh + systemd drop-in present |
 
-**Verdict: ALL 11 CHECKS PASS.** Zero new tasks created. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 3** (was 2). **Cooldown: 43200s** (12h — max graduation, confirmed via scheduler API GET). Scheduler already at deep-idle; no PUT needed. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected).
+**Verdict: ALL 11 CHECKS PASS.** Zero new tasks created. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 5** (was 4). **Cooldown: 43200s** (12h — already at max, no scheduler API change needed). DuckBrain MCP unreachable (connection closed) — board retains 44 entries from prior tick, no degradation detected. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected).
 
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
