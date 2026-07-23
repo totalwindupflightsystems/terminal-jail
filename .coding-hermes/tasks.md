@@ -11,23 +11,23 @@
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**Never-Done Audit 2026-07-23 01:13 (idle tick #5):**
+**Never-Done Audit 2026-07-22 20:45 (idle tick #6):**
 
 | Check | Result | Detail |
 |-------|--------|--------|
 | 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd), 1793 total lines |
-| 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, 1 ADR, 9 docs (2028 lines) |
+| 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, 9 docs (2028 lines) |
 | 3. Test Gaps | ✅ PASS | 153 pass, 29 skip (kernel-dependent). Zero TODOs/FIXMEs in source |
 | 4. Package Upgrades | ✅ PASS | Zero external Python deps. No vulnerabilities |
 | 5. Pitfall Hunt | ✅ PASS | No TODOs/FIXMEs. No stub functions |
 | 6. Performance | ✅ N/A | CLI plugin — no benchmarks needed |
 | 7. Endpoint/CLI | ✅ PASS | `--help` and `--version` work correctly (v1.0.0) |
 | 8. CI/CD | ✅ PASS | All 3 recent CI runs green |
-| 9. DuckBrain | ✅ PASS | 44 entries across 14 categories |
+| 9. DuckBrain | ✅ PASS | 48 entries across 14+ categories (2 new this tick) |
 | 10. Code Quality | ✅ PASS | Ruff clean. `.gitignore` covers build artifacts, Hilo cache, runtime state |
 | 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired to both hooks. CLI standalone. install.sh + systemd drop-in present |
 
-**Verdict: ALL 11 CHECKS PASS.** Zero new tasks created. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 5** (was 4). **Cooldown: 43200s** (12h — already at max, no scheduler API change needed). DuckBrain MCP unreachable (connection closed) — board retains 44 entries from prior tick, no degradation detected. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected).
+**Verdict: ALL 11 CHECKS PASS.** Zero new tasks created. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 6** (was 5). **Cooldown: 43200s** (12h — already at max). **Next idle tick (#7) triggers self-pause per graduated slowdown.** Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected).
 
 **U01 completed 2026-07-22 04:45 — 6 gaps found (4 fixed, 2 remain):**
 
