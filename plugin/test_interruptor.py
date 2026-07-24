@@ -13,14 +13,9 @@ from terminal_jail.interruptor.types import InterceptResult
 from terminal_jail.interruptor.config import Config
 from terminal_jail.interruptor.parser import (
     parse_command,
-    SegmentType,
     find_command_substitution,
     expand_variables,
 )
-from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
-from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST
-from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
-from terminal_jail.interruptor.matcher import Matcher
 from terminal_jail.interruptor.output import format_blocked, format_sandbox_notice
 
 

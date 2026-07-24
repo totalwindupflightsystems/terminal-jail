@@ -11,11 +11,9 @@ in priority order. Algorithm:
 
 from __future__ import annotations
 
-import re
-from typing import Any
 
 from .parser import Segment, SegmentType
-from .matcher import Matcher, MatchResult
+from .matcher import Matcher
 from .config import Config
 from .blocklist import BUILTIN_BLOCKLIST
 from .allowlist import BUILTIN_ALLOWLIST
@@ -126,7 +124,7 @@ class Decider:
                     command=raw,
                     modified=modified,
                     rule_id=rule.id,
-                    reason=f"Auto-sandbox: wrapped command in namespace isolation",
+                    reason="Auto-sandbox: wrapped command in namespace isolation",
                 )
 
         # Layer 4: User-defined rules would go here (loaded from RuleSet)

@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$SCRIPT_DIR" && pwd)"
 SECCOMP_LOADER="${SCRIPT_DIR}/seccomp-loader.py"
 USE_SECCOMP=0
 USE_USER_NS=0
+USE_INTERRUPTOR=1  # on by default
 
 usage() {
     cat <<'EOF'
@@ -17,6 +18,8 @@ Usage: terminal-jail <command> [args...]
        terminal-jail --user <command> [args...]
        terminal-jail --seccomp <command> [args...]
        terminal-jail --user --seccomp <command> [args...]
+       terminal-jail --interruptor <command> [args...]
+       terminal-jail --no-interruptor <command> [args...]
        terminal-jail --help
        terminal-jail --version
 
@@ -29,11 +32,45 @@ Options:
   --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
                  (mount, pivot_root, kexec_load, etc.) inside the jail.
                  Controlled by TERMINAL_JAIL_SECCOMP env var (default off).
+  --interruptor  Enable the Bash command firewall (default). Evaluates
+                 commands against a rule engine before execution.
+  --no-interruptor  Disable the Bash command firewall.
 EOF
 }
 
 version() {
     echo "terminal-jail ${VERSION}"
+}
+
+# --- interruptor bridge -------------------------------------------------------
+
+# Find the interruptor bridge script relative to this script's directory.
+# Search order: next to script → plugin/ → py packages.
+_find_bridge() {
+    # Same directory as this script (standalone/)
+    local candidate="${SCRIPT_DIR}/../plugin/terminal_jail/interruptor_bridge.py"
+    if [ -f "$candidate" ]; then
+        echo "$candidate"
+        return 0
+    fi
+    # Fallback: check python module path
+    candidate=$(python3 -c "import terminal_jail.interruptor_bridge; print(terminal_jail.interruptor_bridge.__file__)" 2>/dev/null || true)
+    if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+        echo "$candidate"
+        return 0
+    fi
+    return 1
+}
+
+_interruptor_evaluate() {
+    local cmd="$1"
+    local bridge
+    bridge=$(_find_bridge) || return 1
+
+    # Pipe the command to the bridge and capture the JSON response.
+    # Use python3 to invoke the bridge directly for speed.
+    echo "{\"command\":$(echo "$cmd" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().rstrip('\n')))")}" | \
+        python3 "$bridge" 2>/dev/null || return 1
 }
 
 # --- argument parsing ---------------------------------------------------------
@@ -50,7 +87,8 @@ if [ $# -eq 1 ]; then
     esac
 fi
 
-# Parse optional flags: --user and --seccomp (any order, both before command).
+# Parse optional flags: --user, --seccomp, --interruptor, --no-interruptor
+# (any order, all before command).
 while [ $# -gt 0 ]; do
     case "$1" in
         --user)
@@ -59,6 +97,14 @@ while [ $# -gt 0 ]; do
             ;;
         --seccomp)
             USE_SECCOMP=1
+            shift
+            ;;
+        --interruptor)
+            USE_INTERRUPTOR=1
+            shift
+            ;;
+        --no-interruptor)
+            USE_INTERRUPTOR=0
             shift
             ;;
         *)
@@ -71,6 +117,67 @@ if [ $# -eq 0 ]; then
     echo "terminal-jail: a command is required" >&2
     usage >&2
     exit 2
+fi
+
+# Rebuild the command string from remaining arguments (preserving argv boundaries)
+CMD_STR=""
+for arg in "$@"; do
+    # Single-quote each argument, escaping embedded single quotes
+    escaped="${arg//\'/\'\\\'\'}"
+    CMD_STR="$CMD_STR '$escaped'"
+done
+CMD_STR="${CMD_STR:1}"  # strip leading space
+
+# --- interruptor evaluation ---------------------------------------------------
+
+INTERRUPTOR_MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
+
+if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
+    bridge_result=$(_interruptor_evaluate "$CMD_STR" 2>/dev/null) || {
+        # Bridge unavailable → fail-open: allow with warning
+        echo "terminal-jail: WARNING — interruptor bridge not available; running without firewall" >&2
+    }
+
+    if [ -n "${bridge_result:-}" ]; then
+        action=$(echo "$bridge_result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('action','allow'))" 2>/dev/null || echo "allow")
+
+        if [ "$action" = "block" ]; then
+            # Print the formatted block output (the bridge doesn't format boxes
+            # for us — we use the output module separately, or just print a
+            # simple message here for speed).
+            rule_id=$(echo "$bridge_result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('rule_id','') or 'unknown')" 2>/dev/null || echo "unknown")
+            reason=$(echo "$bridge_result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('reason','Command blocked by security policy') or '')" 2>/dev/null || echo "Command blocked by security policy")
+
+            if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+                echo "[terminal-jail] WARN: Would have blocked ($rule_id): $reason" >&2
+            else
+                # Simple ASCII block box (no python dependency for formatting)
+                {
+                    echo "+--------------------------------------------------------------+"
+                    echo "|  COMMAND BLOCKED — ${rule_id}                                "
+                    echo "+--------------------------------------------------------------+"
+                    echo "|  $reason"
+                    echo "|"
+                    echo "|  Command: ${CMD_STR:0:60}"
+                    echo "|  Rule: ${rule_id}"
+                    echo "+--------------------------------------------------------------+"
+                } >&2
+                exit 126
+            fi
+        elif [ "$action" = "modify" ]; then
+            modified_cmd=$(echo "$bridge_result" | python3 -c "
+import json,sys
+r = json.loads(sys.stdin.read())
+print(r.get('modified') or r.get('command', ''))
+" 2>/dev/null || echo "$CMD_STR")
+            echo "[terminal-jail] Modified: ${CMD_STR:0:40}... → sandboxed" >&2
+            # Override CMD_STR with the modified version
+            CMD_STR="$modified_cmd"
+            # Unset the args — we'll execute via bash -c with the modified command
+            set --
+            set -- bash -c "$CMD_STR"
+        fi
+    fi
 fi
 
 # --- preflight ----------------------------------------------------------------
