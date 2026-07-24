@@ -278,4 +278,49 @@ Completed 2026-07-21. Foreman-direct (mechanical doc). 91-line SLA covering: res
 
 Completed 2026-07-24. Commit `69ddcf5`. Ruff 0.16.0 compliance: TRY004 (AttributeError→TypeError), PLW1510×15 (add check=False), UP022×12, RUF059×2, RUF100×3, ISC004, I001×7, RUF022. 9 files, +54/-59. All auto-fixable rules handled by ruff --fix --unsafe-fixes; TRY004 and PLW1510 fixed manually. Verification: ruff 0.16.0 clean; 153/153 tests pass.
 
+## Phase 11: Interruptor Bash Engine — Command Firewall (NEW)
+
+**Spec:** `specs/interruptor.md` (S05, 16,297 bytes, 14 sections)
+
+The interruptor sits between the LLM and bash execution. Every command passes through
+a rule engine that decides: ALLOW, BLOCK, or MODIFY. This complements the PID namespace
+jail — the jail *contains* blast radius, the interruptor *prevents* dangerous execution.
+
+### Phase 11.1 — Core Engine
+
+- [ ] **T11.1: Parser** (`interruptor/parser.py`) — Tokenize shell commands: pipes, redirects, command substitution, boolean chains, heredocs, background, variable expansion, quoting. Returns AST-ish structure for the matcher. Must never block due to parse failure (fail-open to passthrough).
+- [ ] **T11.2: Rule loader** (`interruptor/rules.py`) — Load YAML rule files from `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/` in lexical order. User rules override system rules. Handle invalid files gracefully (skip + warn).
+- [ ] **T11.3: Pattern matcher** (`interruptor/matcher.py`) — Match parsed command segments against 9 match types: pattern, command, pipeline, subcommand, path, composite, syscall, network, heredoc. Compile regex patterns for performance.
+- [ ] **T11.4: Decider** (`interruptor/decider.py`) — Evaluate rules in priority order. Critical blocklist first, then allowlist, then auto-sandbox, then user rules. First match wins. Return `InterceptResult(action, command, modified, rule_id, reason)`.
+- [ ] **T11.5: Built-in rules** (`interruptor/blocklist.py`, `sandbox.py`, `allowlist.py`) — Implement §4.1 (10 critical blocklist rules), §4.2 (8 auto-sandbox patterns), §4.3 (9 always-allow patterns). These are hardcoded and cannot be removed.
+
+### Phase 11.2 — Shell Integration
+
+- [ ] **T11.6: Updated shell wrapper** (`standalone/terminal-jail`) — Integrate interruptor: run `intercept()` → if BLOCKED print error and exit 126 → if MODIFIED use rewritten command → if ALLOW wrap in unshare and exec. JSON protocol between bash wrapper and Python interruptor.
+- [ ] **T11.7: Output formatting** (`interruptor/output.py`) — Pretty-print blocked command box (§7.1), sandbox notice (§7.2). Configurable via `TERMINAL_JAIL_INTERRUPTOR_THEME` (box-drawing vs plain ASCII).
+- [ ] **T11.8: Mode switching** — Implement `TERMINAL_JAIL_INTERRUPTOR_MODE`: `enforce` (block+sandbox), `warn` (log only, allow all), `disabled` (passthrough). Connect to existing `HERMES_TERMINAL_JAIL_ENABLED` master switch.
+
+### Phase 11.3 — Testing & Verification
+
+- [ ] **T11.9: Blocklist tests** (T-I01 through T-I10) — 10 critical block patterns: curl-pipe-shell, rm-rf-root, kill-all, fork-bomb, mkfs, fdisk, dd-root, chmod-777-root, echo-to-system, sudo.
+- [ ] **T11.10: Auto-sandbox tests** (T-I11 through T-I16) — 6 patterns: pytest, npm test, go test, make, pip install, script execution.
+- [ ] **T11.11: Allowlist tests** (T-I17 through T-I26) — 10 patterns: echo, ls, cd, grep, git status, cat, find (with and without -exec), sensitive paths.
+- [ ] **T11.12: Parser tests** (T-I27 through T-I33) — 7 tests: pipe chains, boolean chains, command substitution, heredoc redirects, PATH manipulation, LD_PRELOAD, python -c subprocess.
+- [ ] **T11.13: Mode tests** (T-I34 through T-I36) — 3 tests: enforce blocks, warn logs, disabled passes through.
+- [ ] **T11.14: Integration tests** (T-I37 through T-I40) — 4 tests: interruptor + unshare compose correctly, custom user rules override built-in, priority ordering, rule hot-reload.
+
+### Phase 11.4 — Distribution
+
+- [ ] **T11.15: Default rules package** — Ship `/etc/terminal-jail/rules.d/00-builtins.yaml` with the 27 built-in rules in YAML format. Document how users add custom rules.
+- [ ] **T11.16: S06 Integration spec** — Update `specs/integration.md` with interruptor layer. New defense-in-depth diagram: Interruptor → PID namespace jail → systemd hardening. Document interaction between interruptor MODIFY action and unshare wrapping.
+- [ ] **T11.17: Performance benchmarks** — Cold start (<50ms), warm start (<5ms), 1KB command parse (<10ms), 500-rule evaluation (<5ms). CI benchmark job that fails on regression.
+
+### Quick Reference: The Three Layers
+
+| Layer | What it does | Status |
+|---|---|---|
+| **Interruptor** (Phase 11) | Blocks dangerous commands BEFORE execution | ⬜ Spec written, 0/17 tasks |
+| **PID namespace jail** (Phases 2-4) | Contains blast radius if command runs | ✅ Built, tested, loaded |
+| **systemd hardening** (Phase 5) | Prevents namespace escape at kernel level | ⬜ Drop-in written, blocked (no sudo) |
+
 ## [ ] NEVER-DONE — Run 12-point audit next tick
