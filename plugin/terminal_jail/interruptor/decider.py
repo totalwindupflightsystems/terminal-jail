@@ -11,12 +11,11 @@ in priority order. Algorithm:
 
 from __future__ import annotations
 
-
-from .parser import Segment, SegmentType
-from .matcher import Matcher
-from .config import Config
-from .blocklist import BUILTIN_BLOCKLIST
 from .allowlist import BUILTIN_ALLOWLIST
+from .blocklist import BUILTIN_BLOCKLIST
+from .config import Config
+from .matcher import Matcher
+from .parser import Segment, SegmentType
 from .sandbox import BUILTIN_SANDBOX
 from .types import Action, InterceptResult
 

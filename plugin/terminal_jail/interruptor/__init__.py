@@ -7,30 +7,30 @@ a rule engine. Entry point: ``intercept()``.
 
 from __future__ import annotations
 
+from .config import Config
+from .decider import Decider
+from .matcher import Matcher
 from .parser import (
     Segment,
     SegmentType,
     parse_command,
 )
-from .config import Config
-from .rules import RuleSet, RuleLoader
-from .matcher import Matcher
-from .decider import Decider
+from .rules import RuleLoader, RuleSet
 
 __all__ = [
-    "intercept",
-    "InterceptResult",
     "Action",
+    "Config",
+    "Decider",
+    "InterceptResult",
+    "Matcher",
+    "RuleLoader",
+    "RuleSet",
     "Segment",
     "SegmentType",
     "Token",
     "TokenType",
+    "intercept",
     "parse_command",
-    "Config",
-    "RuleSet",
-    "RuleLoader",
-    "Matcher",
-    "Decider",
 ]
 
 from .types import Action, InterceptResult

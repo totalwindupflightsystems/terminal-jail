@@ -15,7 +15,7 @@ from .parser import Segment, SegmentType, is_sensitive_path
 class MatchResult:
     """Result of a pattern match attempt."""
 
-    __slots__ = ("matched", "matched_by", "details")
+    __slots__ = ("details", "matched", "matched_by")
 
     def __init__(
         self,
@@ -230,9 +230,8 @@ class Matcher:
                     matched_by="composite_or",
                     details=f"At least one of {len(conditions)} OR conditions matched",
                 )
-        elif operator == "not":
-            if not any(results):
-                return MatchResult(
+        elif operator == "not" and not any(results):
+            return MatchResult(
                     matched=True,
                     matched_by="composite_not",
                     details="None of the NOT conditions matched",
@@ -263,7 +262,7 @@ class Matcher:
             "rmmod", "swapon", "swapoff", "sysctl", "dmesg",
             "reboot", "shutdown", "halt", "poweroff", "init",
         }
-        words = set(w.lower() for w in segment.raw.split())
+        words = {w.lower() for w in segment.raw.split()}
         matched = words & dangerous_commands
 
         if matched:

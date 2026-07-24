@@ -32,10 +32,9 @@ def _rule_line(chars: dict[str, str], left: str, right: str) -> str:
 def _content_line(chars: dict[str, str], content: str, end: str = "") -> str:
     """Build a content line with vertical bars at each end."""
     # Strip ANSI-like content to measure visible width
-    visible = len(content) if "\x1b" not in content else len(content)
+    visible = len(content)
     padding = _W - visible - len(end)
-    if padding < 0:
-        padding = 0
+    padding = max(padding, 0)
     return f"{chars['v']} {content}{' ' * padding}{end}{chars['v']}"
 
 

@@ -54,14 +54,16 @@ def main() -> None:
 
     # Import the engine (lazy — after path setup above).
     try:
-        from terminal_jail.interruptor import intercept  # type: ignore[import-not-found]
+        from terminal_jail.interruptor import (
+            intercept,  # type: ignore[import-not-found]
+        )
     except ImportError:
         _emit_fail_open("interruptor engine not importable")
         return
 
     try:
         result = intercept(command)
-    except Exception:
+    except Exception:  # noqa: BLE001 — fail-open: allow command to not brick the shell
         _emit_fail_open("interrupt() raised an exception")
         return
 

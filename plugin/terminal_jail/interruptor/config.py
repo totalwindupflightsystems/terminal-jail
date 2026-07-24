@@ -14,10 +14,10 @@ class Config:
     """
 
     __slots__ = (
+        "log_level",
         "mode",
         "system_rules_dir",
         "user_rules_dir",
-        "log_level",
     )
 
     VALID_MODES = ("enforce", "warn", "disabled")
