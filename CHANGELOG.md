@@ -1,6 +1,17 @@
 # Changelog
 
-## [1.0.0] — 2026-07-20
+## [1.1.0] — 2026-07-24
+
+### Phase 11: Interruptor Bash Command Firewall
+
+- **Parser**: Tokenizes shell commands — pipes, redirects, cmd substitution, heredocs, variable expansion, quoting. Fail-open to passthrough on parse errors.
+- **Rule Loader**: YAML-based rules from `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/`. Lexical ordering, user rules override system.
+- **Pattern Matcher**: 9 match types — pattern, command, pipeline, subcommand, path, composite, syscall, network, heredoc. Configurable per-rule.
+- **Decider**: Blocklist-first, then allowlist, then auto-sandbox, then user rules. First match wins. 27 built-in rules (10 critical blocklist, 8 auto-sandbox, 9 always-allow).
+- **Shell Integration**: JSON bridge (`interruptor_bridge.py`) — stdin/stdout protocol between bash CLI wrapper and Python engine. TERMINAL_JAIL_INTERRUPTOR_MODE: enforce/warn/disabled.
+- **Testing**: 56 new Interruptor tests (T-I01 through T-I40), 6 integration tests for CLI compose.
+- **Performance**: Cold start 0.08ms, warm start 0.027ms, 1KB parse 0.273ms, 500-rule eval 0.864ms.
+- **Documentation**: Updated integration spec with 4-layer defense-in-depth diagram.
 
 ### Plugin Core
 - PID namespace isolation via `unshare --pid --fork --mount-proc --kill-child=SIGKILL`
