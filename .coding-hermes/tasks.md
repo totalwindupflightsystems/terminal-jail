@@ -9,27 +9,32 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
-| CI-001 | Fix CI ruff version divergence — lint errors in test files (pre-existing) | Low | 1 | — | +ci | — | Local ruff passes; CI has stricter rules (I001, UP022, PLW1510, RUF100, RUF059) | — |
 | NEVER-DONE | 12-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**Never-Done Audit 2026-07-24 02:06 (idle tick #15):**
+**Never-Done Audit 2026-07-24 02:06 (idle tick #16):**
 
 | Check | Result | Detail |
 |-------|--------|--------|
 | 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd) — all present |
 | 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, 9 docs + ADRs |
-| 3. Test Gaps | ✅ PASS | 153 pass, 29 skip (5.16s). Zero TODOs/FIXMEs in source |
-| 4. Package Upgrades | ✅ PASS | Zero external Python deps (`dependencies = []`). Ruff clean locally |
+| 3. Test Gaps | ✅ PASS | 153 pass, 29 skip (6.08s). Zero TODOs/FIXMEs in source |
+| 4. Package Upgrades | ✅ PASS | Zero external Python deps (`dependencies = []`). Ruff 0.16.0 clean |
 | 5. Pitfall Hunt | ✅ PASS | No TODOs/FIXMEs. No stub functions |
 | 6. Performance | ✅ N/A | CLI plugin — no benchmarks needed |
 | 7. Endpoint/CLI | ✅ PASS | `--version` reports v1.0.0. Guard PASS (secrets, lint, tests) |
-| 8. CI/CD | ⚠️ CI-001 | Tick #14 CI run (30059115790) failed — ruff version divergence. Local `ruff check plugin/` clean. CI finding: I001 (import sort), UP022 (capture_output), PLW1510 (check=), RUF100/RUF059 in test files. Pre-existing — these files last touched `dbb2f5c`. No new remote commits |
-| 9. DuckBrain | ✅ PASS | 49 entries across 15+ categories (unchanged from tick #14) |
-| 10. Code Quality | ✅ PASS | Ruff clean locally. Git status clean. No untracked files |
+| 8. CI/CD | ✅ CI-001 FIXED | CI-001 RESOLVED — ruff 0.16.0 compliance fixes applied (commit `69ddcf5`). TRY004, PLW1510×24, UP022×12, RUF059×2, RUF100×3, ISC004, I001×7, RUF022 all fixed. 9 files, +54/-59. Ruff 0.16.0 clean locally. Next CI push should be green. |
+| 9. DuckBrain | ✅ PASS | 49 entries across 15+ categories (unchanged from tick #15) |
+| 10. Code Quality | ✅ PASS | Ruff 0.16.0 clean. Tests pass. No untracked files |
 | 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired. CLI standalone. install.sh + systemd drop-in present |
 | 12. Usability | ✅ PASS | `--version` output correct: `terminal-jail 1.0.0` |
 
-**Verdict: 11/12 CHECKS PASS, 1 ⚠️ (CI).** New finding: CI ruff version divergence on test files (pre-existing). Created task CI-001. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 15** (was 14). **⚠️ COOLDOWN REVERSION DETECTED AND FIXED (9th consecutive tick):** CooldownS was 1800 at tick start (fleet TOML/daemon restart reverted it from 43200). Fixed via PUT → verified 43200 with GET (CooldownS=43200 confirmed). Reversions: tick #7 through #15 — all found 1800 before fixing. **ESCALATED TO BANE at tick #7** — no action received after 8 additional ticks. Root cause: cooldown-reset-on-restart bug (coding-hermes-cron v2.1.26) — fleet TOML `ApplyFleetConfig` upsert on daemon restart overwrites API-set CooldownS. Project is feature-complete pending host-level blockers. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected). Guard: PASS (153/29, 5.2s). Ruff clean locally.
+**Verdict: ALL 12 CHECKS PASS. CI-001 FIXED (commit `69ddcf5`).** First code change in 10 ticks — ruff 0.16.0 compliance. Zero new tasks. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 16** (was 15). **⚠️ COOLDOWN REVERSION DETECTED AND FIXED (10th consecutive tick):** CooldownS was 1800 at tick start (fleet TOML/daemon restart reverted it from 43200). Fixed via PUT → verified 43200 with GET (CooldownS=43200 confirmed). Reversions: tick #7 through #16. **ESCALATED TO BANE at tick #7** — no action received after 9 additional ticks. Root cause: cooldown-reset-on-restart bug (coding-hermes-cron v2.1.26). Project is feature-complete. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected). Guard: PASS (153/29, 6.1s). Ruff 0.16.0 clean.
+
+**CI-001 Resolution:**
+- **Root cause:** CI installs latest ruff (0.16.0) which has stricter rules than local ruff 0.15.22
+- **Fix:** Upgraded local ruff to 0.16.0; applied auto-fixes (I001, UP022, RUF022, ISC004, RUF059, RUF100 via `ruff --fix --unsafe-fixes`); manual fixes for TRY004 (AttributeError→TypeError) and PLW1510×15 (add check=False to subprocess.run)
+- **Files:** 9 files, +54/-59 (commit `69ddcf5`)
+- **Verification:** `ruff check plugin/` (0.16.0) clean; 153/153 tests pass; 29 skip
 
 **Never-Done Audit 2026-07-23 20:26 (idle tick #14):**
 
@@ -222,7 +227,7 @@
 **Phase 8 (Distribution):** Hermes core PR submitted, v1.0.0 release, CONTRIBUTING.md, issue templates, compatibility matrix, 5 ADRs.
 **Phase 9 (Security):** Threat model (25KB, 21 threats), penetration test plan (55 scenarios), dependency audit (zero deps), supply chain doc. **T9.5 (Seccomp) DONE** (commit `6f81001`): 484-line seccomp module with dual-arch BPF filter (x86_64, aarch64), standalone loader script, CLI `--seccomp` integration, 37 unit tests. **T9.6 (User Namespaces) DONE** (commit `00668b7`): optional `--user` flag via `HERMES_TERMINAL_JAIL_USER_NS` env var. Adds user namespace isolation (nobody=65534), drops `--mount-proc` (incompatible with unprivileged user NS). 7 new unit tests. Standalone CLI `--user` flag. AppArmor blocks UID mapping on kernel 7.0.0-27, so process runs as nobody without explicit mapping — provides UID-based file isolation. GPG pending.
 **HOOK-GAP:** Hermes core lacks pre-execution command-transform hook. Resolution paths: Hermes core PR for `--sandbox` flag (submitted), terminal backend wrapper, systemd-only isolation. Plugin provides observability only until hook exists.
-**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 153 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (48 entries). **Idle counter: 10** — all actionable tasks BLOCKED by host kernel/sudo. Cooldown reverted to 1800 for the 4th consecutive tick (cooldown-reset-on-restart bug).
+**Audit Gaps:** 6 AUDIT tasks completed. CI fixed (ruff lint errors). 153 pass / 29 skip. Stale version docs fixed (v0.1.0→v1.0.0 — 10 files). DuckBrain namespace populated (49 entries). **Idle counter: 16** — CI-001 FIXED this tick (ruff 0.16.0 compliance, commit `69ddcf5`). All remaining actionable tasks BLOCKED by host kernel/sudo. Cooldown reverted and fixed for the 10th consecutive tick.
 **Cooldown reversions:** Tick #7 (fixed 1800→43200), Tick #8 (fixed 1800→43200), Tick #9 (fixed 1800→43200), Tick #10 (fixed 1800→43200). All four ticks found cooldown at 1800. Fleet TOML re-applies on scheduler daemon restart.
 
 ## [x] T10.1 — Kernel compatibility watchdog script
@@ -268,5 +273,9 @@ Completed 2026-07-21. Foreman-direct (mechanical doc). 106-line checklist coveri
 ## [x] T10.5 — PR & Issue SLA: docs/pr-sla.md
 
 Completed 2026-07-21. Foreman-direct (mechanical doc). 91-line SLA covering: response time targets by severity (critical 24h → low 2 weeks), triage labels, severity classification (4 tiers), escalation path, maintenance windows, staleness policy (30-180 days), and quarterly metrics tracking.
+
+## [x] CI-001 — Fix CI ruff version divergence
+
+Completed 2026-07-24. Commit `69ddcf5`. Ruff 0.16.0 compliance: TRY004 (AttributeError→TypeError), PLW1510×15 (add check=False), UP022×12, RUF059×2, RUF100×3, ISC004, I001×7, RUF022. 9 files, +54/-59. All auto-fixable rules handled by ruff --fix --unsafe-fixes; TRY004 and PLW1510 fixed manually. Verification: ruff 0.16.0 clean; 153/153 tests pass.
 
 ## [ ] NEVER-DONE — Run 12-point audit next tick
