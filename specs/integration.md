@@ -2,32 +2,38 @@
 
 ## Purpose
 
-Terminal-jail is a defense-in-depth containment system for terminal commands. It uses three independently deployable layers with a clear architectural split:
+Terminal-jail is a defense-in-depth containment system for terminal commands. It uses four independently deployable layers with a clear architectural split:
 
-1. **systemd service hardening** — the `90-terminal-jail-hardening.conf` drop-in for `hermes-gateway.service`. This is the PRIMARY PID namespace isolation and process containment layer. It provides `PrivateUsers=true`, `ProtectProc=invisible`, `RestrictNamespaces=true`, `NoNewPrivileges=true`, `TasksMax`, and `RestrictAddressFamilies`. These are kernel-enforced and cannot be bypassed by command syntax.
-2. **Hermes plugin** — observability layer. Registers `pre_tool_call` (visibility into terminal commands) and `transform_terminal_output` (output annotation) hooks. The plugin does NOT wrap commands — Hermes core has no pre-execution command-transform hook. The plugin provides metrics, logging, and operational visibility. Command wrapping functions (`transform_command`, `transform_exec_command`) exist in the plugin codebase and are tested (87 tests pass), but they are NOT wired to any execution path.
-3. **Standalone CLI** — the `terminal-jail` Bash wrapper for commands launched manually or by non-Hermes automation. Wraps commands in `unshare --pid --fork --mount-proc --kill-child=SIGKILL`. This is the only component that performs PID namespace wrapping at the command level.
+1. **Interruptor Bash engine** — the innermost layer. A user-space command firewall that evaluates every command string against a rule engine before execution. Provides three verdicts: `allow` (pass through), `block` (reject with error), and `modify` (rewrite command, e.g., wrap in sandbox). 27 built-in rules across three categories (critical blocklist, auto-sandbox, always-allow) with support for user-defined YAML rules. Operates on parsed shell syntax — pipes, redirects, command substitution, heredocs, and variable expansion are all tokenized before evaluation.
+2. **systemd service hardening** — the `90-terminal-jail-hardening.conf` drop-in for `hermes-gateway.service`. This is the PRIMARY PID namespace isolation and process containment layer. It provides `PrivateUsers=true`, `ProtectProc=invisible`, `RestrictNamespaces=true`, `NoNewPrivileges=true`, `TasksMax`, and `RestrictAddressFamilies`. These are kernel-enforced and cannot be bypassed by command syntax.
+3. **Hermes plugin** — observability layer. Registers `pre_tool_call` (visibility into terminal commands) and `transform_terminal_output` (output annotation) hooks. The plugin does NOT wrap commands — Hermes core has no pre-execution command-transform hook. The plugin provides metrics, logging, and operational visibility. Command wrapping functions (`transform_command`, `transform_exec_command`) exist in the plugin codebase and are tested, but they are NOT wired to any execution path.
+4. **Standalone CLI** — the `terminal-jail` Bash wrapper for commands launched manually or by non-Hermes automation. Integrates the interruptor as its command-evaluation front-end (enabled by default via `--interruptor` flag). Wraps commands in `unshare --pid --fork --mount-proc --kill-child=SIGKILL`. This is the only component that performs PID namespace wrapping at the command level.
 
 No layer is assumed to be perfect or universally available. The intended security property is that a command must bypass *multiple, differently implemented enforcement points* to affect the host, other users' processes, host-visible files, or the network.
 
 This document specifies how the layers compose, the threats they address, failure/degradation behavior, installation and upgrade order, and validation of the complete stack.
 
-### Architectural decision: systemd as sole PID isolation (HOOK-GAP-03)
+### Architectural decision: Interruptor + systemd defense-in-depth (Phase 11)
 
 Hermes core has no pre-execution command-transform hook. The plugin's `pre_tool_call` hook only supports block/allow decisions — it cannot modify command strings. The `transform_command` and `transform_exec_command` functions exist in the plugin and are tested, but cannot be wired to Hermes command execution without a core change.
 
-**Resolved architecture:** PID namespace isolation is delegated entirely to the systemd layer (`PrivateUsers=true`, `RestrictNamespaces=true`, `ProtectProc=invisible`). The plugin provides observability only — metrics, logging, byte-budget enforcement, and operational visibility. The standalone CLI remains available for explicit PID namespace wrapping in non-systemd contexts (Docker, manual use).
+**Resolved architecture (Phase 11 — Interruptor):** A user-space command firewall (the Interruptor Bash engine) now sits as the innermost pre-execution layer. It evaluates every command against 27 built-in rules (critical blocklist, auto-sandbox, always-allow) using parsed shell syntax rather than raw string matching. The interruptor is integrated into the standalone CLI (`--interruptor` flag, enabled by default) via a JSON-protocol bridge (`interruptor_bridge.py`). PID namespace isolation remains delegated to the systemd layer (`PrivateUsers=true`, `RestrictNamespaces=true`, `ProtectProc=invisible`). The plugin provides observability only — metrics, logging, byte-budget enforcement, and operational visibility.
 
-Two Hermes core changes have been explored to restore command-level wrapping:
+The four layers now compose as: **Interruptor** (pre-execution command firewall) → **systemd** (kernel-enforced PID isolation) → **plugin** (observability) → **CLI** (portable unshare fallback). A command must bypass all four independently implemented enforcement points to affect the host.
+
+Two Hermes core changes have been explored to restore command-level wrapping inside Hermes itself:
 - **HOOK-GAP-01 (PR #68216):** `--sandbox` flag adding `terminal.jail_enabled` config key — wraps at the terminal backend layer (`tools/environments/local.py`), not the plugin layer.
 - **HOOK-GAP-02:** Backend-layer wrapping via `HERMES_TERMINAL_JAIL_ENABLED` env var in `_run_bash()`.
 
-Neither is merged upstream as of v1.0.0. The systemd-only architecture is the production deployment path.
+Neither is merged upstream as of v1.0.0. The systemd + Interruptor architecture is the production deployment path.
 
 ## Security goals
 
 The full stack is designed to:
 
+- evaluate every command against a rule engine BEFORE execution, blocking destructive patterns at the shell syntax level;
+- prevent recursive root filesystem removal (`rm -rf /`), mass process kill (`kill -9 -1`), and fork bombs via pattern matching;
+- wrap network download commands (`curl`, `wget`) in an auto-sandbox namespace without user intervention;
 - prevent commands in a contained session from signaling or killing host processes;
 - limit blast radius from accidental destructive commands such as `killpg`, `killall`, and `pkill`;
 - contain process multiplication and reduce fork-bomb impact;
@@ -57,10 +63,14 @@ flowchart TB
     H[Hermes session]
     M[Manual shell / automation]
 
+    M --> I[Interruptor Bash engine\nCOMMAND FIREWALL\nstdin/stdout JSON bridge]
+    I -->|block| BLOCKED[BLOCKED — exit 126]
+    I -->|allow| C[terminal-jail CLI\nBash wrapper]
+    I -->|modify| C
+
     H --> P[Hermes plugin\nOBSERVABILITY ONLY\npre_tool_call + transform_terminal_output]
     H -->|terminal command\nunwrapped| EXEC[Hermes terminal execution]
 
-    M --> C[terminal-jail CLI\nBash wrapper]
     C -->|wrap command| US2[unshare sandbox]
 
     subgraph S[hermes-gateway.service]
@@ -85,7 +95,8 @@ flowchart TB
 ### Composition rules
 
 | Layer | Entry point covered | Primary enforcement | Independent value |
-|---|---|---|---|
+|---|---|---|---|---|
+| Interruptor Bash engine | Commands entering the standalone CLI | Rule-engine command evaluation (27 built-in rules: critical blocklist, auto-sandbox, always-allow) with parsed shell syntax | First line of defense against destructive shell commands (rm -rf /, fork bombs, kill -9 -1). Blocks before any namespace or syscall boundary is crossed. |
 | systemd drop-in | The Hermes gateway process tree and all descendants | Kernel-enforced PID namespace isolation via `PrivateUsers=true` + `RestrictNamespaces=true` + `ProtectProc=invisible` | Applies regardless of command syntax, cannot be bypassed by shell metacharacters. The authoritative containment boundary. |
 | Hermes plugin | Commands launched by Hermes terminal sessions | Observability only: command visibility (`pre_tool_call`), output annotation (`transform_terminal_output`), byte-budget enforcement, metrics export | Provides operational visibility, metrics, and logging for terminal commands. Does NOT wrap commands — Hermes core lacks a pre-execution command-transform hook. |
 | Standalone CLI | Interactive commands and scripts explicitly invoked as `terminal-jail ...` | `unshare` PID namespace sandbox equivalent to the intended plugin behavior | Provides PID namespace isolation outside systemd contexts (Docker, manual use). Only component that performs command-level `unshare` wrapping. |
@@ -155,6 +166,17 @@ Filesystem isolation does not prove that a downloaded payload is benign. It redu
 The drop-in is the authoritative full-service network control. Plugin and CLI filesystem isolation limit the ability of downloaded tools to persist, while systemd constrains their ability to establish unauthorized network channels when they run in the gateway service tree.
 
 A restricted address-family policy is not automatically a universal egress deny. It does not replace firewall rules, proxy policy, DNS policy, service account isolation, or explicit `IPAddressDeny=`/`IPAddressAllow=` policy where those are required. The allowed families must be reviewed alongside the service's actual network requirements.
+
+### Interruptor command firewall
+
+The Interruptor Bash engine adds a pre-execution command evaluation layer that operates before any namespace or syscall boundary is crossed:
+
+- **Parsing:** Commands are tokenized into structured segments (commands, arguments, pipes, redirects, heredocs, command substitutions, variable expansions) before any rule matching occurs.
+- **Blocklist (critical, priority 1000):** 10 rules that always block — recursive root deletion (`rm -rf /`), fork bombs (`:(){ :|:& };:`), mass process kill (`kill -9 -1`), raw device writes (`dd if=/... of=/dev/sda`), chmod -R 000 on root, etc. These cannot be overridden by user rules.
+- **Auto-sandbox (priority 700):** 8 rules that wrap commands in an unshare PID namespace — network downloads (`curl`, `wget`), package installers (`pip`, `apt`, `yum`), container commands (`docker`, `podman`), compilation (`gcc`, `make`), etc. The command is rewritten as `unshare --user --pid --fork bash -c '...'`.
+- **Allowlist (priority 500):** 9 rules that always pass — shell builtins (`echo`, `cd`, `export`), file reading (`cat`, `less`, `head`, `tail`), job control (`jobs`, `fg`, `bg`), directory listing (`ls`, `find`), etc.
+- **User rules (future):** Loaded from `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/` in lexical order with user rules overriding system rules.
+- **Mode switching:** `TERMINAL_JAIL_INTERRUPTOR_MODE` env var controls behavior — `enforce` (default, blocks violating commands), `warn` (logs blocks but allows), `disabled` (pass-through).
 
 ## Threat model
 
@@ -381,6 +403,19 @@ Also verify:
 - [ ] Confirm service logs contain no failed-open namespace initialization event.
 - [ ] Confirm no test artifact persists outside approved disposable test paths.
 
+### F. Interruptor verification
+
+The interruptor operates as a pre-execution command firewall. Verify its rule engine and CLI integration:
+
+- [ ] Run a blocked command pattern through the CLI and confirm exit 126 with formatted block output: `terminal-jail --interruptor "rm -rf /"`.
+- [ ] Run `TERMINAL_JAIL_INTERRUPTOR_MODE=warn terminal-jail --interruptor "rm -rf /"` and confirm the command prints a warning but exits 0 (warn mode).
+- [ ] Run `TERMINAL_JAIL_INTERRUPTOR_MODE=disabled terminal-jail --interruptor "rm -rf /"` and confirm the interruptor is bypassed.
+- [ ] Run `terminal-jail --no-interruptor "rm -rf /"` and confirm the interruptor is bypassed by flag.
+- [ ] Run a safe command through the CLI and confirm it executes normally: `terminal-jail --interruptor "echo ok"`.
+- [ ] Run a sandbox-targeted command (`curl`, `wget`) through the CLI and confirm it is wrapped in unshare (verify with `--no-interruptor` comparison).
+- [ ] Confirm the JSON bridge (`interruptor_bridge.py`) returns structured `action`, `rule_id`, and `reason` fields for blocked commands.
+- [ ] Run the interruptor unit test suite and confirm all 56 tests pass.
+
 ## End-to-end testing without a production Hermes instance
 
 The complete stack must be testable without connecting to production Hermes, production credentials, or production workloads.
@@ -416,6 +451,10 @@ If Docker is used for the fixture and systemd is unavailable inside the containe
 | Missing `unshare` | Test-only environment/PATH omits `unshare`. | Invoke plugin and CLI. | Both return clear non-zero setup error; original command is not executed. |
 | Missing plugin | Run gateway fixture without plugin but with CLI/systemd available. | Execute command through CLI path. | CLI containment remains effective; test report marks automatic Hermes coverage absent. |
 | No systemd environment | Run fixture in Docker without systemd. | Execute plugin and CLI probes. | Namespace/filesystem tests pass if supported; report explicitly marks systemd controls unverified/unavailable. |
+| **Interruptor + unshare compose (T-I37)** | Install CLI with interruptor bridge reachable. | Issue a sandbox-targeted command (`curl` or `wget`) via `terminal-jail`. | Interruptor matches the sandbox rule, wraps command in `unshare`, and the combined stack (interruptor → unshare) executes without error. |
+| **Custom user rule overrides built-in (T-I38)** | Deploy a user rule file (`~/.config/terminal-jail/rules.d/99-custom.yaml`) that allowlists a normally-blocked command pattern. | Issue the blocked command via `terminal-jail`. | The user allowlist rule (higher priority by lexical ordering) overrides the built-in block rule. Command is allowed. |
+| **Priority ordering (T-I39)** | Deploy two user rules with different priorities for the same command pattern. | Issue the matching command via `terminal-jail`. | The higher-priority rule wins. |
+| **Rule directory hot-reload (T-I40)** | Start CLI in a test loop; add a new rule file to `rules.d/` while running. | Issue the newly-matched command after the file appears. | Without CLI restart, the new rule is loaded and the command is evaluated against it. (Requires SIGHUP or file-watcher implementation.) |
 
 ### Safety requirements for tests
 
@@ -434,6 +473,8 @@ Monitor and periodically review:
 
 - plugin initialization and command-transform success/failure events;
 - `unshare` resolution and namespace setup failures;
+- interruptor rule matches and blocks (log level and rate);
+- interruptor bridge availability and JSON protocol errors;
 - systemd unit restart failures and rejected service directives;
 - `TasksMax`/cgroup task-limit events;
 - denied socket or syscall events when auditing is available;
@@ -447,6 +488,7 @@ Alerting should distinguish between a command that was safely denied by policy a
 
 The integration is acceptable only when all of the following are true:
 
+0. The Interruptor Bash engine is integrated into the standalone CLI (default enabled) and evaluates commands against the 27 built-in rules before execution.
 1. The systemd drop-in is active for `hermes-gateway.service`, and `systemd-analyze security hermes-gateway.service` reports a score of at least 9.0.
 2. The drop-in enforces `NoNewPrivileges`, `ProtectProc`, a documented `TasksMax`, and a documented `RestrictAddressFamilies` policy compatible with the service's legitimate operation.
 3. The Hermes plugin transforms terminal commands through the approved `unshare` policy in fresh Hermes sessions.
