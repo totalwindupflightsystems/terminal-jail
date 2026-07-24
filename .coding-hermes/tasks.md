@@ -1,3 +1,11 @@
+<!--
+  ⚠️  BOARD FORMAT — coding-hermes-model-router v1.3 (2026-07-24)
+  All tasks MUST use matrix format: | ID | Task | Pri | Cpx | Deps | Tags | Model | Reasoning | Fallback |
+  Before editing this file, load the skill: skill_view(name='coding-hermes-model-router')
+  Validate: python3 ~/.hermes/scripts/validate-board-format.py .coding-hermes/tasks.md
+  NEVER remove the matrix header row or NEVER-DONE / E2E-001 fixtures.
+-->
+
 # Terminal-Jail — Model Router Task Matrix
 
 > **Core purpose:** Hermes Agent Python plugin that wraps terminal commands in Linux PID namespaces for process isolation, with systemd defense-in-depth hardening. Now adding a Bash command firewall (Interruptor) that sits between LLM and bash execution.
@@ -39,6 +47,7 @@
 ## Completed
 
 v1.1.0 dev. Phase 11 Interruptor Bash Engine: **17 of 17 tasks complete** (all tasks ✅). NEVER-DONE tick #18: CI fix (2 ruff F401), CI pushed, CHANGELOG+README updated with Interruptor docs, DuckBrain memories written.
+Tick #19 (2026-07-24): DuckBrain verified empty → repopulated (3 entries). Coverage corrected 81%→51%. CI green, 215/32 pass, ruff clean. Hilo=useful (147 edges, 27 files). No gaps. Idle tick.
 
 | Phase | Purpose | Key outcomes |
 |-------|---------|--------------|
@@ -51,7 +60,7 @@ v1.1.0 dev. Phase 11 Interruptor Bash Engine: **17 of 17 tasks complete** (all t
 | P10: Maintenance | Kernel watchdog, LKML monitoring guide, quarterly checklist, PR/issue SLA, ruff 0.16.0 CI fix (69ddcf5) | CI green |
 | **P11: Interruptor** | **Bash command firewall — parser, matcher, decider, built-in rules, shell wrapper, output, config, tests, spec, benchmarks** | **215 tests, 14 modules, 56 spec tests, 4-layer integration spec, all 4 perf benchmarks PASS** |
 | U01: Audit | 6 gaps found, all fixed — version staleness, metrics gaps, test coverage, env var docs | 207 pass, 29 skip |
-| **U18: Audit** | **NEVER-DONE tick #18: 12-point audit, 2 CI ruff fixes, docs gaps patched, DuckBrain populated** | **215 pass, 32 skip, ruff clean, 81% cov** |
+| **U18: Audit** | **NEVER-DONE tick #18: 12-point audit, 2 CI ruff fixes, docs gaps patched, DuckBrain populated** | **215 pass, 32 skip, ruff clean, 51% cov** |
 
 ## Assumptions
 
