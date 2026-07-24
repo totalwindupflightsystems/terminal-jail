@@ -55,6 +55,9 @@
 
 v1.1.0 dev. Phase 11 Interruptor Bash Engine: **17 of 17 tasks complete** (all tasks ✅). NEVER-DONE tick #18: CI fix (2 ruff F401), CI pushed, CHANGELOG+README updated with Interruptor docs, DuckBrain memories written.
 Tick #19 (2026-07-24): DuckBrain verified empty → repopulated (3 entries). Coverage corrected 81%→51%. CI green, 215/32 pass, ruff clean. Hilo=useful (147 edges, 27 files). No gaps. Idle tick.
+Tick #20 (2026-07-24) — all-clear, idle.
+Tick #21 (2026-07-24) — GitReins init + gitleaks fix, DuckBrain repopulated.
+Tick #22 (2026-07-24) — Idle maintenance. 215/32 pass, ruff clean, GitReins guard PASS, CI green. Coverage 68% (matcher 26%, rules 35%, int-bridge 0%, seccomp 74%). DuckBrain repopulated (was empty — 4 entries). Hilo=useful (111 edges, 24 files). .gitignore fixed (plugin/.vfs/ cache files). Stale backup cleaned. No new gaps — board is clean.
 
 | Phase | Purpose | Key outcomes |
 |-------|---------|--------------|
