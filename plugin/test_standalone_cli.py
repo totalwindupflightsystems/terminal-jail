@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI_SCRIPT = PROJECT_ROOT / "standalone" / "terminal-jail"
 
@@ -33,8 +32,7 @@ def _run_cli(
         [str(cli), *args],
         cwd=str(PROJECT_ROOT),
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=False,
         check=False,
         timeout=10,
@@ -181,7 +179,7 @@ def test_stdin_passthrough(cli_path: Path) -> None:
     proc = subprocess.run(
         [str(cli_path), "cat", "-"],
         input=b"hello-from-stdin\n",
-        capture_output=True,
+        capture_output=True, check=False,
         timeout=10,
         env=env,
     )

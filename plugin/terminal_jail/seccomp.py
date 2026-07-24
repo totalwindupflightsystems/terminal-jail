@@ -452,7 +452,7 @@ def try_apply(
     running the payload without seccomp.
     """
     try:
-        body, count, _ = build_bpf_program(extra_denies=extra_denies)
+        _body, count, _ = build_bpf_program(extra_denies=extra_denies)
     except SeccompUnsupportedError as exc:
         LOGGER.warning("terminal-jail: %s; running without seccomp", exc)
         return SeccompApplyResult(applied=False, reason=str(exc))
@@ -469,15 +469,15 @@ def try_apply(
 
 
 __all__ = [
-    "SeccompError",
-    "SeccompUnsupportedError",
-    "SeccompPermissionError",
     "SeccompApplyResult",
-    "seccomp_enabled_from_environment",
-    "build_bpf_program",
-    "filter_for_host",
-    "deny_set_for_arch",
-    "supported_architectures",
+    "SeccompError",
+    "SeccompPermissionError",
+    "SeccompUnsupportedError",
     "apply_filter",
+    "build_bpf_program",
+    "deny_set_for_arch",
+    "filter_for_host",
+    "seccomp_enabled_from_environment",
+    "supported_architectures",
     "try_apply",
 ]

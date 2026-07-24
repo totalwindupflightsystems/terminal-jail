@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 METRICS_SCRIPT = PROJECT_ROOT / "scripts" / "metrics-export.py"
 
@@ -20,6 +19,7 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
         [sys.executable, str(METRICS_SCRIPT), *args],
         capture_output=True,
         text=True,
+        check=False,
         cwd=str(PROJECT_ROOT),
     )
 
@@ -237,6 +237,7 @@ exec(open("{METRICS_SCRIPT}").read())
 """],
         capture_output=True,
         text=True,
+        check=False,
         cwd=str(PROJECT_ROOT),
     )
     assert result.returncode != 0
@@ -308,6 +309,7 @@ def test_runs_from_project_root():
         [sys.executable, str(METRICS_SCRIPT), "--json"],
         capture_output=True,
         text=True,
+        check=False,
         cwd=str(PROJECT_ROOT),
     )
     assert result.returncode == 0
@@ -321,6 +323,7 @@ def test_runs_from_scripts_directory():
         [sys.executable, "metrics-export.py", "--json"],
         capture_output=True,
         text=True,
+        check=False,
         cwd=str(PROJECT_ROOT / "scripts"),
     )
     assert result.returncode == 0

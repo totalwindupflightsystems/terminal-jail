@@ -25,8 +25,8 @@ from typing import Any
 from .terminal_jail.plugin import (
     _enabled_from_environment,
     _unshare_executable_from_environment,
-    transform_command,  # noqa: F401 — re-exported via __all__
-    transform_exec_command,  # noqa: F401 — re-exported via __all__
+    transform_command,
+    transform_exec_command,
 )
 
 logger = logging.getLogger(__name__)

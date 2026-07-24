@@ -68,8 +68,8 @@ def _configure_logger() -> None:
     try:
         level = getattr(logging, raw.upper(), None)
         if not isinstance(level, int):
-            raise AttributeError
-    except AttributeError:
+            raise TypeError
+    except (TypeError, AttributeError):
         # Invalid level name — stay at WARNING and warn once.
         LOGGER.warning(
             "terminal-jail: invalid HERMES_TERMINAL_JAIL_LOG_LEVEL value %r; "
