@@ -29,6 +29,52 @@ The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, ever
 | systemd Drop-in | `systemd/90-terminal-jail-hardening.conf` | PRIMARY — kernel-enforced PID namespace isolation via `PrivateUsers`, `ProtectProc`, `RestrictNamespaces` |
 | Hermes Plugin | `plugin/terminal_jail/` | Observability: `pre_tool_call` and `transform_terminal_output` hooks. Metrics, logging, byte-budget enforcement. Does NOT wrap commands. |
 | Standalone CLI | `standalone/terminal-jail` | Portable `unshare` wrapper for use outside Hermes or without systemd |
+| Interruptor Engine | `plugin/terminal_jail/interruptor/` | Bash command firewall — parser, matcher, decider, 27 built-in rules, JSON bridge for CLI integration |
+
+## Interruptor Bash Command Firewall (v1.1.0)
+
+The Interruptor is a bash command firewall that sits between the LLM and shell execution. It intercepts every command, parses it, evaluates it against a rule set, and decides: **allow**, **block**, or **modify** (auto-sandbox).
+
+### Quick Start
+
+```bash
+# Test the JSON bridge directly
+echo '{"command": "echo hello"}' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action":"allow","command":"echo hello",...}
+
+echo '{"command": "rm -rf /"}' | python3 plugin/terminal_jail/interruptor_bridge.py
+# → {"action":"block","command":"rm -rf /","rule_id":"I-BLOCK-001",...}
+
+# Via standalone CLI with interruptor
+USE_INTERRUPTOR=1 ./standalone/terminal-jail echo "hello"
+TERMINAL_JAIL_INTERRUPTOR_MODE=warn ./standalone/terminal-jail rm -rf /
+TERMINAL_JAIL_INTERRUPTOR_MODE=disabled ./standalone/terminal-jail --no-interruptor echo "test"
+```
+
+### Architecture
+
+| Layer | Role | Mechanism |
+|-------|------|-----------|
+| **Parser** | Tokenize shell commands | Handles pipes, redirects, cmd substitution, heredocs, quoting, variable expansion |
+| **Rule Loader** | Load YAML rules | `/etc/terminal-jail/rules.d/` (system) → `~/.config/terminal-jail/rules.d/` (user) in lexical order |
+| **Pattern Matcher** | 9 match types | pattern, command, pipeline, subcommand, path, composite, syscall, network, heredoc |
+| **Decider** | Evaluate priority | Blocklist (first) → allowlist → auto-sandbox → user rules. First match wins |
+
+### Built-in Rules (27 total)
+
+- **10 Critical Blocklist**: `rm -rf /`, `dd of=/dev/sda`, `mkfs.*`, `chmod 000 /`, `wget|curl pipe-to-shell`, `:(){ :|:& };:`, etc.
+- **8 Auto-Sandbox**: `sudo`, `su`, `chown/chmod` on system paths, `mount/umount`, `passwd`, `apt/pacman install`
+- **9 Always-Allow**: `echo`, `ls`, `cat`, `cd`, `pwd`, `which`, `head/tail`, `grep`, basic arithmetic `test/[`
+
+### Modes
+
+| Mode | Behavior |
+|------|----------|
+| `enforce` (default) | Blocked commands exit 126 with formatted block output |
+| `warn` | Print warning message but allow command through |
+| `disabled` | Bypass the interruptor entirely |
+
+Set via `TERMINAL_JAIL_INTERRUPTOR_MODE` env var or `--no-interruptor` flag on the CLI.
 
 ## Quick Start
 

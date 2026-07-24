@@ -38,7 +38,7 @@
 
 ## Completed
 
-v1.0.0 released. All core features (PID namespace jail, seccomp, user namespaces, observability, distribution) complete. Phase 11 Interruptor Bash Engine: **17 of 17 tasks complete** (all tasks ✅).
+v1.1.0 dev. Phase 11 Interruptor Bash Engine: **17 of 17 tasks complete** (all tasks ✅). NEVER-DONE tick #18: CI fix (2 ruff F401), CI pushed, CHANGELOG+README updated with Interruptor docs, DuckBrain memories written.
 
 | Phase | Purpose | Key outcomes |
 |-------|---------|--------------|
@@ -49,8 +49,9 @@ v1.0.0 released. All core features (PID namespace jail, seccomp, user namespaces
 | P8: Distribution | v1.0.0 release, CONTRIBUTING, issue templates, 5 ADRs | OSS ready |
 | P9: Security | Threat model, pentest plan, seccomp (484 lines), user namespaces, supply chain doc | Zero deps, 37 seccomp tests |
 | P10: Maintenance | Kernel watchdog, LKML monitoring guide, quarterly checklist, PR/issue SLA, ruff 0.16.0 CI fix (69ddcf5) | CI green |
-| **P11: Interruptor** | **Bash command firewall — parser, matcher, decider, built-in rules, shell wrapper, output, config, tests, spec, benchmarks** | **213 tests, 14 modules, 56 spec tests, 4-layer integration spec** |
+| **P11: Interruptor** | **Bash command firewall — parser, matcher, decider, built-in rules, shell wrapper, output, config, tests, spec, benchmarks** | **215 tests, 14 modules, 56 spec tests, 4-layer integration spec, all 4 perf benchmarks PASS** |
 | U01: Audit | 6 gaps found, all fixed — version staleness, metrics gaps, test coverage, env var docs | 207 pass, 29 skip |
+| **U18: Audit** | **NEVER-DONE tick #18: 12-point audit, 2 CI ruff fixes, docs gaps patched, DuckBrain populated** | **215 pass, 32 skip, ruff clean, 81% cov** |
 
 ## Assumptions
 
