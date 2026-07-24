@@ -9,7 +9,27 @@
 | T5.1-T5.7 | Phase 5: systemd defense-in-depth — deploy drop-in + verify (7 sub-tasks) | Medium | 3 | HOOK-GAP resolved | --backend, +infra | — | BLOCKED: no sudo on karaHermes-mde-7840hs (kernel 7.0.0-27, Ubuntu 26.04) | — |
 | T6.2-T6.7 | Phase 6: Production deployment — dry-run, monitor, deploy (6 sub-tasks) | High | 4 | T5.x | --backend, +infra | — | BLOCKED: requires T5.x systemd + unshare kernel support | — |
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
+| CI-001 | Fix CI ruff version divergence — lint errors in test files (pre-existing) | Low | 1 | — | +ci | — | Local ruff passes; CI has stricter rules (I001, UP022, PLW1510, RUF100, RUF059) | — |
 | NEVER-DONE | 12-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
+
+**Never-Done Audit 2026-07-24 02:06 (idle tick #15):**
+
+| Check | Result | Detail |
+|-------|--------|--------|
+| 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd) — all present |
+| 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, 9 docs + ADRs |
+| 3. Test Gaps | ✅ PASS | 153 pass, 29 skip (5.16s). Zero TODOs/FIXMEs in source |
+| 4. Package Upgrades | ✅ PASS | Zero external Python deps (`dependencies = []`). Ruff clean locally |
+| 5. Pitfall Hunt | ✅ PASS | No TODOs/FIXMEs. No stub functions |
+| 6. Performance | ✅ N/A | CLI plugin — no benchmarks needed |
+| 7. Endpoint/CLI | ✅ PASS | `--version` reports v1.0.0. Guard PASS (secrets, lint, tests) |
+| 8. CI/CD | ⚠️ CI-001 | Tick #14 CI run (30059115790) failed — ruff version divergence. Local `ruff check plugin/` clean. CI finding: I001 (import sort), UP022 (capture_output), PLW1510 (check=), RUF100/RUF059 in test files. Pre-existing — these files last touched `dbb2f5c`. No new remote commits |
+| 9. DuckBrain | ✅ PASS | 49 entries across 15+ categories (unchanged from tick #14) |
+| 10. Code Quality | ✅ PASS | Ruff clean locally. Git status clean. No untracked files |
+| 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired. CLI standalone. install.sh + systemd drop-in present |
+| 12. Usability | ✅ PASS | `--version` output correct: `terminal-jail 1.0.0` |
+
+**Verdict: 11/12 CHECKS PASS, 1 ⚠️ (CI).** New finding: CI ruff version divergence on test files (pre-existing). Created task CI-001. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 15** (was 14). **⚠️ COOLDOWN REVERSION DETECTED AND FIXED (9th consecutive tick):** CooldownS was 1800 at tick start (fleet TOML/daemon restart reverted it from 43200). Fixed via PUT → verified 43200 with GET (CooldownS=43200 confirmed). Reversions: tick #7 through #15 — all found 1800 before fixing. **ESCALATED TO BANE at tick #7** — no action received after 8 additional ticks. Root cause: cooldown-reset-on-restart bug (coding-hermes-cron v2.1.26) — fleet TOML `ApplyFleetConfig` upsert on daemon restart overwrites API-set CooldownS. Project is feature-complete pending host-level blockers. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected). Guard: PASS (153/29, 5.2s). Ruff clean locally.
 
 **Never-Done Audit 2026-07-23 20:26 (idle tick #14):**
 
