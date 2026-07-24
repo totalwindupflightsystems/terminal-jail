@@ -42,7 +42,7 @@ def _unshare_works() -> bool:
     probe = subprocess.run(
         [unshare, "--pid", "--fork", "--mount-proc", "--kill-child=SIGKILL",
          "bash", "-c", "true"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        capture_output=True, check=False,
     )
     return probe.returncode == 0
 
@@ -68,8 +68,7 @@ def run_jailed(command: str, **kwargs: object) -> subprocess.CompletedProcess[by
         shell=True,
         executable="/bin/bash",
         text=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=False,
         **kwargs,  # type: ignore[arg-type]
     )
@@ -96,7 +95,7 @@ def test_t31b_namespace_id_differs_from_host() -> None:
 
     host_ns = subprocess.run(
         ["readlink", "/proc/self/ns/pid"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        capture_output=True, check=False,
     ).stdout.decode().strip()
 
     result = run_jailed("readlink /proc/self/ns/pid")
@@ -135,7 +134,7 @@ def test_t32_fork_bomb_containment() -> None:
     # Count host processes before.
     before = subprocess.run(
         ["bash", "-c", "ls -d /proc/[0-9]* 2>/dev/null | wc -l"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        capture_output=True, check=False,
     ).stdout.decode().strip()
 
     # Run a bounded fork bomb for a very short duration inside the jail.
@@ -153,7 +152,7 @@ def test_t32_fork_bomb_containment() -> None:
     # Count host processes after.
     after = subprocess.run(
         ["bash", "-c", "ls -d /proc/[0-9]* 2>/dev/null | wc -l"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        capture_output=True, check=False,
     ).stdout.decode().strip()
 
     delta = abs(int(after) - int(before))
@@ -249,7 +248,7 @@ def test_t35_stdout_byte_identical() -> None:
     jailed = run_jailed(payload)
     direct = subprocess.run(
         ["bash", "-c", payload],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        capture_output=True, check=False,
     )
 
     assert jailed.returncode == direct.returncode
@@ -267,7 +266,7 @@ def test_t35_stderr_byte_identical() -> None:
     jailed = run_jailed(payload)
     direct = subprocess.run(
         ["bash", "-c", payload],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        capture_output=True, check=False,
     )
 
     assert jailed.returncode == direct.returncode
@@ -286,7 +285,7 @@ def test_t35_binary_stdout_passthrough() -> None:
     jailed = run_jailed(payload)
     direct = subprocess.run(
         ["bash", "-c", payload],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        capture_output=True, check=False,
     )
 
     assert jailed.returncode == direct.returncode
@@ -399,9 +398,9 @@ def test_t37_no_zombie_processes() -> None:
     # Check for defunct/zombie processes owned by us.
     zombies = subprocess.run(
         ["bash", "-c",
-         "ps -o pid,stat -U $(id -u) --no-headers 2>/dev/null | "
-         "grep -c ' Z' || true"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+         ("ps -o pid,stat -U $(id -u) --no-headers 2>/dev/null | "
+         "grep -c ' Z' || true")],
+        capture_output=True, check=False,
     )
     # This is a best-effort check — zombies from other processes may exist.
     # We just verify the check itself ran.
@@ -493,8 +492,7 @@ def test_t39_over_boundary_passthrough() -> None:
         transformed,
         shell=True,
         executable="/bin/bash",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=False,
     )
 

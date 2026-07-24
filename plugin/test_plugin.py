@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 import shlex
 import shutil
 import subprocess
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
-import plugin.terminal_jail.plugin as plugin_module
 import plugin
-
+import plugin.terminal_jail.plugin as plugin_module
 
 ENVIRONMENT_VARIABLES = (
     "HERMES_TERMINAL_JAIL_ENABLED",
@@ -85,8 +84,7 @@ def run_transformed(command: str) -> subprocess.CompletedProcess[bytes]:
         shell=True,
         executable="/bin/bash",
         text=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=False,
     )
 
@@ -423,8 +421,7 @@ def test_t29_real_pid_namespace_process_view(monkeypatch: pytest.MonkeyPatch) ->
             "-c",
             "true",
         ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=False,
     )
     if probe.returncode != 0:
@@ -633,6 +630,7 @@ class TestGatewayRestartResilience:
         try:
             # Reimport fresh.
             import importlib
+
             import plugin as plugin_reloaded
 
             importlib.reload(plugin_reloaded)
@@ -653,8 +651,8 @@ class TestGatewayRestartResilience:
         tmp_path: Path,
     ) -> None:
         """After simulated reload, transform_command still wraps correctly."""
-        import sys
         import importlib
+        import sys
 
         install_successful_unshare_shim(tmp_path, monkeypatch)
 

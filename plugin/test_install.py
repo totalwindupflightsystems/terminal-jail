@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SCRIPT = PROJECT_ROOT / "install.sh"
 
@@ -67,7 +66,7 @@ def _make_server_dir(tmp_path: Path, binary_content: str = FAKE_BINARY) -> Path:
     (server / "terminal-jail").write_text(binary_content)
     result = subprocess.run(
         ["sha256sum", str(server / "terminal-jail")],
-        capture_output=True, text=True,
+        capture_output=True, text=True, check=False,
     )
     (server / "terminal-jail.sha256").write_text(result.stdout)
     return server
@@ -104,7 +103,7 @@ def test_installer_exists_and_is_executable(install_script: Path) -> None:
 
 @pytest.mark.standalone_cli
 def test_installer_syntax(install_script: Path) -> None:
-    result = subprocess.run(["sh", "-n", str(install_script)], capture_output=True)
+    result = subprocess.run(["sh", "-n", str(install_script)], capture_output=True, check=False)
     assert result.returncode == 0, f"Syntax error: {result.stderr.decode()}"
 
 
