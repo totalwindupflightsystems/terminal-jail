@@ -29,7 +29,7 @@ _project_root = _script_dir.parent
 _plugin_dir = _project_root / "plugin"
 sys.path.insert(0, str(_plugin_dir))
 
-from terminal_jail.interruptor import intercept, Action
+from terminal_jail.interruptor import intercept
 from terminal_jail.interruptor.parser import parse_command
 from terminal_jail.interruptor.config import Config
 from terminal_jail.interruptor.decider import Decider
