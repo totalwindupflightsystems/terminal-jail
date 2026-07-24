@@ -154,7 +154,6 @@ def test_interruptor_json_bridge_direct() -> None:
 @pytest.mark.skip(reason="Requires user rule loading in Decider Layer 4 (not yet implemented)")
 def test_custom_user_rule_overrides_builtin() -> None:
     """User allowlist rule overrides a built-in block rule."""
-    pass
 
 
 # ── T-I39: Priority ordering (requires Decider Layer 4 implementation) ───────
@@ -162,7 +161,6 @@ def test_custom_user_rule_overrides_builtin() -> None:
 @pytest.mark.skip(reason="Requires user rule loading in Decider Layer 4 (not yet implemented)")
 def test_priority_ordering() -> None:
     """Higher-priority user rule wins over lower-priority."""
-    pass
 
 
 # ── T-I40: Rule directory hot-reload (requires file watcher) ────────────────
@@ -170,4 +168,3 @@ def test_priority_ordering() -> None:
 @pytest.mark.skip(reason="Requires SIGHUP or file-watcher implementation for runtime rule reload")
 def test_rule_hot_reload() -> None:
     """New rules loaded without CLI restart."""
-    pass

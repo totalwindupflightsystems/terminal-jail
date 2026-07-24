@@ -7,17 +7,15 @@ and the top-level intercept() entry point.
 from __future__ import annotations
 
 import pytest
-
-from terminal_jail.interruptor import intercept, Action
-from terminal_jail.interruptor.types import InterceptResult
+from terminal_jail.interruptor import Action, intercept
 from terminal_jail.interruptor.config import Config
-from terminal_jail.interruptor.parser import (
-    parse_command,
-    find_command_substitution,
-    expand_variables,
-)
 from terminal_jail.interruptor.output import format_blocked, format_sandbox_notice
-
+from terminal_jail.interruptor.parser import (
+    expand_variables,
+    find_command_substitution,
+    parse_command,
+)
+from terminal_jail.interruptor.types import InterceptResult
 
 # =============================================================================
 # Blocklist tests (T-I01 through T-I10)

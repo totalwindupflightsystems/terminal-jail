@@ -17,7 +17,7 @@ class Action:
 class InterceptResult:
     """Result of evaluating a command against the rule engine."""
 
-    __slots__ = ("action", "command", "modified", "rule_id", "reason")
+    __slots__ = ("action", "command", "modified", "reason", "rule_id")
 
     def __init__(
         self,

@@ -14,13 +14,13 @@ class Rule:
     """
 
     __slots__ = (
-        "id",
-        "description",
-        "priority",
         "action",
         "block_message",
+        "description",
+        "id",
         "match",
         "modify",
+        "priority",
     )
 
     def __init__(
@@ -165,7 +165,7 @@ class RuleLoader:
         """
         try:
             return self._parse_file(file_path)
-        except Exception:
+        except Exception:  # noqa: BLE001 — fail-open on file parse errors
             return []
 
     def _parse_file(self, file_path: str) -> list[Rule]:

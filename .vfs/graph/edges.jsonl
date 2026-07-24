@@ -81,3 +81,12 @@
 {"from":"plugin/__init__.py","to":"pkg:.terminal_jail.plugin","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"plugin/terminal_jail/plugin.py","to":"pkg:time","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"plugin/terminal_jail/plugin.py","to":"pkg:dataclasses","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/interruptor_bridge.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/interruptor_bridge.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/interruptor_bridge.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/terminal_jail/interruptor_bridge.py","to":"pkg:terminal_jail.interruptor","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_interruptor_integration.py","to":"pkg:os","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_interruptor_integration.py","to":"pkg:subprocess","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_interruptor_integration.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_interruptor_integration.py","to":"pkg:pytest","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_interruptor_integration.py","to":"pkg:json","rel":"imports","provenance":"ast_exact","confidence":1.0}

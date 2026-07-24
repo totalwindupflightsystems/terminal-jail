@@ -265,7 +265,7 @@ def parse_command(command: str) -> list[Segment]:
 
         return segments
 
-    except Exception:
+    except Exception:  # noqa: BLE001 — fail-open on parse errors
         return []
 
 
