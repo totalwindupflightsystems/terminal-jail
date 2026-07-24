@@ -11,6 +11,25 @@
 | T9.4-GPG | GPG signing for releases | Low | 2 | — | +infra | — | BLOCKED: no GPG keypair exists. Manual key generation required | — |
 | NEVER-DONE | 12-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
+**Never-Done Audit 2026-07-23 20:26 (idle tick #14):**
+
+| Check | Result | Detail |
+|-------|--------|--------|
+| 1. Spec Alignment | ✅ PASS | 4 specs (cli/plugin/integration/systemd) — all present |
+| 2. Doc Coverage | ✅ PASS | README, CONTRIBUTING, LICENSE, CHANGELOG, 9 docs + ADRs |
+| 3. Test Gaps | ✅ PASS | 153 pass, 29 skip (5.87s). Zero TODOs/FIXMEs in source |
+| 4. Package Upgrades | ✅ PASS | Zero external Python deps (`dependencies = []`). Ruff clean |
+| 5. Pitfall Hunt | ✅ PASS | No TODOs/FIXMEs. No stub functions |
+| 6. Performance | ✅ N/A | CLI plugin — no benchmarks needed |
+| 7. Endpoint/CLI | ✅ PASS | `--version` reports v1.0.0. Guard PASS (secrets, lint, tests) |
+| 8. CI/CD | ✅ PASS | All 3 recent CI runs green (success). No new remote commits |
+| 9. DuckBrain | ✅ PASS | 49 entries across 15+ categories (list_keys verified live) |
+| 10. Code Quality | ✅ PASS | Ruff clean. Git status clean. No untracked files |
+| 11. Middle-Out Wiring | ✅ PASS | Plugin `register()` wired. CLI standalone. install.sh + systemd drop-in present |
+| 12. Usability | ✅ PASS | `--version` output correct: `terminal-jail 1.0.0` |
+
+**Verdict: ALL 12 CHECKS PASS.** Zero new tasks. All actionable tasks BLOCKED by host kernel/sudo. **Idle counter: 14** (was 13). **⚠️ COOLDOWN REVERSION DETECTED AND FIXED (8th consecutive tick):** CooldownS was 1800 at tick start (fleet TOML/daemon restart reverted it from 43200). Fixed via PUT → verified 43200 with GET. Reversions: tick #7 through #14 — all found 1800 before fixing. **ESCALATED TO BANE at tick #7** — no action received after 7 additional ticks. This is the cooldown-reset-on-restart bug (coding-hermes-cron v2.1.26) — root cause is scheduler daemon restart + fleet TOML `ApplyFleetConfig` upsert. Project is feature-complete pending host-level blockers. Eval: Tier1=good, Audit=N/A, Tier3=N/A, Hilo=useful (80 edges, 12 files — flat Python library, orphans expected). Guard: PASS (153/29, 5.9s). Ruff clean.
+
 **Never-Done Audit 2026-07-23 16:16 (idle tick #13):**
 
 | Check | Result | Detail |
