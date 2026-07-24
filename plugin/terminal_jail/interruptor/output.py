@@ -6,7 +6,7 @@ notices. Supports configurable theme (box-drawing vs plain ASCII).
 
 from __future__ import annotations
 
-from .types import Action, InterceptResult
+from .types import InterceptResult
 
 # Box-drawing characters
 _BOX = {

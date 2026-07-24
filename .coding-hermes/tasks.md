@@ -25,7 +25,7 @@
 | T11.13 | ✅ Mode tests (T-I34 through T-I36) — 3 mode switching tests | Low | 1 | T11.8 | ++testing, ++python | Step 3.7 Flash | Minimal | MiniMax-M3 |
 | T11.14 | Integration tests (T-I37 through T-I40) — interruptor + unshare compose, custom rules, priority ordering, hot-reload | Medium | 3 | T11.6 | ++testing, ++integration | Step 3.7 Flash | Medium | DeepSeek V4 Pro |
 | **Phase 11.4: Distribution** | | | | | | | | |
-| T11.15 | Default rules package — ship /etc/terminal-jail/rules.d/00-builtins.yaml | Low | 1 | T11.5 | ++python, ++packaging | MiniMax-M3 | Minimal | DeepSeek V4 Flash |
+| T11.15 | ✅ Default rules package — ship /etc/terminal-jail/rules.d/00-builtins.yaml | Low | 1 | T11.5 | ++python, ++packaging | MiniMax-M3 | Minimal | DeepSeek V4 Flash |
 | T11.16 | S06 Integration spec — update specs/integration.md with interruptor layer, defense-in-depth diagram | Low | 2 | T11.6 | ++docs, ++spec | DeepSeek V4 Flash | Low | GPT-5.6 Terra |
 | T11.17 | Performance benchmarks — cold start <50ms, warm start <5ms, 1KB parse <10ms, 500-rule eval <5ms. CI benchmark job | Medium | 3 | T11.6 | ++performance, ++benchmark | Step 3.7 Flash | Medium | DeepSeek V4 Pro |
 | **Blocked (host-level)** | | | | | | | | |
@@ -38,7 +38,7 @@
 
 ## Completed
 
-v1.0.0 released. All core features (PID namespace jail, seccomp, user namespaces, observability, distribution) complete. Phase 11 Interruptor Bash Engine: 9 of 17 tasks complete (T11.1-T11.5, T11.7-T11.13).
+v1.0.0 released. All core features (PID namespace jail, seccomp, user namespaces, observability, distribution) complete. Phase 11 Interruptor Bash Engine: 10 of 17 tasks complete (T11.1-T11.5, T11.7-T11.13, T11.15).
 
 | Phase | Purpose | Key outcomes |
 |-------|---------|--------------|

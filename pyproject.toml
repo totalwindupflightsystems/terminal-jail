@@ -34,6 +34,9 @@ Repository = "https://github.com/totalwindupflightsystems/terminal-jail"
 where = ["."]
 include = ["plugin*"]
 
+[tool.setuptools.package-data]
+"terminal_jail" = ["rules/*.yaml"]
+
 [tool.pytest.ini_options]
 markers = [
     "standalone_cli: tests for standalone/terminal-jail CLI script",
