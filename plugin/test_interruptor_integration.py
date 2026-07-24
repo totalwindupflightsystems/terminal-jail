@@ -15,7 +15,6 @@ host with bash installed. Tests that require unshare are gated on availability.
 from __future__ import annotations
 
 import os
-import stat
 import subprocess
 from pathlib import Path
 
