@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+INTERRUPTOR_BRIDGE="/home/kara/terminal-jail/plugin/terminal_jail/interruptor_bridge.py"
+MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
+
+cmd=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --)
+            shift
+            break
+            ;;
+        -*c*)
+            shift
+            cmd="${1-}"
+            break
+            ;;
+        -*)
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [[ -z "$cmd" ]]; then
+    exec /bin/bash "$@"
+fi
+
+cmd="${cmd#set +m;}"
+cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+cmd="${cmd%"${cmd##*[![:space:]]}"}"
+
+if [[ -f "$INTERRUPTOR_BRIDGE" && "$MODE" != "disabled" ]]; then
+    result=$(printf '%s' "$cmd" | python3 -c \
+        'import json,sys; print(json.dumps({"command": sys.stdin.read()}))' | \
+        python3 "$INTERRUPTOR_BRIDGE" 2>/dev/null) || result=''
+    action=$(printf '%s' "$result" | python3 -c \
+        "import json,sys; print(json.load(sys.stdin).get('action', 'allow'))" \
+        2>/dev/null) || action="allow"
+
+    if [[ "$action" == "block" ]]; then
+        rule_id=$(printf '%s' "$result" | python3 -c \
+            "import json,sys; print(json.load(sys.stdin).get('rule_id') or 'unknown')" \
+            2>/dev/null) || rule_id="unknown"
+        reason=$(printf '%s' "$result" | python3 -c \
+            "import json,sys; print(json.load(sys.stdin).get('reason') or 'Blocked by security policy')" \
+            2>/dev/null) || reason="Blocked by security policy"
+        printf 'terminal-jail: command blocked (%s): %s\n' "$rule_id" "$reason" >&2
+        exit 126
+    elif [[ "$action" == "modify" ]]; then
+        modified=$(printf '%s' "$result" | python3 -c \
+            "import json,sys; print(json.load(sys.stdin).get('modified') or '')" \
+            2>/dev/null) || modified=''
+        [[ -n "$modified" ]] && cmd="$modified"
+    fi
+fi
+
+export TERMINAL_JAIL_SECCOMP="${TERMINAL_JAIL_SECCOMP:-1}"
+exec /usr/bin/setpriv --no-new-privs \
+    /usr/local/lib/terminal-jail/standalone/terminal-jail \
+    --user --seccomp --no-interruptor /bin/bash -c "$cmd"
