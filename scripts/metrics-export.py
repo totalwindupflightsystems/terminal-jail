@@ -13,7 +13,7 @@ import argparse
 import dataclasses
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Ensure the plugin package is importable from the project root.
@@ -21,15 +21,17 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from plugin.terminal_jail.plugin import get_metrics  # noqa: E402
-from plugin.terminal_jail.plugin import reset_metrics  # noqa: E402
+from plugin.terminal_jail.plugin import (
+    get_metrics,
+    reset_metrics,
+)
 
 
 def _metrics_to_dict() -> dict:
     """Convert the Metrics dataclass to a plain dict with a timestamp."""
     m = get_metrics()
     d = dataclasses.asdict(m)
-    d["timestamp"] = datetime.now(timezone.utc).isoformat()
+    d["timestamp"] = datetime.now(UTC).isoformat()
     d["project"] = "terminal-jail"
     d["version"] = "1.0.0"
     # Derived fields for dashboarding
