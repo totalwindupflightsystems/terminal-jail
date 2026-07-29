@@ -10,13 +10,21 @@ from .types import InterceptResult
 
 # Box-drawing characters
 _BOX = {
-    "tl": "╔", "tr": "╗", "bl": "╚", "br": "╝",
-    "h": "═", "v": "║",
+    "tl": "╔",
+    "tr": "╗",
+    "bl": "╚",
+    "br": "╝",
+    "h": "═",
+    "v": "║",
 }
 
 _ASCII = {
-    "tl": "+", "tr": "+", "bl": "+", "br": "+",
-    "h": "-", "v": "|",
+    "tl": "+",
+    "tr": "+",
+    "bl": "+",
+    "br": "+",
+    "h": "-",
+    "v": "|",
 }
 
 # 80-char width

@@ -31,10 +31,7 @@ class MatchResult:
         return self.matched
 
     def __repr__(self) -> str:
-        return (
-            f"MatchResult(matched={self.matched}, "
-            f"matched_by={self.matched_by!r})"
-        )
+        return f"MatchResult(matched={self.matched}, matched_by={self.matched_by!r})"
 
 
 class Matcher:
@@ -70,7 +67,9 @@ class Matcher:
 
         return handler(segment, match_def)
 
-    def _match_pattern(self, segment: Segment, match_def: dict[str, Any]) -> MatchResult:
+    def _match_pattern(
+        self, segment: Segment, match_def: dict[str, Any]
+    ) -> MatchResult:
         """Match against a regex pattern."""
         pattern_str = match_def.get("pattern", "") or match_def.get("regex", "")
         if not pattern_str:
@@ -89,7 +88,9 @@ class Matcher:
             )
         return MatchResult()
 
-    def _match_command(self, segment: Segment, match_def: dict[str, Any]) -> MatchResult:
+    def _match_command(
+        self, segment: Segment, match_def: dict[str, Any]
+    ) -> MatchResult:
         """Match against the top-level command (first word)."""
         cmd_name = match_def.get("command", "")
         if not cmd_name:
@@ -106,7 +107,9 @@ class Matcher:
             ),
         )
 
-    def _match_pipeline(self, segment: Segment, match_def: dict[str, Any]) -> MatchResult:
+    def _match_pipeline(
+        self, segment: Segment, match_def: dict[str, Any]
+    ) -> MatchResult:
         """Match against pipeline segments."""
         if segment.type != SegmentType.PIPE:
             # For simple commands with pipe operators, check the raw text
@@ -141,7 +144,9 @@ class Matcher:
                 )
         return MatchResult()
 
-    def _match_subcommand(self, segment: Segment, match_def: dict[str, Any]) -> MatchResult:
+    def _match_subcommand(
+        self, segment: Segment, match_def: dict[str, Any]
+    ) -> MatchResult:
         """Match against subcommands (e.g., git push --force)."""
         words = segment.raw.split()
         subcmd = match_def.get("subcommand", "")
@@ -193,7 +198,9 @@ class Matcher:
                 )
         return MatchResult()
 
-    def _match_composite(self, segment: Segment, match_def: dict[str, Any]) -> MatchResult:
+    def _match_composite(
+        self, segment: Segment, match_def: dict[str, Any]
+    ) -> MatchResult:
         """Match composite AND/OR/NOT conditions."""
         conditions = match_def.get("conditions", [])
         operator = match_def.get("operator", "and").lower()
@@ -211,10 +218,7 @@ class Matcher:
         if not conditions:
             return MatchResult()
 
-        results = [
-            self._match_simple(segment, cond)
-            for cond in conditions
-        ]
+        results = [self._match_simple(segment, cond) for cond in conditions]
 
         if operator == "and":
             if all(results):
@@ -232,10 +236,10 @@ class Matcher:
                 )
         elif operator == "not" and not any(results):
             return MatchResult(
-                    matched=True,
-                    matched_by="composite_not",
-                    details="None of the NOT conditions matched",
-                )
+                matched=True,
+                matched_by="composite_not",
+                details="None of the NOT conditions matched",
+            )
 
         return MatchResult()
 
@@ -255,12 +259,26 @@ class Matcher:
             return self.match_segment(segment, condition)
         return MatchResult()
 
-    def _match_syscall(self, segment: Segment, match_def: dict[str, Any]) -> MatchResult:
+    def _match_syscall(
+        self, segment: Segment, match_def: dict[str, Any]
+    ) -> MatchResult:
         """Match against likely syscall usage (heuristic)."""
         dangerous_commands = {
-            "mount", "umount", "kexec", "insmod", "modprobe",
-            "rmmod", "swapon", "swapoff", "sysctl", "dmesg",
-            "reboot", "shutdown", "halt", "poweroff", "init",
+            "mount",
+            "umount",
+            "kexec",
+            "insmod",
+            "modprobe",
+            "rmmod",
+            "swapon",
+            "swapoff",
+            "sysctl",
+            "dmesg",
+            "reboot",
+            "shutdown",
+            "halt",
+            "poweroff",
+            "init",
         }
         words = {w.lower() for w in segment.raw.split()}
         matched = words & dangerous_commands
@@ -273,7 +291,9 @@ class Matcher:
             )
         return MatchResult()
 
-    def _match_network(self, segment: Segment, match_def: dict[str, Any]) -> MatchResult:
+    def _match_network(
+        self, segment: Segment, match_def: dict[str, Any]
+    ) -> MatchResult:
         """Match against network addresses/URLs."""
         ip_pattern = match_def.get("network", r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
         try:
@@ -290,7 +310,9 @@ class Matcher:
                 )
         return MatchResult()
 
-    def _match_heredoc(self, segment: Segment, match_def: dict[str, Any]) -> MatchResult:
+    def _match_heredoc(
+        self, segment: Segment, match_def: dict[str, Any]
+    ) -> MatchResult:
         """Match inside heredoc content."""
         pattern_str = match_def.get("pattern", "")
         if not pattern_str:

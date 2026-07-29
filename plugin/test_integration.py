@@ -40,9 +40,18 @@ def _unshare_works() -> bool:
     if unshare is None:
         return False
     probe = subprocess.run(
-        [unshare, "--pid", "--fork", "--mount-proc", "--kill-child=SIGKILL",
-         "bash", "-c", "true"],
-        capture_output=True, check=False,
+        [
+            unshare,
+            "--pid",
+            "--fork",
+            "--mount-proc",
+            "--kill-child=SIGKILL",
+            "bash",
+            "-c",
+            "true",
+        ],
+        capture_output=True,
+        check=False,
     )
     return probe.returncode == 0
 
@@ -78,6 +87,7 @@ def run_jailed(command: str, **kwargs: object) -> subprocess.CompletedProcess[by
 # T3.1 — PID namespace isolation (process tree)
 # ---------------------------------------------------------------------------
 
+
 def test_t31_pid_namespace_isolation() -> None:
     """Inside the jail, the shell sees itself as PID 1."""
     _skip_if_unshare_unavailable()
@@ -93,18 +103,21 @@ def test_t31b_namespace_id_differs_from_host() -> None:
     """The jail's PID namespace inode differs from the host's."""
     _skip_if_unshare_unavailable()
 
-    host_ns = subprocess.run(
-        ["readlink", "/proc/self/ns/pid"],
-        capture_output=True, check=False,
-    ).stdout.decode().strip()
+    host_ns = (
+        subprocess.run(
+            ["readlink", "/proc/self/ns/pid"],
+            capture_output=True,
+            check=False,
+        )
+        .stdout.decode()
+        .strip()
+    )
 
     result = run_jailed("readlink /proc/self/ns/pid")
     jail_ns = result.stdout.decode().strip()
 
     assert result.returncode == 0
-    assert host_ns != jail_ns, (
-        f"namespace not isolated: host={host_ns} jail={jail_ns}"
-    )
+    assert host_ns != jail_ns, f"namespace not isolated: host={host_ns} jail={jail_ns}"
 
 
 def test_t31c_killpg_one_does_not_kill_host() -> None:
@@ -127,22 +140,26 @@ def test_t31c_killpg_one_does_not_kill_host() -> None:
 # T3.2 — Fork-bomb containment
 # ---------------------------------------------------------------------------
 
+
 def test_t32_fork_bomb_containment() -> None:
     """A fork bomb inside the jail does not affect host PID count."""
     _skip_if_unshare_unavailable()
 
     # Count host processes before.
-    before = subprocess.run(
-        ["bash", "-c", "ls -d /proc/[0-9]* 2>/dev/null | wc -l"],
-        capture_output=True, check=False,
-    ).stdout.decode().strip()
+    before = (
+        subprocess.run(
+            ["bash", "-c", "ls -d /proc/[0-9]* 2>/dev/null | wc -l"],
+            capture_output=True,
+            check=False,
+        )
+        .stdout.decode()
+        .strip()
+    )
 
     # Run a bounded fork bomb for a very short duration inside the jail.
     # ulimit -u caps user processes inside the namespace.
     _result = run_jailed(
-        "ulimit -u 64; "
-        "bomb() { bomb | bomb & }; bomb; "
-        "true",
+        "ulimit -u 64; bomb() { bomb | bomb & }; bomb; true",
         timeout=5,
     )
     # The jail may be killed by the kernel (SIGKILL from OOM or ulimit).
@@ -150,20 +167,24 @@ def test_t32_fork_bomb_containment() -> None:
     # The return code doesn't matter; containment is the success metric.
 
     # Count host processes after.
-    after = subprocess.run(
-        ["bash", "-c", "ls -d /proc/[0-9]* 2>/dev/null | wc -l"],
-        capture_output=True, check=False,
-    ).stdout.decode().strip()
+    after = (
+        subprocess.run(
+            ["bash", "-c", "ls -d /proc/[0-9]* 2>/dev/null | wc -l"],
+            capture_output=True,
+            check=False,
+        )
+        .stdout.decode()
+        .strip()
+    )
 
     delta = abs(int(after) - int(before))
-    assert delta < 50, (
-        f"fork bomb leaked: {before} → {after} (Δ{delta})"
-    )
+    assert delta < 50, f"fork bomb leaked: {before} → {after} (Δ{delta})"
 
 
 # ---------------------------------------------------------------------------
 # T3.3 — killall containment
 # ---------------------------------------------------------------------------
+
 
 def test_t33_killall_containment() -> None:
     """``killall -9 bash`` inside the jail kills only the jail's bash."""
@@ -172,7 +193,8 @@ def test_t33_killall_containment() -> None:
     # Start a persistent bash on the host to verify it survives.
     host_probe = subprocess.Popen(
         ["bash", "-c", "trap 'exit 42' TERM; sleep 300"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     host_pid = host_probe.pid
 
@@ -202,13 +224,17 @@ def test_t33_killall_containment() -> None:
 # T3.4 — Exit code propagation
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("code,expected", [
-    (0, 0),
-    (1, 1),
-    (42, 42),
-    (127, 127),
-    (255, 255),
-])
+
+@pytest.mark.parametrize(
+    "code,expected",
+    [
+        (0, 0),
+        (1, 1),
+        (42, 42),
+        (127, 127),
+        (255, 255),
+    ],
+)
 def test_t34_exit_code_propagation(code: int, expected: int) -> None:
     """Exit codes pass through the jail unchanged."""
     _skip_if_unshare_unavailable()
@@ -230,14 +256,13 @@ def test_t34_signal_exit_code() -> None:
     )
     # SIGTERM = 15 → 128+15 = 143 (or the jail wrapper may return -15
     # via bash's convention).  Either is valid.
-    assert result.returncode != 0, (
-        f"signal-killed process returned {result.returncode}"
-    )
+    assert result.returncode != 0, f"signal-killed process returned {result.returncode}"
 
 
 # ---------------------------------------------------------------------------
 # T3.5 — Stdout/stderr integrity
 # ---------------------------------------------------------------------------
+
 
 def test_t35_stdout_byte_identical() -> None:
     """Stdout is byte-for-byte identical between jailed and non-jailed execution."""
@@ -248,7 +273,8 @@ def test_t35_stdout_byte_identical() -> None:
     jailed = run_jailed(payload)
     direct = subprocess.run(
         ["bash", "-c", payload],
-        capture_output=True, check=False,
+        capture_output=True,
+        check=False,
     )
 
     assert jailed.returncode == direct.returncode
@@ -266,7 +292,8 @@ def test_t35_stderr_byte_identical() -> None:
     jailed = run_jailed(payload)
     direct = subprocess.run(
         ["bash", "-c", payload],
-        capture_output=True, check=False,
+        capture_output=True,
+        check=False,
     )
 
     assert jailed.returncode == direct.returncode
@@ -285,7 +312,8 @@ def test_t35_binary_stdout_passthrough() -> None:
     jailed = run_jailed(payload)
     direct = subprocess.run(
         ["bash", "-c", payload],
-        capture_output=True, check=False,
+        capture_output=True,
+        check=False,
     )
 
     assert jailed.returncode == direct.returncode
@@ -296,6 +324,7 @@ def test_t35_binary_stdout_passthrough() -> None:
 # ---------------------------------------------------------------------------
 # T3.6 — Nested jails
 # ---------------------------------------------------------------------------
+
 
 def test_t36_nested_jails() -> None:
     """A jailed command that itself runs terminal-jail works correctly."""
@@ -326,7 +355,7 @@ def test_t36b_nested_pid_one() -> None:
 
     result = run_jailed(
         f"{shlex.quote(str(standalone))} bash -c "
-        f"'test \"$(ps -o pid= -p $$ | tr -d \" \")\" = 1'",
+        f'\'test "$(ps -o pid= -p $$ | tr -d " ")" = 1\'',
     )
 
     assert result.returncode == 0, (
@@ -337,6 +366,7 @@ def test_t36b_nested_pid_one() -> None:
 # ---------------------------------------------------------------------------
 # T3.7 — Signal handling
 # ---------------------------------------------------------------------------
+
 
 def test_t37_sigterm_cleanup() -> None:
     """SIGTERM to the jail wrapper kills the jail and propagates exit."""
@@ -397,10 +427,16 @@ def test_t37_no_zombie_processes() -> None:
 
     # Check for defunct/zombie processes owned by us.
     zombies = subprocess.run(
-        ["bash", "-c",
-         ("ps -o pid,stat -U $(id -u) --no-headers 2>/dev/null | "
-         "grep -c ' Z' || true")],
-        capture_output=True, check=False,
+        [
+            "bash",
+            "-c",
+            (
+                "ps -o pid,stat -U $(id -u) --no-headers 2>/dev/null | "
+                "grep -c ' Z' || true"
+            ),
+        ],
+        capture_output=True,
+        check=False,
     )
     # This is a best-effort check — zombies from other processes may exist.
     # We just verify the check itself ran.
@@ -410,6 +446,7 @@ def test_t37_no_zombie_processes() -> None:
 # ---------------------------------------------------------------------------
 # T3.8 — Performance benchmark
 # ---------------------------------------------------------------------------
+
 
 def test_t38_performance_overhead() -> None:
     """PID namespace wrapping overhead is measured and reasonable."""
@@ -422,7 +459,9 @@ def test_t38_performance_overhead() -> None:
     for _ in range(iterations):
         subprocess.run(
             ["bash", "-c", "echo hello"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
         )
     direct_elapsed = time.monotonic() - direct_start
 
@@ -432,7 +471,9 @@ def test_t38_performance_overhead() -> None:
         run_jailed("echo hello")
     jailed_elapsed = time.monotonic() - jailed_start
 
-    overhead_ratio = jailed_elapsed / direct_elapsed if direct_elapsed > 0 else float("inf")
+    overhead_ratio = (
+        jailed_elapsed / direct_elapsed if direct_elapsed > 0 else float("inf")
+    )
 
     # Overhead should be measurable but not absurd.  unshare + fork +
     # mount-proc adds fixed cost per invocation.  With 100 iterations
@@ -452,6 +493,7 @@ def test_t38_performance_overhead() -> None:
 # T3.9 — Large command passthrough
 # ---------------------------------------------------------------------------
 
+
 def test_t39_near_boundary_passthrough() -> None:
     """Commands near the byte budget boundary pass through correctly."""
     _skip_if_unshare_unavailable()
@@ -459,7 +501,9 @@ def test_t39_near_boundary_passthrough() -> None:
     # Build a command that when wrapped is just under the default 131072 limit.
     # The wrapper adds ~80 bytes (unshare path + flags).
     budget = 131072
-    overhead = len(shlex.quote(_real_unshare_path() or "unshare")) + len(UNSHARE_FLAGS) + 4
+    overhead = (
+        len(shlex.quote(_real_unshare_path() or "unshare")) + len(UNSHARE_FLAGS) + 4
+    )
     payload_size = budget - overhead - 10  # 10 bytes of safety margin
 
     payload = "printf " + shlex.quote("x" * payload_size)
@@ -477,7 +521,9 @@ def test_t39_over_boundary_passthrough() -> None:
     _skip_if_unshare_unavailable()
 
     budget = 131072
-    overhead = len(shlex.quote(_real_unshare_path() or "unshare")) + len(UNSHARE_FLAGS) + 4
+    overhead = (
+        len(shlex.quote(_real_unshare_path() or "unshare")) + len(UNSHARE_FLAGS) + 4
+    )
 
     # Build payload that's guaranteed to exceed budget after wrapping.
     payload_size = budget - overhead + 100
@@ -504,6 +550,7 @@ def test_t39_over_boundary_passthrough() -> None:
 # ---------------------------------------------------------------------------
 # T3.10 — Environment variable bleed
 # ---------------------------------------------------------------------------
+
 
 def test_t310_env_var_no_bleed_to_host() -> None:
     """Environment variables set inside the jail do not leak to the host."""

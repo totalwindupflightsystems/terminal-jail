@@ -57,10 +57,7 @@ class Rule:
         )
 
     def __repr__(self) -> str:
-        return (
-            f"Rule(id={self.id!r}, action={self.action!r}, "
-            f"priority={self.priority})"
-        )
+        return f"Rule(id={self.id!r}, action={self.action!r}, priority={self.priority})"
 
 
 class RuleSet:
@@ -181,10 +178,12 @@ class RuleLoader:
         # Try PyYAML first
         try:
             import yaml  # type: ignore[import-untyped]
+
             data = yaml.safe_load(content)
         except ImportError:
             # Fall back to json
             import json
+
             data = json.loads(content)
 
         if not isinstance(data, dict):

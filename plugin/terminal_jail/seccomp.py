@@ -169,45 +169,51 @@ _ARCH_TABLE: Final[tuple[_Arch, ...]] = (
 # same semantics. This is the conservative cross-arch deny set. It is
 # computed by intersecting the per-arch extension tables; we hard-code it
 # here so that an audit can verify the values without running the code.
-_DENY_COMMON_BOTH: Final[frozenset[int]] = frozenset({
-    167,  # swapon  (both arches)
-    168,  # swapoff (both arches)
-})
+_DENY_COMMON_BOTH: Final[frozenset[int]] = frozenset(
+    {
+        167,  # swapon  (both arches)
+        168,  # swapoff (both arches)
+    }
+)
 
 # Per-arch extension: numbers that exist with the *same semantics* on the
 # given arch. Keys are architecture names from :data:`_ARCH_TABLE`.
 _DENY_EXTRA: Final[dict[str, frozenset[int]]] = {
-    "x86_64": frozenset({
-        155,  # pivot_root
-        159,  # adjtimex
-        163,  # acct
-        164,  # settimeofday
-        165,  # mount
-        167,  # swapon
-        168,  # swapoff
-        174,  # create_module
-        175,  # init_module
-        176,  # delete_module
-        227,  # clock_settime
-        246,  # kexec_load
-        248,  # add_key
-        249,  # request_key
-        250,  # keyctl
-        313,  # finit_module
-        320,  # kexec_file_load
-    }),
-    "aarch64": frozenset({
-        40,   # mount
-        163,  # settimeofday
-        167,  # swapon
-        168,  # swapoff
-        222,  # clock_settime
-        # NOTE: pivot_root, init_module, finit_module, create_module,
-        # delete_module, kexec_load, kexec_file_load, acct, adjtimex,
-        # add_key, request_key, keyctl are not implemented as syscalls on
-        # standard aarch64 kernels. Including their NRs would be harmless
-        # (the kernel never sees them) but adds noise to the filter.
-    }),
+    "x86_64": frozenset(
+        {
+            155,  # pivot_root
+            159,  # adjtimex
+            163,  # acct
+            164,  # settimeofday
+            165,  # mount
+            167,  # swapon
+            168,  # swapoff
+            174,  # create_module
+            175,  # init_module
+            176,  # delete_module
+            227,  # clock_settime
+            246,  # kexec_load
+            248,  # add_key
+            249,  # request_key
+            250,  # keyctl
+            313,  # finit_module
+            320,  # kexec_file_load
+        }
+    ),
+    "aarch64": frozenset(
+        {
+            40,  # mount
+            163,  # settimeofday
+            167,  # swapon
+            168,  # swapoff
+            222,  # clock_settime
+            # NOTE: pivot_root, init_module, finit_module, create_module,
+            # delete_module, kexec_load, kexec_file_load, acct, adjtimex,
+            # add_key, request_key, keyctl are not implemented as syscalls on
+            # standard aarch64 kernels. Including their NRs would be harmless
+            # (the kernel never sees them) but adds noise to the filter.
+        }
+    ),
 }
 
 
@@ -243,9 +249,7 @@ def _bpf_jump(code: int, k: int, jt: int, jf: int) -> bytes:
     return struct.pack("<HBBI", code, jt, jf, k)
 
 
-def _build_filter(
-    arch_value: int, deny_numbers: frozenset[int]
-) -> tuple[bytes, int]:
+def _build_filter(arch_value: int, deny_numbers: frozenset[int]) -> tuple[bytes, int]:
     """Return ``(encoded_filter, instruction_count)``.
 
     The filter is laid out so that misses fall through to ``ALLOW``:
@@ -261,12 +265,14 @@ def _build_filter(
     if not deny_numbers:
         # Nothing to deny — install a no-op filter that just checks arch.
         # This still validates arch and serves as a placeholder.
-        body = b"".join((
-            _bpf_stmt(_BPF_LD | _BPF_W | _BPF_ABS, _SECCOMP_DATA_ARCH),
-            _bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, arch_value, 0, 1),
-            _bpf_stmt(_BPF_RET, 0x80000000),  # SECCOMP_RET_KILL_PROCESS
-            _bpf_stmt(_BPF_RET, _SECCOMP_RET_ALLOW),
-        ))
+        body = b"".join(
+            (
+                _bpf_stmt(_BPF_LD | _BPF_W | _BPF_ABS, _SECCOMP_DATA_ARCH),
+                _bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, arch_value, 0, 1),
+                _bpf_stmt(_BPF_RET, 0x80000000),  # SECCOMP_RET_KILL_PROCESS
+                _bpf_stmt(_BPF_RET, _SECCOMP_RET_ALLOW),
+            )
+        )
         return body, 4
 
     # Linear scan over a sorted deny list. With N entries, the layout is:
@@ -279,9 +285,7 @@ def _build_filter(
     # 0: LD [4]   — load arch
     instructions.append(_bpf_stmt(_BPF_LD | _BPF_W | _BPF_ABS, _SECCOMP_DATA_ARCH))
     # 1: JEQ arch_value, jt=0, jf=1 — if equal, fall through to LD nr; else skip to RET KILL
-    instructions.append(
-        _bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, arch_value, 0, 1)
-    )
+    instructions.append(_bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, arch_value, 0, 1))
     # 2: RET KILL_PROCESS — wrong arch: kill the process
     instructions.append(_bpf_stmt(_BPF_RET, 0x80000000))
     # 3: LD [0]   — load syscall number
@@ -293,15 +297,11 @@ def _build_filter(
         # jf: on no match, jump forward by 1 (next JEQ), or 0 to RET ALLOW if last
         jt = deny_block_index - (len(instructions) + 1)
         jf = 1 if remaining else 0
-        instructions.append(
-            _bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, nr, jt, jf)
-        )
+        instructions.append(_bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, nr, jt, jf))
     # 3+N+1: RET ALLOW — no match in the JEQ chain
     instructions.append(_bpf_stmt(_BPF_RET, _SECCOMP_RET_ALLOW))
     # 3+N+2 = deny_block_index: RET ERRNO|EPERM — the deny block
-    instructions.append(
-        _bpf_stmt(_BPF_RET, _SECCOMP_RET_ERRNO | _EPERM)
-    )
+    instructions.append(_bpf_stmt(_BPF_RET, _SECCOMP_RET_ERRNO | _EPERM))
 
     body = b"".join(instructions)
     return body, len(instructions)
@@ -411,7 +411,9 @@ def apply_filter(
     prctl.restype = ctypes.c_long
     prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_void_p]
 
-    rv = prctl(_PR_SET_SECCOMP, _SECCOMP_MODE_FILTER, ctypes.cast(fprog_ref, ctypes.c_void_p))
+    rv = prctl(
+        _PR_SET_SECCOMP, _SECCOMP_MODE_FILTER, ctypes.cast(fprog_ref, ctypes.c_void_p)
+    )
     if rv != 0:
         err = ctypes.get_errno()
         message = os.strerror(err) if err else "unknown error"
@@ -420,9 +422,7 @@ def apply_filter(
                 f"prctl(PR_SET_SECCOMP) refused the filter: {message} "
                 f"(missing CAP_SYS_ADMIN or no_new_privs set?)"
             )
-        raise SeccompError(
-            f"prctl(PR_SET_SECCOMP) failed: {message} (errno={err})"
-        )
+        raise SeccompError(f"prctl(PR_SET_SECCOMP) failed: {message} (errno={err})")
     return rv
 
 
@@ -438,9 +438,7 @@ class SeccompApplyResult:
     instructions: int = 0
 
 
-def try_apply(
-    *, extra_denies: frozenset[int] = frozenset()
-) -> SeccompApplyResult:
+def try_apply(*, extra_denies: frozenset[int] = frozenset()) -> SeccompApplyResult:
     """Best-effort: try to apply the seccomp filter, log on failure.
 
     Returns a :class:`SeccompApplyResult` describing the outcome. On
@@ -460,8 +458,7 @@ def try_apply(
         apply_filter(extra_denies=extra_denies)
     except SeccompError as exc:
         LOGGER.warning(
-            "terminal-jail: seccomp filter not installed (%s); "
-            "running without seccomp",
+            "terminal-jail: seccomp filter not installed (%s); running without seccomp",
             exc,
         )
         return SeccompApplyResult(applied=False, reason=str(exc))

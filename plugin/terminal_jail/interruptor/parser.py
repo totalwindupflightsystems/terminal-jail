@@ -77,9 +77,7 @@ class Segment(NamedTuple):
 
 
 # Regex patterns for shell operators
-_OPERATOR_RE = re.compile(
-    r"(&&|\|\||[|;&]|2>>|>>|2>|>|<)"
-)
+_OPERATOR_RE = re.compile(r"(&&|\|\||[|;&]|2>>|>>|2>|>|<)")
 
 # Variable expansion patterns
 _VAR_EXPAND = re.compile(r"\$\{([^}]+)\}|\$([a-zA-Z_][a-zA-Z0-9_]*)")

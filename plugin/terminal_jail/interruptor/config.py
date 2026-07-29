@@ -42,9 +42,7 @@ class Config:
     def from_environ(cls) -> Config:
         """Load configuration from environment variables."""
         return cls(
-            mode=os.environ.get(
-                "TERMINAL_JAIL_INTERRUPTOR_MODE", "enforce"
-            ),
+            mode=os.environ.get("TERMINAL_JAIL_INTERRUPTOR_MODE", "enforce"),
             system_rules_dir=os.environ.get(
                 "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR",
                 "/etc/terminal-jail/rules.d",
@@ -52,9 +50,7 @@ class Config:
             user_rules_dir=os.environ.get(
                 "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR", ""
             ),
-            log_level=os.environ.get(
-                "TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL", "WARNING"
-            ),
+            log_level=os.environ.get("TERMINAL_JAIL_INTERRUPTOR_LOG_LEVEL", "WARNING"),
         )
 
     def __repr__(self) -> str:

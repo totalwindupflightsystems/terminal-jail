@@ -29,21 +29,23 @@ _project_root = _script_dir.parent
 _plugin_dir = _project_root / "plugin"
 sys.path.insert(0, str(_plugin_dir))
 
-from terminal_jail.interruptor import intercept
-from terminal_jail.interruptor.config import Config
-from terminal_jail.interruptor.decider import Decider
-from terminal_jail.interruptor.parser import parse_command
+from terminal_jail.interruptor import intercept  # noqa: E402
+from terminal_jail.interruptor.config import Config  # noqa: E402
+from terminal_jail.interruptor.decider import Decider  # noqa: E402
+from terminal_jail.interruptor.parser import parse_command  # noqa: E402
 
 
 def _generate_n_rules(n: int, prefix: str) -> list:
     """Generate N fake rules for benchmarking."""
     rules = []
     for i in range(n):
-        rules.append({
-            "id": f"{prefix}-{i}",
-            "action": "block",
-            "match": {"type": "command", "command": f"never-match-{prefix}-{i}"},
-        })
+        rules.append(
+            {
+                "id": f"{prefix}-{i}",
+                "action": "block",
+                "match": {"type": "command", "command": f"never-match-{prefix}-{i}"},
+            }
+        )
     return rules
 
 
@@ -59,6 +61,7 @@ def benchmark_cold_start(config: Config, n_runs: int = 10) -> float:
         import importlib
 
         import terminal_jail.interruptor as mod
+
         importlib.reload(mod)
         _ = mod.intercept("echo hello", config=config)
         elapsed = (time.perf_counter() - start) * 1000  # ms
@@ -82,19 +85,17 @@ def benchmark_warm_start(config: Config, n_runs: int = 100) -> float:
 def benchmark_parse_1kb(n_runs: int = 100) -> float:
     """Parse a ~1KB shell command — complex pipeline."""
     command = (
-        "cat /var/log/syslog | grep '"
-        + ("x" * 200)
-        + "' | awk '{print $1}' | "
+        "cat /var/log/syslog | grep '" + ("x" * 200) + "' | awk '{print $1}' | "
         "sort -u | head -100 | tee /tmp/output.txt"
         " && "
         "for f in $(find /etc -name '*.conf' -type f 2>/dev/null | head -50); do"
         '  echo "Processing: $f"'
-        "  if [[ -r \"$f\" ]]; then"
+        '  if [[ -r "$f" ]]; then'
         '    echo "Config: $(head -1 "$f")"'
         "  fi"
         "done"
         " && "
-        "echo \"All done. Exit code: $?\""
+        'echo "All done. Exit code: $?"'
         " | "
         "sed 's/All/all/g'"
         " | "
@@ -129,6 +130,7 @@ def benchmark_rule_eval(n_rules: int = 500, n_runs: int = 50) -> float:
         # Inject into the blocklist for testing
         from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
         from terminal_jail.interruptor.rules import Rule
+
         BUILTIN_BLOCKLIST.append(Rule.from_dict(rule))
 
     segments = parse_command("echo hello")
@@ -155,22 +157,30 @@ def main() -> None:
     # Cold start
     cold = benchmark_cold_start(config)
     cold_pass = cold < 50.0
-    print(f"\n  Cold start (first invocation)         : {cold:.2f}ms  {'✅ PASS' if cold_pass else '❌ FAIL'} (< 50ms)")
-    
+    print(
+        f"\n  Cold start (first invocation)         : {cold:.2f}ms  {'✅ PASS' if cold_pass else '❌ FAIL'} (< 50ms)"
+    )
+
     # Warm start
     warm = benchmark_warm_start(config)
     warm_pass = warm < 5.0
-    print(f"  Warm start (cached, min of 100)      : {warm:.3f}ms  {'✅ PASS' if warm_pass else '❌ FAIL'} (< 5ms)")
+    print(
+        f"  Warm start (cached, min of 100)      : {warm:.3f}ms  {'✅ PASS' if warm_pass else '❌ FAIL'} (< 5ms)"
+    )
 
     # Parse 1KB
     parse = benchmark_parse_1kb()
     parse_pass = parse < 10.0
-    print(f"  1KB parse (min of 100)               : {parse:.3f}ms  {'✅ PASS' if parse_pass else '❌ FAIL'} (< 10ms)")
+    print(
+        f"  1KB parse (min of 100)               : {parse:.3f}ms  {'✅ PASS' if parse_pass else '❌ FAIL'} (< 10ms)"
+    )
 
     # Rule evaluation for 500 rules
     eval_500 = benchmark_rule_eval(500)
     eval_pass = eval_500 < 5.0
-    print(f"  500-rule eval (min of 50)            : {eval_500:.3f}ms  {'✅ PASS' if eval_pass else '❌ FAIL'} (< 5ms)")
+    print(
+        f"  500-rule eval (min of 50)            : {eval_500:.3f}ms  {'✅ PASS' if eval_pass else '❌ FAIL'} (< 5ms)"
+    )
 
     print(f"\n  {'=' * 56}")
 

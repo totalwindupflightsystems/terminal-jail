@@ -36,7 +36,9 @@ def expected_wrapped(command: str, executable: str = "/test/bin/unshare") -> str
     return f"{shlex.quote(executable)} {FIXED_OPTIONS}{shlex.quote(command)}"
 
 
-def install_successful_unshare_shim(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def install_successful_unshare_shim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
     shim = tmp_path / "unshare"
     shim.write_text(
         """#!/usr/bin/env bash
@@ -100,40 +102,56 @@ def test_t02_transforms_are_distinct() -> None:
     """transform_command and transform_exec_command exist and are different callables."""
     assert plugin.transform_command is not plugin.transform_exec_command
     # But transform_exec_command delegates to transform_command at runtime.
-    assert plugin.transform_exec_command("echo hi") == plugin.transform_command("echo hi")
+    assert plugin.transform_exec_command("echo hi") == plugin.transform_command(
+        "echo hi"
+    )
 
 
 def test_t03_default_wrapping(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
 
-    assert plugin_module.transform_command("echo hello") == expected_wrapped("echo hello")
+    assert plugin_module.transform_command("echo hello") == expected_wrapped(
+        "echo hello"
+    )
 
 
 def test_t04_exec_delegates_once(monkeypatch: pytest.MonkeyPatch) -> None:
     transform = Mock(return_value="transformed")
     monkeypatch.setattr(plugin_module, "transform_command", transform)
 
-    assert plugin_module.transform_exec_command("representative command") == "transformed"
+    assert (
+        plugin_module.transform_exec_command("representative command") == "transformed"
+    )
     transform.assert_called_once_with("representative command")
 
 
-def test_t05_shell_metacharacters_are_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_t05_shell_metacharacters_are_preserved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     raw = 'echo "$(id)"; true && printf x | tee /tmp/x > /dev/null'
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
 
     assert plugin_module.transform_command(raw) == expected_wrapped(raw)
 
 
 def test_t06_nested_quotes_are_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
     raw = "printf '%s\\n' \"a b\""
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
 
     assert plugin_module.transform_command(raw) == expected_wrapped(raw)
 
 
 def test_t07_embedded_newline_is_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
     raw = "printf first\nprintf second"
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
 
     transformed = plugin_module.transform_command(raw)
 
@@ -141,14 +159,20 @@ def test_t07_embedded_newline_is_preserved(monkeypatch: pytest.MonkeyPatch) -> N
     assert "\n" in transformed
 
 
-def test_t08_leading_and_trailing_spaces_are_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_t08_leading_and_trailing_spaces_are_preserved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     raw = " echo ok "
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
 
     assert plugin_module.transform_command(raw) == expected_wrapped(raw)
 
 
-def test_t09_empty_command_returns_without_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_t09_empty_command_returns_without_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     lookup = Mock(side_effect=AssertionError("lookup must not run"))
     monkeypatch.setattr(plugin_module.shutil, "which", lookup)
 
@@ -156,7 +180,9 @@ def test_t09_empty_command_returns_without_lookup(monkeypatch: pytest.MonkeyPatc
     lookup.assert_not_called()
 
 
-def test_t10_whitespace_only_command_returns_exactly(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_t10_whitespace_only_command_returns_exactly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     raw = " \t\n\u2003"
     lookup = Mock(side_effect=AssertionError("lookup must not run"))
     monkeypatch.setattr(plugin_module.shutil, "which", lookup)
@@ -165,7 +191,9 @@ def test_t10_whitespace_only_command_returns_exactly(monkeypatch: pytest.MonkeyP
     lookup.assert_not_called()
 
 
-def test_t11_disabled_feature_returns_without_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_t11_disabled_feature_returns_without_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     raw = "echo disabled"
     lookup = Mock(side_effect=AssertionError("lookup must not run"))
     monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "0")
@@ -232,7 +260,9 @@ def test_t15_unsafe_executable_setting_skips_lookup(
     assert raw not in " ".join(caplog.messages)
 
 
-def test_t16_resolved_custom_executable_path_is_quoted(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_t16_resolved_custom_executable_path_is_quoted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     resolved = "/tmp/a b/unshare"
     monkeypatch.setenv("HERMES_TERMINAL_JAIL_COMMAND", "custom-unshare")
     monkeypatch.setattr(plugin_module.shutil, "which", lambda value: resolved)
@@ -240,10 +270,14 @@ def test_t16_resolved_custom_executable_path_is_quoted(monkeypatch: pytest.Monke
     assert plugin_module.transform_command("true") == expected_wrapped("true", resolved)
 
 
-def test_t17_byte_budget_accepts_exact_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_t17_byte_budget_accepts_exact_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     raw = "echo boundary"
     wrapped = expected_wrapped(raw)
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
     monkeypatch.setenv(
         "HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES", str(len(wrapped.encode("utf-8")))
     )
@@ -256,7 +290,9 @@ def test_t18_byte_budget_rejects_one_byte_over_boundary(
 ) -> None:
     raw = "echo command-secret-t18"
     wrapped = expected_wrapped(raw)
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
     monkeypatch.setenv(
         "HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES",
         str(len(wrapped.encode("utf-8")) - 1),
@@ -276,7 +312,9 @@ def test_t19_invalid_byte_budget_uses_default(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     raw = "echo valid-size"
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
     monkeypatch.setenv("HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES", invalid_limit)
 
     with caplog.at_level(logging.WARNING, logger="terminal_jail"):
@@ -291,7 +329,9 @@ def test_t20_budget_counts_utf8_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
     character_count = len(wrapped)
     byte_count = len(wrapped.encode("utf-8"))
     assert byte_count > character_count
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
 
     monkeypatch.setenv("HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES", str(character_count))
     assert plugin_module.transform_command(raw) == raw
@@ -304,7 +344,9 @@ def test_t21_unexpected_quoting_failure_returns_raw_with_exception_info(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     raw = "echo command-secret-t21"
-    monkeypatch.setattr(plugin_module.shutil, "which", lambda value: "/test/bin/unshare")
+    monkeypatch.setattr(
+        plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+    )
     monkeypatch.setattr(
         plugin_module.shlex, "quote", Mock(side_effect=RuntimeError("quote failed"))
     )
@@ -316,9 +358,7 @@ def test_t21_unexpected_quoting_failure_returns_raw_with_exception_info(
     assert raw not in " ".join(caplog.messages)
 
 
-def test_t22_exit_code_zero(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_t22_exit_code_zero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     install_successful_unshare_shim(tmp_path, monkeypatch)
 
     result = run_transformed("true")
@@ -326,9 +366,7 @@ def test_t22_exit_code_zero(
     assert result.returncode == 0
 
 
-def test_t23_exit_code_nonzero(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_t23_exit_code_nonzero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     install_successful_unshare_shim(tmp_path, monkeypatch)
 
     result = run_transformed("exit 7")
@@ -532,14 +570,10 @@ class TestEdgeCases:
 
     # ── NUL byte check (L58-63) ──────────────────────────────────────
 
-    def test_t41_nul_byte_in_command_env(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_t41_nul_byte_in_command_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """If HERMES_TERMINAL_JAIL_COMMAND contains NUL, return None."""
         # os.environ blocks NUL bytes — mock environ.get to bypass OS guard.
-        monkeypatch.setitem(
-            os.environ, "HERMES_TERMINAL_JAIL_COMMAND", "safe-value"
-        )
+        monkeypatch.setitem(os.environ, "HERMES_TERMINAL_JAIL_COMMAND", "safe-value")
         original_get = os.environ.get
 
         def _fake_get(key: str, default: object = None) -> object:
@@ -590,9 +624,7 @@ class TestEdgeCases:
         from unittest.mock import patch as mock_patch
 
         install_successful_unshare_shim(tmp_path, monkeypatch)
-        monkeypatch.setenv(
-            "HERMES_TERMINAL_JAIL_COMMAND", str(tmp_path / "unshare")
-        )
+        monkeypatch.setenv("HERMES_TERMINAL_JAIL_COMMAND", str(tmp_path / "unshare"))
         caplog.set_level(logging.WARNING)
 
         with mock_patch.object(
@@ -619,8 +651,7 @@ class TestGatewayRestartResilience:
 
         # Collect modules belonging to this plugin.
         plugin_keys = [
-            k for k in sys.modules
-            if k == "plugin" or k.startswith("plugin.")
+            k for k in sys.modules if k == "plugin" or k.startswith("plugin.")
         ]
 
         # Remove them from sys.modules.
@@ -657,8 +688,7 @@ class TestGatewayRestartResilience:
         install_successful_unshare_shim(tmp_path, monkeypatch)
 
         plugin_keys = [
-            k for k in sys.modules
-            if k == "plugin" or k.startswith("plugin.")
+            k for k in sys.modules if k == "plugin" or k.startswith("plugin.")
         ]
         for key in plugin_keys:
             del sys.modules[key]
@@ -795,9 +825,9 @@ class TestMetrics:
 
         original = plugin_module._max_command_bytes_from_environment
         try:
-            plugin_module._max_command_bytes_from_environment = (
-                lambda: (_ for _ in ()).throw(RuntimeError("simulated"))
-            )
+            plugin_module._max_command_bytes_from_environment = lambda: (
+                _ for _ in ()
+            ).throw(RuntimeError("simulated"))
             result = plugin_module.transform_command("echo hi")
             assert result == "echo hi"
         finally:
@@ -916,12 +946,11 @@ class TestMetrics:
 class TestUserNamespaceT96:
     """T9.6: User namespace isolation — ``--user`` flag for UID isolation."""
 
-    def test_userns_default_disabled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_userns_default_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When HERMES_TERMINAL_JAIL_USER_NS is unset, wrapping uses --mount-proc."""
-        monkeypatch.setattr(plugin_module.shutil, "which",
-                            lambda value: "/test/bin/unshare")
+        monkeypatch.setattr(
+            plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+        )
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
 
         result = plugin_module.transform_command("echo hi")
@@ -934,8 +963,9 @@ class TestUserNamespaceT96:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """HERMES_TERMINAL_JAIL_USER_NS=1 adds --user, drops --mount-proc."""
-        monkeypatch.setattr(plugin_module.shutil, "which",
-                            lambda value: "/test/bin/unshare")
+        monkeypatch.setattr(
+            plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+        )
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", "1")
 
@@ -949,8 +979,9 @@ class TestUserNamespaceT96:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """HERMES_TERMINAL_JAIL_USER_NS accepts truthy values (true/yes/on/1)."""
-        monkeypatch.setattr(plugin_module.shutil, "which",
-                            lambda value: "/test/bin/unshare")
+        monkeypatch.setattr(
+            plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+        )
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
 
         for value in ("true", "yes", "on", "1"):
@@ -963,8 +994,9 @@ class TestUserNamespaceT96:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """HERMES_TERMINAL_JAIL_USER_NS with falsy values keeps --mount-proc."""
-        monkeypatch.setattr(plugin_module.shutil, "which",
-                            lambda value: "/test/bin/unshare")
+        monkeypatch.setattr(
+            plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+        )
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
 
         for value in ("false", "0", "no", "off", ""):
@@ -977,8 +1009,9 @@ class TestUserNamespaceT96:
         self, monkeypatch: pytest.MonkeyPatch, caplog
     ) -> None:
         """Unrecognised value defaults to disabled with a warning."""
-        monkeypatch.setattr(plugin_module.shutil, "which",
-                            lambda value: "/test/bin/unshare")
+        monkeypatch.setattr(
+            plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+        )
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", "perhaps")
 
@@ -989,12 +1022,11 @@ class TestUserNamespaceT96:
         assert "--mount-proc" in result
         assert "HERMES_TERMINAL_JAIL_USER_NS" in caplog.text
 
-    def test_userns_metrics_counter(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_userns_metrics_counter(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """commands_wrapped_user_ns increments when user NS is active."""
-        monkeypatch.setattr(plugin_module.shutil, "which",
-                            lambda value: "/test/bin/unshare")
+        monkeypatch.setattr(
+            plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+        )
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", "1")
         plugin_module.reset_metrics()
@@ -1011,8 +1043,9 @@ class TestUserNamespaceT96:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """commands_wrapped (not _user_ns) increments when user NS is disabled."""
-        monkeypatch.setattr(plugin_module.shutil, "which",
-                            lambda value: "/test/bin/unshare")
+        monkeypatch.setattr(
+            plugin_module.shutil, "which", lambda value: "/test/bin/unshare"
+        )
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_ENABLED", "1")
         monkeypatch.setenv("HERMES_TERMINAL_JAIL_USER_NS", "false")
         plugin_module.reset_metrics()

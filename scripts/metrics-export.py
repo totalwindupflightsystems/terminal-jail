@@ -21,7 +21,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from plugin.terminal_jail.plugin import (
+from plugin.terminal_jail.plugin import (  # noqa: E402
     get_metrics,
     reset_metrics,
 )
@@ -35,7 +35,12 @@ def _metrics_to_dict() -> dict:
     d["project"] = "terminal-jail"
     d["version"] = "1.0.0"
     # Derived fields for dashboarding
-    total_commands = m.commands_wrapped + m.commands_wrapped_user_ns + m.commands_passed_disabled + m.commands_passed_no_unshare
+    total_commands = (
+        m.commands_wrapped
+        + m.commands_wrapped_user_ns
+        + m.commands_passed_disabled
+        + m.commands_passed_no_unshare
+    )
     d["total_commands_observed"] = total_commands
     d["wrap_rate"] = m.commands_wrapped / total_commands if total_commands > 0 else 0.0
     d["crash_rate"] = m.jail_crashes / total_commands if total_commands > 0 else 0.0
@@ -49,7 +54,9 @@ def _metrics_to_dict() -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Terminal-Jail metrics exporter")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("--reset", action="store_true", help="Reset counters after export")
+    parser.add_argument(
+        "--reset", action="store_true", help="Reset counters after export"
+    )
     args = parser.parse_args()
 
     data = _metrics_to_dict()

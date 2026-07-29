@@ -52,6 +52,7 @@ def _make_test_bin(tmp_path: Path, *, include_unshare: bool = False) -> str:
 
 # ── Flag parsing ──────────────────────────────────────────────────────────
 
+
 @pytest.mark.standalone_cli
 def test_help_flag(cli_path: Path) -> None:
     result = _run_cli(cli_path, "--help", unset_env=("TERMINAL_JAIL_VERSION",))
@@ -84,12 +85,15 @@ def test_short_version_flag(cli_path: Path) -> None:
 
 @pytest.mark.standalone_cli
 def test_version_from_env(cli_path: Path) -> None:
-    result = _run_cli(cli_path, "--version", extra_env={"TERMINAL_JAIL_VERSION": "9.9.9-test"})
+    result = _run_cli(
+        cli_path, "--version", extra_env={"TERMINAL_JAIL_VERSION": "9.9.9-test"}
+    )
     assert result.returncode == 0
     assert "9.9.9-test" in result.stdout.decode("utf-8")
 
 
 # ── Error paths ────────────────────────────────────────────────────────────
+
 
 @pytest.mark.standalone_cli
 def test_no_args(cli_path: Path) -> None:
@@ -109,7 +113,9 @@ def test_non_linux_os(cli_path: Path, tmp_path: Path) -> None:
 
     fake_uname = test_bin / "uname"
     fake_uname.write_text("#!/bin/bash\necho Darwin\n")
-    fake_uname.chmod(fake_uname.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    fake_uname.chmod(
+        fake_uname.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+    )
 
     result = _run_cli(cli_path, "echo", "hello", extra_env={"PATH": str(test_bin)})
     assert result.returncode == 2
@@ -127,6 +133,7 @@ def test_missing_unshare(cli_path: Path, tmp_path: Path) -> None:
 
 
 # ── Command execution (host-constrained: unshare --mount-proc may fail) ─────
+
 
 @pytest.mark.standalone_cli
 def test_simple_command(cli_path: Path) -> None:
@@ -155,6 +162,7 @@ def test_command_with_special_chars(cli_path: Path) -> None:
 
 # ── Exit code propagation ──────────────────────────────────────────────────
 
+
 @pytest.mark.standalone_cli
 def test_exit_code_zero(cli_path: Path) -> None:
     result = _run_cli(cli_path, "true")
@@ -173,13 +181,15 @@ def test_exit_code_nonzero(cli_path: Path) -> None:
 
 # ── Stdin/stderr passthrough ───────────────────────────────────────────────
 
+
 @pytest.mark.standalone_cli
 def test_stdin_passthrough(cli_path: Path) -> None:
     env = os.environ.copy()
     proc = subprocess.run(
         [str(cli_path), "cat", "-"],
         input=b"hello-from-stdin\n",
-        capture_output=True, check=False,
+        capture_output=True,
+        check=False,
         timeout=10,
         env=env,
     )

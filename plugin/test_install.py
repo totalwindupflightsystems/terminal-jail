@@ -16,6 +16,7 @@ FAKE_BINARY = EXPECTED_SHEBANG + "\necho 'terminal-jail v0.1.0'\n"
 
 def _shutil_which(name: str) -> str | None:
     import shutil
+
     return shutil.which(name)
 
 
@@ -66,7 +67,9 @@ def _make_server_dir(tmp_path: Path, binary_content: str = FAKE_BINARY) -> Path:
     (server / "terminal-jail").write_text(binary_content)
     result = subprocess.run(
         ["sha256sum", str(server / "terminal-jail")],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     (server / "terminal-jail.sha256").write_text(result.stdout)
     return server
@@ -82,17 +85,18 @@ def _make_mock_curl(test_bin: Path, server_dir: Path) -> None:
         "#!/bin/bash\n"
         "# Mock curl: copies from fake-server instead of real download\n"
         "# install.sh calls: curl -fsSL URL -o OUTFILE\n"
-        "url=\"$2\"\n"
-        "outfile=\"$4\"\n"
+        'url="$2"\n'
+        'outfile="$4"\n'
         f"srcdir='{server_dir}'\n"
         "# Extract filename from URL path\n"
-        "filename=$(basename \"$url\")\n"
-        "cp \"$srcdir/$filename\" \"$outfile\"\n"
+        'filename=$(basename "$url")\n'
+        'cp "$srcdir/$filename" "$outfile"\n'
     )
     curl.chmod(0o755)
 
 
 # ── Basic behaviour ────────────────────────────────────────────────────────
+
 
 @pytest.mark.standalone_cli
 def test_installer_exists_and_is_executable(install_script: Path) -> None:
@@ -103,11 +107,14 @@ def test_installer_exists_and_is_executable(install_script: Path) -> None:
 
 @pytest.mark.standalone_cli
 def test_installer_syntax(install_script: Path) -> None:
-    result = subprocess.run(["sh", "-n", str(install_script)], capture_output=True, check=False)
+    result = subprocess.run(
+        ["sh", "-n", str(install_script)], capture_output=True, check=False
+    )
     assert result.returncode == 0, f"Syntax error: {result.stderr.decode()}"
 
 
 # ── Error: no HOME ─────────────────────────────────────────────────────────
+
 
 @pytest.mark.standalone_cli
 def test_no_home(install_script: Path) -> None:
@@ -118,6 +125,7 @@ def test_no_home(install_script: Path) -> None:
 
 
 # ── Error: non-Linux OS ────────────────────────────────────────────────────
+
 
 @pytest.mark.standalone_cli
 def test_non_linux_os(install_script: Path, tmp_path: Path) -> None:
@@ -137,6 +145,7 @@ def test_non_linux_os(install_script: Path, tmp_path: Path) -> None:
 
 # ── Error: no downloader ───────────────────────────────────────────────────
 
+
 @pytest.mark.standalone_cli
 def test_no_downloader(install_script: Path, tmp_path: Path) -> None:
     test_bin = tmp_path / "testbin"
@@ -144,7 +153,8 @@ def test_no_downloader(install_script: Path, tmp_path: Path) -> None:
     _link_tools(test_bin, "bash", "sh", "uname")
 
     result = _run_install(
-        install_script, test_bin=str(test_bin),
+        install_script,
+        test_bin=str(test_bin),
         install_dir=str(tmp_path / "install"),
     )
     assert result.returncode == 1
@@ -154,6 +164,7 @@ def test_no_downloader(install_script: Path, tmp_path: Path) -> None:
 
 # ── Error: no checksum tool ────────────────────────────────────────────────
 
+
 @pytest.mark.standalone_cli
 def test_no_checksum_tool(install_script: Path, tmp_path: Path) -> None:
     test_bin = tmp_path / "testbin"
@@ -161,7 +172,8 @@ def test_no_checksum_tool(install_script: Path, tmp_path: Path) -> None:
     _link_tools(test_bin, "bash", "sh", "uname", "curl")
 
     result = _run_install(
-        install_script, test_bin=str(test_bin),
+        install_script,
+        test_bin=str(test_bin),
         install_dir=str(tmp_path / "install"),
     )
     assert result.returncode == 1
@@ -171,14 +183,29 @@ def test_no_checksum_tool(install_script: Path, tmp_path: Path) -> None:
 
 # ── Installation with mocked downloads ────────────────────────────────────
 
+
 def _setup_full_testbin(tmp_path: Path, server_dir: Path) -> Path:
     """Create test_bin with all needed tools + mock curl."""
     test_bin = tmp_path / "testbin"
     test_bin.mkdir(exist_ok=True)
-    _link_tools(test_bin,
-        "sh", "bash", "uname", "unshare", "head", "awk", "mkdir",
-        "mv", "chmod", "cat", "grep", "rm", "cp",
-        "sha256sum", "basename", "dirname",
+    _link_tools(
+        test_bin,
+        "sh",
+        "bash",
+        "uname",
+        "unshare",
+        "head",
+        "awk",
+        "mkdir",
+        "mv",
+        "chmod",
+        "cat",
+        "grep",
+        "rm",
+        "cp",
+        "sha256sum",
+        "basename",
+        "dirname",
     )
     _make_mock_curl(test_bin, server_dir)
     return test_bin
@@ -193,7 +220,10 @@ def test_successful_install(install_script: Path, tmp_path: Path) -> None:
 
     result = subprocess.run(
         ["sh", str(install_script)],
-        capture_output=True, text=False, check=False, timeout=15,
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=15,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -205,7 +235,9 @@ def test_successful_install(install_script: Path, tmp_path: Path) -> None:
 
     stdout = result.stdout.decode("utf-8")
     stderr = result.stderr.decode("utf-8")
-    assert result.returncode == 0, f"Install failed (rc={result.returncode}): stderr={stderr}"
+    assert result.returncode == 0, (
+        f"Install failed (rc={result.returncode}): stderr={stderr}"
+    )
     assert "installed to" in stdout
     assert "checksum OK" in stdout
     assert "done." in stdout
@@ -224,7 +256,10 @@ def test_bad_shebang_rejected(install_script: Path, tmp_path: Path) -> None:
 
     result = subprocess.run(
         ["sh", str(install_script)],
-        capture_output=True, text=False, check=False, timeout=15,
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=15,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -253,7 +288,10 @@ def test_checksum_fail(install_script: Path, tmp_path: Path) -> None:
 
     result = subprocess.run(
         ["sh", str(install_script)],
-        capture_output=True, text=False, check=False, timeout=15,
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=15,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -276,7 +314,10 @@ def test_creates_install_dir(install_script: Path, tmp_path: Path) -> None:
 
     result = subprocess.run(
         ["sh", str(install_script)],
-        capture_output=True, text=False, check=False, timeout=15,
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=15,
         env={
             **os.environ,
             "HOME": str(tmp_path),
@@ -300,7 +341,10 @@ def test_tmp_files_cleaned_after_install(install_script: Path, tmp_path: Path) -
 
     result = subprocess.run(
         ["sh", str(install_script)],
-        capture_output=True, text=False, check=False, timeout=15,
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=15,
         env={
             **os.environ,
             "HOME": str(tmp_path),

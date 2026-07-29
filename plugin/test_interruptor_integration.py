@@ -53,6 +53,7 @@ def _run_cli(
 
 # ── T-I37: Interruptor + CLI compose ─────────────────────────────────────────
 
+
 @pytest.mark.standalone_cli
 def test_interruptor_blocks_rm_rf_root(cli_path: Path) -> None:
     """Blocked command returns exit 126 with formatted block output."""
@@ -70,7 +71,9 @@ def test_interruptor_blocks_rm_rf_root(cli_path: Path) -> None:
 def test_interruptor_warn_mode_passes_through(cli_path: Path) -> None:
     """Warn mode prints warning but does not block."""
     result = _run_cli(
-        cli_path, "echo", "warn-test",
+        cli_path,
+        "echo",
+        "warn-test",
         extra_env={"TERMINAL_JAIL_INTERRUPTOR_MODE": "warn"},
     )
     stderr = result.stderr.decode("utf-8", errors="replace")
@@ -85,7 +88,9 @@ def test_interruptor_warn_mode_passes_through(cli_path: Path) -> None:
 def test_interruptor_disabled_mode_bypasses(cli_path: Path) -> None:
     """Disabled mode bypasses the interruptor entirely."""
     result = _run_cli(
-        cli_path, "echo", "disabled-test",
+        cli_path,
+        "echo",
+        "disabled-test",
         extra_env={"TERMINAL_JAIL_INTERRUPTOR_MODE": "disabled"},
     )
     stderr = result.stderr.decode("utf-8", errors="replace")
@@ -127,11 +132,15 @@ def test_interruptor_json_bridge_direct() -> None:
     result = subprocess.run(
         ["python3", str(bridge_path)],
         input=b'{"command": "echo hello"}\n',
-        capture_output=True, text=False, check=False, timeout=10,
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=10,
         cwd=str(PROJECT_ROOT),
     )
     assert result.returncode == 0
     import json
+
     response = json.loads(result.stdout.decode("utf-8"))
     assert response["action"] == "allow"
 
@@ -139,7 +148,10 @@ def test_interruptor_json_bridge_direct() -> None:
     result = subprocess.run(
         ["python3", str(bridge_path)],
         input=b'{"command": "rm -rf /"}\n',
-        capture_output=True, text=False, check=False, timeout=10,
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=10,
         cwd=str(PROJECT_ROOT),
     )
     assert result.returncode == 0
@@ -151,20 +163,29 @@ def test_interruptor_json_bridge_direct() -> None:
 
 # ── T-I38: Custom user rules (requires Decider Layer 4 implementation) ───────
 
-@pytest.mark.skip(reason="Requires user rule loading in Decider Layer 4 (not yet implemented)")
+
+@pytest.mark.skip(
+    reason="Requires user rule loading in Decider Layer 4 (not yet implemented)"
+)
 def test_custom_user_rule_overrides_builtin() -> None:
     """User allowlist rule overrides a built-in block rule."""
 
 
 # ── T-I39: Priority ordering (requires Decider Layer 4 implementation) ───────
 
-@pytest.mark.skip(reason="Requires user rule loading in Decider Layer 4 (not yet implemented)")
+
+@pytest.mark.skip(
+    reason="Requires user rule loading in Decider Layer 4 (not yet implemented)"
+)
 def test_priority_ordering() -> None:
     """Higher-priority user rule wins over lower-priority."""
 
 
 # ── T-I40: Rule directory hot-reload (requires file watcher) ────────────────
 
-@pytest.mark.skip(reason="Requires SIGHUP or file-watcher implementation for runtime rule reload")
+
+@pytest.mark.skip(
+    reason="Requires SIGHUP or file-watcher implementation for runtime rule reload"
+)
 def test_rule_hot_reload() -> None:
     """New rules loaded without CLI restart."""

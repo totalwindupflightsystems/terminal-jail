@@ -26,6 +26,7 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
 
 # ── JSON output tests ──────────────────────────────────────────────
 
+
 def test_json_output_is_valid_json():
     """--json produces valid JSON to stdout."""
     result = run_script("--json")
@@ -82,7 +83,9 @@ def test_json_output_field_types():
         "wrap_avg_ns",
     ]
     for field in int_fields:
-        assert isinstance(data[field], int), f"{field} should be int, got {type(data[field])}"
+        assert isinstance(data[field], int), (
+            f"{field} should be int, got {type(data[field])}"
+        )
 
     # Rate fields are floats
     assert isinstance(data["wrap_rate"], float)
@@ -118,6 +121,7 @@ def test_json_timestamp_is_iso8601():
 
 
 # ── Human-readable output tests ────────────────────────────────────
+
 
 def test_human_output_no_json_flag():
     """Without --json, script produces human-readable summary to stdout."""
@@ -163,6 +167,7 @@ def test_human_output_has_all_sections():
 
 
 # ── --reset flag tests ─────────────────────────────────────────────
+
 
 def test_reset_flag_resets_counters():
     """--reset --json exports then resets counters to zero."""
@@ -217,11 +222,15 @@ def test_reset_then_json_shows_zeros():
 
 # ── Error path tests ───────────────────────────────────────────────
 
+
 def test_missing_plugin_import_error():
     """Script reports error when get_metrics import raises ImportError."""
     # Run the script via a wrapper that simulates ImportError
     result = subprocess.run(
-        [sys.executable, "-c", f"""
+        [
+            sys.executable,
+            "-c",
+            f"""
 import sys
 import builtins
 original_import = builtins.__import__
@@ -234,7 +243,8 @@ def blocking_import(name, *args, **kwargs):
 builtins.__import__ = blocking_import
 sys.path.insert(0, "{PROJECT_ROOT}")
 exec(open("{METRICS_SCRIPT}").read())
-"""],
+""",
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -245,15 +255,13 @@ exec(open("{METRICS_SCRIPT}").read())
 
 def test_script_as_module_produces_same_output():
     """Running as `python3 -m scripts.metrics_export` or via script produces consistent behavior.
-    
+
     Note: The script uses `if __name__ == '__main__'` so direct execution is the
     intended path. This test verifies the script file is syntactically loadable
     as a module."""
     import importlib.util
 
-    spec = importlib.util.spec_from_file_location(
-        "metrics_export", str(METRICS_SCRIPT)
-    )
+    spec = importlib.util.spec_from_file_location("metrics_export", str(METRICS_SCRIPT))
     assert spec is not None
     assert spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
@@ -264,6 +272,7 @@ def test_script_as_module_produces_same_output():
 
 
 # ── Derived calculation tests ──────────────────────────────────────
+
 
 def test_wrap_rate_calculation():
     """wrap_rate = commands_wrapped / total_commands_observed."""
@@ -303,6 +312,7 @@ def test_json_output_machine_readable_no_stderr_on_success():
 
 # ── Edge case: running from different directories ──────────────────
 
+
 def test_runs_from_project_root():
     """Script runs successfully when cwd is project root."""
     result = subprocess.run(
@@ -333,6 +343,7 @@ def test_runs_from_scripts_directory():
 
 # ── Repeated execution idempotency ─────────────────────────────────
 
+
 def test_repeated_json_output_consistent_structure():
     """Running --json twice produces the same set of keys."""
     result1 = run_script("--json")
@@ -346,5 +357,7 @@ def test_json_indent_is_2():
     """JSON output uses 2-space indentation."""
     result = run_script("--json")
     lines = result.stdout.split("\n")
-    indented_lines = [line for line in lines if line.startswith("  ") and not line.startswith("    ")]
+    indented_lines = [
+        line for line in lines if line.startswith("  ") and not line.startswith("    ")
+    ]
     assert len(indented_lines) > 0, "Expected 2-space indented lines in JSON output"

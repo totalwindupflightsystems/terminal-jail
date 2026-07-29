@@ -20,6 +20,7 @@ Exit:
   If the filter cannot be applied, a warning is written to stderr and
   the command is exec'd without seccomp.
 """
+
 from __future__ import annotations
 
 import os

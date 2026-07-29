@@ -1,4 +1,5 @@
 """pytest configuration for terminal-jail tests."""
+
 import sys
 from pathlib import Path
 

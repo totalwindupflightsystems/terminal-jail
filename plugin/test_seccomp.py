@@ -197,8 +197,9 @@ class TestTryApply:
         result = subprocess.run(
             [sys.executable, "-c", script],
             capture_output=True,
-            text=True, check=False,
-            )
+            text=True,
+            check=False,
+        )
         # try_apply may succeed (filter applied) or fail (no perms).
         # Either way, it must return SeccompApplyResult and not raise.
         assert "OK:" in result.stdout or "TYPE_ERROR:" not in result.stdout
@@ -210,17 +211,16 @@ class TestTryApply:
 class TestStandaloneCliSeccomp:
     """Verify the --seccomp flag is recognized by the standalone CLI."""
 
-    CLI = os.path.join(
-        os.path.dirname(__file__), "..", "standalone", "terminal-jail"
-    )
+    CLI = os.path.join(os.path.dirname(__file__), "..", "standalone", "terminal-jail")
 
     def test_help_mentions_seccomp(self) -> None:
         """--help output should document the --seccomp flag."""
         result = subprocess.run(
             ["bash", self.CLI, "--help"],
             capture_output=True,
-            text=True, check=False,
-            )
+            text=True,
+            check=False,
+        )
         assert result.returncode == 0
         assert "--seccomp" in result.stdout
 
@@ -229,8 +229,9 @@ class TestStandaloneCliSeccomp:
         result = subprocess.run(
             ["bash", self.CLI, "--seccomp"],
             capture_output=True,
-            text=True, check=False,
-            )
+            text=True,
+            check=False,
+        )
         assert result.returncode == 2
 
     def test_seccomp_with_command_runs(self) -> None:
@@ -238,8 +239,9 @@ class TestStandaloneCliSeccomp:
         result = subprocess.run(
             ["bash", self.CLI, "--seccomp", "echo", "hello-seccomp"],
             capture_output=True,
-            text=True, check=False,
-            )
+            text=True,
+            check=False,
+        )
         # May fail if seccomp can't be applied (no CAP_SYS_ADMIN in test env)
         # but it must not crash or produce traceback.
         assert result.returncode in (0, 1, 2)
@@ -258,8 +260,9 @@ class TestStandaloneCliSeccomp:
         result = subprocess.run(
             ["bash", self.CLI, "echo", "normal"],
             capture_output=True,
-            text=True, check=False,
-            )
+            text=True,
+            check=False,
+        )
         # 0 = unshare worked, 1 = unshare blocked (host limitation)
         # 2 = usage error (should NOT happen)
         assert result.returncode in (0, 1)
@@ -279,18 +282,26 @@ class TestPentestIntegration:
     See: docs/pentest-plan.md §3.4
     """
 
-    CLI = os.path.join(
-        os.path.dirname(__file__), "..", "standalone", "terminal-jail"
-    )
+    CLI = os.path.join(os.path.dirname(__file__), "..", "standalone", "terminal-jail")
 
     @pytest.mark.skip(reason="PT-004a: requires kernel seccomp + CAP_SYS_ADMIN")
     def test_pt004a_mount_blocked(self) -> None:
         """mount() should return EPERM when seccomp is active."""
         result = subprocess.run(
-            ["bash", self.CLI, "--seccomp", "mount", "-t", "tmpfs", "tmpfs", "/tmp/test-jail-mount"],
+            [
+                "bash",
+                self.CLI,
+                "--seccomp",
+                "mount",
+                "-t",
+                "tmpfs",
+                "tmpfs",
+                "/tmp/test-jail-mount",
+            ],
             capture_output=True,
-            text=True, check=False,
-            )
+            text=True,
+            check=False,
+        )
         # With seccomp active, mount should fail — not succeed
         assert result.returncode != 0
 
@@ -298,11 +309,21 @@ class TestPentestIntegration:
     def test_pt004b_pivot_root_blocked(self) -> None:
         """pivot_root() should be blocked when seccomp is active."""
         result = subprocess.run(
-            ["bash", self.CLI, "--seccomp", "bash", "-c", "pivot_root / / 2>&1 || true"],
+            [
+                "bash",
+                self.CLI,
+                "--seccomp",
+                "bash",
+                "-c",
+                "pivot_root / / 2>&1 || true",
+            ],
             capture_output=True,
-            text=True, check=False,
-            )
-        assert "operation not permitted" in result.stdout.lower() or result.returncode != 0
+            text=True,
+            check=False,
+        )
+        assert (
+            "operation not permitted" in result.stdout.lower() or result.returncode != 0
+        )
 
     @pytest.mark.skip(reason="PT-004c: requires kernel seccomp support")
     def test_pt004c_kexec_blocked(self) -> None:
@@ -310,7 +331,8 @@ class TestPentestIntegration:
         result = subprocess.run(
             ["bash", self.CLI, "--seccomp", "kexec", "-l", "/dev/null"],
             capture_output=True,
-            text=True, check=False,
-            )
+            text=True,
+            check=False,
+        )
         # kexec should fail (seccomp blocks it, or no CAP_SYS_BOOT)
         assert result.returncode != 0
