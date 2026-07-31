@@ -19,3 +19,7 @@ scripts/.kernel-watchdog-state
 # T10.2 — unshare tracker runtime state
 scripts/.unshare-tracker-state
 logs/
+
+# DuckDB board — rebuildable local cache (Parquet files are tracked)
+.coding-hermes/board/board.db
+.coding-hermes/board/board.db.wal
