@@ -33,7 +33,8 @@ The full stack is designed to:
 
 - evaluate every command against a rule engine BEFORE execution, blocking destructive patterns at the shell syntax level;
 - prevent recursive root filesystem removal (`rm -rf /`), mass process kill (`kill -9 -1`), and fork bombs via pattern matching;
-- wrap network download commands (`curl`, `wget`) in an auto-sandbox namespace without user intervention;
+- wrap build/test/package commands (`pytest`, `npm test`, `go test`, `make`, `pip install`, `cargo build`, `gcc`, script execution) in an auto-sandbox namespace without user intervention;
+- block download-to-shell pipelines (`curl | sh`, `wget | bash`) at the shell syntax level before execution;
 - prevent commands in a contained session from signaling or killing host processes;
 - limit blast radius from accidental destructive commands such as `killpg`, `killall`, and `pkill`;
 - contain process multiplication and reduce fork-bomb impact;
@@ -173,7 +174,7 @@ The Interruptor Bash engine adds a pre-execution command evaluation layer that o
 
 - **Parsing:** Commands are tokenized into structured segments (commands, arguments, pipes, redirects, heredocs, command substitutions, variable expansions) before any rule matching occurs.
 - **Blocklist (critical, priority 1000):** 10 rules that always block — recursive root deletion (`rm -rf /`), fork bombs (`:(){ :|:& };:`), mass process kill (`kill -9 -1`), raw device writes (`dd if=/... of=/dev/sda`), chmod -R 000 on root, etc. These cannot be overridden by user rules.
-- **Auto-sandbox (priority 700):** 8 rules that wrap commands in an unshare PID namespace — network downloads (`curl`, `wget`), package installers (`pip`, `apt`, `yum`), container commands (`docker`, `podman`), compilation (`gcc`, `make`), etc. The command is rewritten as `unshare --user --pid --fork bash -c '...'`.
+- **Auto-sandbox (priority 700):** 8 rules that wrap commands in an unshare PID namespace — test runners (`pytest`/`tox`/`nose`, `npm test`/`npx vitest`/`npx jest`, `go test`), build tools (`make`, `cargo build`/`cargo test`, `gcc`/`g++`/`clang++`), package installers (`pip install`), and script execution (`./foo.sh`, `./foo.py`, `./foo.rb`). The command is rewritten as `unshare --user --pid --fork bash -c '...'`. Plain network downloads (`curl -o`, `wget`), package-manager updates (`apt-get update`), and container queries (`docker ps`) are NOT auto-sandboxed; the only network-pipeline protection is the blocklist rule for download-to-shell pipes (`curl | sh`, `wget | bash`) above.
 - **Allowlist (priority 500):** 9 rules that always pass — shell builtins (`echo`, `cd`, `export`), file reading (`cat`, `less`, `head`, `tail`), job control (`jobs`, `fg`, `bg`), directory listing (`ls`, `find`), etc.
 - **User rules (future):** Loaded from `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/` in lexical order with user rules overriding system rules.
 - **Mode switching:** `TERMINAL_JAIL_INTERRUPTOR_MODE` env var controls behavior — `enforce` (default, blocks violating commands), `warn` (logs blocks but allows), `disabled` (pass-through).
@@ -412,7 +413,7 @@ The interruptor operates as a pre-execution command firewall. Verify its rule en
 - [ ] Run `TERMINAL_JAIL_INTERRUPTOR_MODE=disabled terminal-jail --interruptor "rm -rf /"` and confirm the interruptor is bypassed.
 - [ ] Run `terminal-jail --no-interruptor "rm -rf /"` and confirm the interruptor is bypassed by flag.
 - [ ] Run a safe command through the CLI and confirm it executes normally: `terminal-jail --interruptor "echo ok"`.
-- [ ] Run a sandbox-targeted command (`curl`, `wget`) through the CLI and confirm it is wrapped in unshare (verify with `--no-interruptor` comparison).
+- [ ] Run a sandbox-targeted command (`make build` or `pytest`) through the CLI and confirm it is wrapped in unshare (verify with `--no-interruptor` comparison).
 - [ ] Confirm the JSON bridge (`interruptor_bridge.py`) returns structured `action`, `rule_id`, and `reason` fields for blocked commands.
 - [ ] Run the interruptor unit test suite and confirm all 56 tests pass.
 
@@ -443,7 +444,7 @@ If Docker is used for the fixture and systemd is unavailable inside the containe
 | CLI process-signal containment | Start an ordinary host-shell sentinel. | Invoke `terminal-jail "killall -9 bash"`. | Command errors or finds no host target; invoking host shell survives. |
 | PID visibility | Create a uniquely named host sentinel outside sandbox. | Run process-discovery command via plugin and CLI. | Sentinel is absent from sandbox-visible process list. |
 | Filesystem write isolation | Define a host path excluded from sandbox mounts. | Attempt write through plugin and CLI. | Write fails; independent host-side check confirms unchanged content. |
-| Package/pipeline containment | Use a local harmless package or local HTTP fixture that attempts controlled writes. | Run `pip` installation fixture and a `curl | sh`-style fixture in sandbox. | Only allowed disposable sandbox paths change; prohibited host path remains unchanged. |
+| Package/pipeline containment | Use a local harmless package or local HTTP fixture that attempts controlled writes. | Run `pip install` fixture (auto-sandboxed) and a `curl | sh`-style fixture (blocklisted). | Only allowed disposable sandbox paths change; prohibited host path remains unchanged. |
 | Fork containment | Use a controlled fan-out helper with bounded duration. | Run beneath gateway unit until near/over configured task limit. | New task creation is denied/capped; service and host recover; event is observable. |
 | No-new-privileges | Provide a deliberately harmless test setuid/file-capability fixture only in disposable environment. | Execute fixture through hardened gateway path. | Privilege gain does not occur. |
 | `/proc` protection | Start external sentinel under another process identity where feasible. | Inspect `/proc` from gateway child. | Visibility matches `ProtectProc` policy and does not disclose unrelated processes. |
@@ -451,7 +452,7 @@ If Docker is used for the fixture and systemd is unavailable inside the containe
 | Missing `unshare` | Test-only environment/PATH omits `unshare`. | Invoke plugin and CLI. | Both return clear non-zero setup error; original command is not executed. |
 | Missing plugin | Run gateway fixture without plugin but with CLI/systemd available. | Execute command through CLI path. | CLI containment remains effective; test report marks automatic Hermes coverage absent. |
 | No systemd environment | Run fixture in Docker without systemd. | Execute plugin and CLI probes. | Namespace/filesystem tests pass if supported; report explicitly marks systemd controls unverified/unavailable. |
-| **Interruptor + unshare compose (T-I37)** | Install CLI with interruptor bridge reachable. | Issue a sandbox-targeted command (`curl` or `wget`) via `terminal-jail`. | Interruptor matches the sandbox rule, wraps command in `unshare`, and the combined stack (interruptor → unshare) executes without error. |
+| **Interruptor + unshare compose (T-I37)** | Install CLI with interruptor bridge reachable. | Issue an auto-sandbox-targeted command (`make build` or `pytest`) via `terminal-jail`. | Interruptor matches the sandbox rule, wraps command in `unshare`, and the combined stack (interruptor → unshare) executes without error. |
 | **Custom user rule overrides built-in (T-I38)** | Deploy a user rule file (`~/.config/terminal-jail/rules.d/99-custom.yaml`) that allowlists a normally-blocked command pattern. | Issue the blocked command via `terminal-jail`. | The user allowlist rule (higher priority by lexical ordering) overrides the built-in block rule. Command is allowed. |
 | **Priority ordering (T-I39)** | Deploy two user rules with different priorities for the same command pattern. | Issue the matching command via `terminal-jail`. | The higher-priority rule wins. |
 | **Rule directory hot-reload (T-I40)** | Start CLI in a test loop; add a new rule file to `rules.d/` while running. | Issue the newly-matched command after the file appears. | Without CLI restart, the new rule is loaded and the command is evaluated against it. (Requires SIGHUP or file-watcher implementation.) |
