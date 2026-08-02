@@ -1,6 +1,6 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #42 · **Date:** 2026-08-01 · **Type:** E2E-001 (CLI/API variant — second run, 6 ticks after #36)
+**Tick:** #47 · **Date:** 2026-08-02 · **Type:** E2E-001 (CLI/API variant — third run, 5 ticks after #42)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
 **Baseline:** 227 passed / 32 skipped
 
@@ -9,7 +9,7 @@
 The Interruptor Bash command firewall continues to work end-to-end. All 23 engine
 verdict cases matched the built-in rule set (5 blocklist, 7 allow, 8 sandbox-modify,
 3 parser). CLI integration paths behave per spec. **GAP-01 and GAP-02 fixes from
-tick #37 hold** — spec now matches engine, contract tests pin the behavior.
+tick #37 continue to hold** — spec matches engine, contract tests pin the behavior.
 **No new gaps found.** No worker needed; no code changed.
 
 ## 1. Engine Verdict Tests (bridge protocol)
@@ -23,16 +23,12 @@ tick #37 hold** — spec now matches engine, contract tests pin the behavior.
 | Auto-sandbox (prio 700) | pytest, `pip install`, `npm test`, `go test`, make, cargo, gcc, `./script.sh` | modify (unshare wrap) | ✅ 8/8 |
 | Parser edge cases | pipe chain, cmd substitution, redirect | parsed, verdict allow | ✅ 3/3 |
 
-Note: tick #36's report listed a `for`-loop fork bomb probe; the actual builtin
-pattern is `:(){ :|:& };:` — verified blocking with the canonical pattern (probe
-correction, not a regression).
-
 ## 2. CLI Integration Tests (standalone/terminal-jail)
 
 | Scenario | Expected | Actual | Result |
 |---|---|---|---|
 | `fdisk -l` (enforce) | block, formatted box | `COMMAND BLOCKED — builtin-fdisk` box, exit path per spec | ✅ |
-| `pytest --version` (enforce) | modify → sandboxed | `[terminal-jail] Modified: 'pytest'... → sandboxed` (unshare fails on host — env) | ✅ |
+| `pytest --version` (enforce) | modify → sandboxed | `[terminal-jail] Modified: 'pytest --version'... → sandboxed` (unshare fails on host — env) | ✅ |
 | `--version` | 1.1.0 | `terminal-jail 1.1.0` | ✅ |
 | Dedicated CLI test files | pass | `test_interruptor_integration.py` + `test_standalone_cli.py` | ✅ (in 227) |
 
@@ -40,29 +36,29 @@ correction, not a regression).
 
 | Gap | Fix | Verified |
 |---|---|---|
-| E2E-001-GAP-01 | specs/integration.md:177 now lists exactly the 8 sandbox rules and states curl/wget/apt/docker are NOT auto-sandboxed | ✅ (grep confirmed) |
-| E2E-001-GAP-02 | `TestNoSandboxContract` (10 ALLOW param cases + blocklist pipe cases) in plugin/test_interruptor.py | ✅ (18 passed in -k filter; in 227 total) |
+| E2E-001-GAP-01 | specs/integration.md:177 lists exactly the 8 sandbox rules and states curl/wget/apt/docker are NOT auto-sandboxed | ✅ (grep confirmed) |
+| E2E-001-GAP-02 | `TestNoSandboxContract` (10 ALLOW param cases + blocklist pipe cases) in plugin/test_interruptor.py | ✅ (12 passed in -k filter; in 227 total) |
 
 ## 4. Performance Benchmarks (in-process, T11.17 targets)
 
-| Metric | Tick #42 | Target | Result |
+| Metric | Tick #47 | Target | Result |
 |---|---|---|---|
-| Cold start | 0.044 ms | <50 ms | ✅ |
-| Warm (avg) | 0.043 ms | <5 ms | ✅ |
-| 1KB parse | 0.374 ms | <10 ms | ✅ |
-| 500-rule eval | 0.511 ms | <5 ms | ✅ |
+| Cold start | 0.09 ms | <50 ms | ✅ |
+| Warm (avg) | 0.029 ms | <5 ms | ✅ |
+| 1KB parse | 0.287 ms | <10 ms | ✅ |
+| 500-rule eval | 0.905 ms | <5 ms | ✅ |
 
 (Per-process bridge overhead ≈70-110 ms = interpreter startup; not the engine.)
 
 ## 5. Other Gates
 
-- pytest: 227 passed / 32 skipped (unchanged from ticks #37-41)
+- pytest: 227 passed / 32 skipped (unchanged since ticks #37-46)
 - ruff: clean (0 findings, plugin/ + standalone/)
 - GitReins guard: PASS (secrets / lint / tests / static_analysis)
 - Hilo: 147 edges / 27 files (unchanged)
 - Version consistency: 1.1.0 everywhere, zero 1.0.0 stragglers (VERSION-001 holds)
 - TODO/stub scan: clean (no actionable stubs outside documented deferred features)
-- CI: 4 recent runs green; remote clean (0 unpushed); no open issues
+- CI: 4 recent runs green (latest tick #46 push 02:21Z success); remote clean (0 unpushed); no open issues
 
 ## 6. Limitations (unchanged, environmental)
 
