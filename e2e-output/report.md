@@ -1,6 +1,6 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #52 · **Date:** 2026-08-02 · **Type:** E2E-001 (CLI/API variant — fourth run, 5 ticks after #47)
+**Tick:** #57 · **Date:** 2026-08-02 · **Type:** E2E-001 (CLI/API variant — fifth run, 5 ticks after #52)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
 **Baseline:** 227 passed / 32 skipped
 
@@ -27,8 +27,8 @@ tick #37 continue to hold** — spec matches engine, contract tests pin the beha
 
 | Scenario | Expected | Actual | Result |
 |---|---|---|---|
-| `fdisk -l` (enforce) | block, formatted box | `COMMAND BLOCKED — builtin-fdisk` box, exit path per spec | ✅ |
-| `pytest --version` (enforce) | modify → sandboxed | `[terminal-jail] Modified: 'pytest --version'... → sandboxed` (unshare fails on host — env) | ✅ |
+| `fdisk -l` (enforce) | block, formatted box | `COMMAND BLOCKED — builtin-fdisk` box | ✅ |
+| `pytest --version` (enforce) | modify → sandboxed | `[terminal-jail] Modified: 'pytest' '--version'... → sandboxed` (unshare fails on host — env) | ✅ |
 | `--version` | 1.1.0 | `terminal-jail 1.1.0` | ✅ |
 | Dedicated CLI test files | pass | `test_interruptor_integration.py` + `test_standalone_cli.py` | ✅ (in 227) |
 
@@ -37,28 +37,28 @@ tick #37 continue to hold** — spec matches engine, contract tests pin the beha
 | Gap | Fix | Verified |
 |---|---|---|
 | E2E-001-GAP-01 | specs/integration.md:177 lists exactly the 8 sandbox rules and states curl/wget/apt/docker are NOT auto-sandboxed | ✅ (grep confirmed) |
-| E2E-001-GAP-02 | `TestNoSandboxContract` (10 ALLOW param cases + blocklist pipe cases) in plugin/test_interruptor.py | ✅ (12 passed in -k filter; in 227 total) |
+| E2E-001-GAP-02 | `TestNoSandboxContract` (12 ALLOW param cases + blocklist pipe cases) in plugin/test_interruptor.py | ✅ (12 passed in -k filter; in 227 total) |
 
 ## 4. Performance Benchmarks (in-process, T11.17 targets)
 
-| Metric | Tick #52 | Target | Result |
+| Metric | Tick #57 | Target | Result |
 |---|---|---|---|
 | Cold start | 0.08 ms | <50 ms | ✅ |
 | Warm (avg) | 0.027 ms | <5 ms | ✅ |
-| 1KB parse | 0.263 ms | <10 ms | ✅ |
-| 500-rule eval | 0.925 ms | <5 ms | ✅ |
+| 1KB parse | 0.262 ms | <10 ms | ✅ |
+| 500-rule eval | 0.944 ms | <5 ms | ✅ |
 
 (Per-process bridge overhead ≈70-110 ms = interpreter startup; not the engine.)
 
 ## 5. Other Gates
 
-- pytest: 227 passed / 32 skipped in 6.02s (unchanged since ticks #37-51)
-- ruff: clean (0 findings, plugin/ + standalone/)
+- pytest: 227 passed / 32 skipped in 8.37s (unchanged since ticks #37-52)
+- ruff: clean (0 findings, plugin/ + standalone/; 27 files already formatted)
 - GitReins guard: PASS 4/4 (secrets / lint / tests / static_analysis)
 - Hilo: 147 edges / 27 files (live-verified this tick)
 - Version consistency: 1.1.0 everywhere, zero 1.0.0 stragglers (VERSION-001 holds)
 - TODO/stub scan: clean (no actionable stubs outside documented deferred features)
-- CI: 5/5 recent runs green (latest tick #51 push 06:31:49Z success); remote clean (0 unpushed); no open issues
+- CI: 6/6 recent runs green (latest tick #56 push 09:06:30Z success); remote clean (0 unpushed); no open issues
 
 ## 6. Limitations (unchanged, environmental)
 
