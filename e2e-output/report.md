@@ -1,6 +1,6 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #47 · **Date:** 2026-08-02 · **Type:** E2E-001 (CLI/API variant — third run, 5 ticks after #42)
+**Tick:** #52 · **Date:** 2026-08-02 · **Type:** E2E-001 (CLI/API variant — fourth run, 5 ticks after #47)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
 **Baseline:** 227 passed / 32 skipped
 
@@ -41,24 +41,24 @@ tick #37 continue to hold** — spec matches engine, contract tests pin the beha
 
 ## 4. Performance Benchmarks (in-process, T11.17 targets)
 
-| Metric | Tick #47 | Target | Result |
+| Metric | Tick #52 | Target | Result |
 |---|---|---|---|
-| Cold start | 0.09 ms | <50 ms | ✅ |
-| Warm (avg) | 0.029 ms | <5 ms | ✅ |
-| 1KB parse | 0.287 ms | <10 ms | ✅ |
-| 500-rule eval | 0.905 ms | <5 ms | ✅ |
+| Cold start | 0.08 ms | <50 ms | ✅ |
+| Warm (avg) | 0.027 ms | <5 ms | ✅ |
+| 1KB parse | 0.263 ms | <10 ms | ✅ |
+| 500-rule eval | 0.925 ms | <5 ms | ✅ |
 
 (Per-process bridge overhead ≈70-110 ms = interpreter startup; not the engine.)
 
 ## 5. Other Gates
 
-- pytest: 227 passed / 32 skipped (unchanged since ticks #37-46)
+- pytest: 227 passed / 32 skipped in 6.02s (unchanged since ticks #37-51)
 - ruff: clean (0 findings, plugin/ + standalone/)
-- GitReins guard: PASS (secrets / lint / tests / static_analysis)
-- Hilo: 147 edges / 27 files (unchanged)
+- GitReins guard: PASS 4/4 (secrets / lint / tests / static_analysis)
+- Hilo: 147 edges / 27 files (live-verified this tick)
 - Version consistency: 1.1.0 everywhere, zero 1.0.0 stragglers (VERSION-001 holds)
 - TODO/stub scan: clean (no actionable stubs outside documented deferred features)
-- CI: 4 recent runs green (latest tick #46 push 02:21Z success); remote clean (0 unpushed); no open issues
+- CI: 5/5 recent runs green (latest tick #51 push 06:31:49Z success); remote clean (0 unpushed); no open issues
 
 ## 6. Limitations (unchanged, environmental)
 
