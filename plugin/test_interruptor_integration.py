@@ -85,6 +85,27 @@ def test_interruptor_warn_mode_passes_through(cli_path: Path) -> None:
 
 
 @pytest.mark.standalone_cli
+def test_interruptor_warn_mode_surfaces_block_warning(cli_path: Path) -> None:
+    """Warn mode surfaces the would-have-blocked warning on stderr (GAP-03).
+
+    The engine downgrades BLOCK→ALLOW in warn mode and carries the warning in
+    the bridge's `reason` field. The CLI must print that reason to stderr so
+    warn mode is an actual dry-run/audit mode, not a silent pass-through.
+    Regression for E2E-001-GAP-03 (tick #77).
+    """
+    result = _run_cli(
+        cli_path,
+        "fdisk",
+        "-l",
+        extra_env={"TERMINAL_JAIL_INTERRUPTOR_MODE": "warn"},
+    )
+    stderr = result.stderr.decode("utf-8", errors="replace")
+    assert "WARN" in stderr, f"warn mode should print a WARN line, got: {stderr}"
+    assert "COMMAND BLOCKED" not in stderr, "warn mode must not emit block box"
+    assert result.returncode != 126, "warn mode must not exit 126"
+
+
+@pytest.mark.standalone_cli
 def test_interruptor_disabled_mode_bypasses(cli_path: Path) -> None:
     """Disabled mode bypasses the interruptor entirely."""
     result = _run_cli(

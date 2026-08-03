@@ -179,6 +179,16 @@ print(r.get('modified') or r.get('command', ''))
             # Unset the args — we'll execute via bash -c with the modified command
             set --
             set -- bash -c "$CMD_STR"
+        else
+            # action=allow — the engine downgrades BLOCK→ALLOW in warn mode,
+            # carrying the warning in `reason`. Surface it (the block branch
+            # above is unreachable in warn mode because of that downgrade).
+            if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+                warn_reason=$(echo "$bridge_result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('reason','') or '')" 2>/dev/null || true)
+                if [ -n "$warn_reason" ]; then
+                    echo "[terminal-jail] WARN: $warn_reason" >&2
+                fi
+            fi
         fi
     fi
 fi
