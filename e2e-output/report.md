@@ -1,21 +1,21 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #77 · **Date:** 2026-08-02 · **Type:** E2E-001 (CLI/API variant — ninth run, 5 ticks after #72, first tick of window #77-82)
+**Tick:** #82 · **Date:** 2026-08-03 · **Type:** E2E-001 (CLI/API variant — tenth run, 5 ticks after #77, first tick of window #82-87)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
-**Baseline:** 242 passed / 32 skipped (was 241 — 1 new regression case added this tick)
+**Baseline:** 254 passed / 32 skipped (was 242 — 12 killpg regression cases added this tick)
 
 ## Executive Summary
 
 The Interruptor Bash command firewall works end-to-end. All 23 engine verdict
 cases matched the built-in rule set (5 blocklist, 7 allow, 8 sandbox-modify,
-3 parser). CLI integration paths behave per spec — **and one real gap was
-found and fixed this tick**: warn mode (`TERMINAL_JAIL_INTERRUPTOR_MODE=warn`)
-was a *silent* pass-through. The engine downgrades BLOCK→ALLOW in warn mode and
-carries the warning in the bridge JSON `reason` field, but the CLI only printed
-`reason` for block/modify actions — so a user in warn mode never saw that a
-command would have been blocked. Spec `integration.md:412` requires a printed
-warning. Fixed (commit `448e00a`) with a regression test.
-**GAP-01 and GAP-02 continue to hold. One new gap (GAP-03) found and closed.**
+3 parser), and the extended killpg probe (tick #72 rule) uncovered **one real
+security gap, found and fixed this tick**: the `builtin-killpg-pid1` rule
+blocked `killpg(1)` / `kill(-1)` / `os.kill(1)` but **not the own-process-group
+vectors** — `killpg(0)`, `os.kill(0)`, `kill(0)`, `process.kill(0)` all pass a
+signal to the caller's own process group (self-DoS / agent-session kill, the
+same MagicMock incident class). Pattern extended from `[1]` to `[01]` targets
+(commit `a5cb9bd`) with 12 new regression cases.
+**GAP-01 and GAP-02 continue to hold. One new gap (GAP-04) found and closed.**
 
 ## 1. Engine Verdict Tests (bridge protocol)
 
@@ -28,51 +28,53 @@ warning. Fixed (commit `448e00a`) with a regression test.
 | Auto-sandbox (prio 700) | pytest, `pip install`, `npm test`, `go test`, make, cargo, gcc, `./script.sh` | modify (unshare wrap) | ✅ 8/8 |
 | Parser edge cases | pipe chain, cmd substitution, redirect | parsed, verdict allow | ✅ 3/3 |
 
+Plus the tick-#72 killpg rule probe (9 vectors): `os.killpg(1)`, `os.kill(1)`,
+`process.kill(-1)`, `kill(-1)` and **newly** `os.killpg(0)`, `os.kill(0)`,
+`kill(0)`, `process.kill(0)` → block; benign high-pid `os.killpg(12345)` /
+`os.kill(456)` → allow. **9/9 PASS after fix.**
+
 ## 2. CLI Integration Tests (standalone/terminal-jail)
 
 | Scenario | Expected | Actual | Result |
 |---|---|---|---|
-| `fdisk -l` (enforce) | block, formatted box, exit 126 | `COMMAND BLOCKED — builtin-fdisk` box, exit 126 | ✅ |
+| `fdisk -l` (enforce) | block, formatted box, exit 126 | `COMMAND BLOCKED — builtin-fdisk` box | ✅ |
 | `pytest --version` (enforce) | modify → sandboxed | `[terminal-jail] Modified: ... → sandboxed` **and `pytest 9.1.1` executes inside the jail** | ✅ |
 | `--version` | 1.1.0 | `terminal-jail 1.1.0` | ✅ |
-| `fdisk -l` (warn) | print warning, do NOT block | `[terminal-jail] WARN: [WARN MODE] Would have blocked: Partition manipulation...` on stderr, no block box, no exit 126 | ✅ (GAP-03 fix) |
-| `echo hi` (warn) | no spurious warning | clean pass-through (no WARN line) | ✅ |
-| `echo hi` (disabled) | pass-through | interruptor bypassed (unshare EPERM is the documented host limitation) | ✅ |
-| Dedicated CLI test files | pass | `test_interruptor_integration.py` + `test_standalone_cli.py` | ✅ (in 242) |
 
-## 3. Tick #77 Code Change (GAP-03 — warn-mode silent pass-through)
+## 3. Tick #82 Code Change (GAP-04 — own-process-group kill vectors)
 
 | Change | File | Verified |
 |---|---|---|
-| Warn mode: surface engine `reason` on stderr when action=allow — engine downgrades BLOCK→ALLOW in warn mode carrying the warning in bridge JSON; CLI's block branch was unreachable in warn mode, so warnings were dropped | `standalone/terminal-jail` | ✅ stderr shows `[terminal-jail] WARN: [WARN MODE] Would have blocked: ...`; enforce block/modify paths unchanged (exit 126 + jail execution re-verified) |
-| Regression test: `test_interruptor_warn_mode_surfaces_block_warning` — asserts WARN on stderr, no block box, exit != 126 | `plugin/test_interruptor_integration.py` | ✅ 242/32 pass |
+| `builtin-killpg-pid1` pattern extended: `(os.killpg\|killpg)([01])`, `os.kill([01])`, `process.kill(-?[01])`, `kill(-?[01])`, `kill([01], 9\|SIGKILL)` — killpg(0)/kill(0) target the caller's own process group, same incident class as killpg(1); message updated to cover both | `plugin/terminal_jail/interruptor/blocklist.py` | ✅ probe 9/9 |
+| Regression cases: 8 block vectors + 2 safe (ALLOW/MODIFY) + 2 allowlist (exact ALLOW) | `plugin/test_interruptor.py` | ✅ 94/94 in file, 254/32 full suite |
 
 ## 4. Gap-Fix Verification (prior ticks)
 
 | Gap | Fix | Verified |
 |---|---|---|
 | E2E-001-GAP-01 | specs/integration.md:177 lists exactly the 8 sandbox rules; curl/wget/apt/docker explicitly NOT auto-sandboxed | ✅ holds |
-| E2E-001-GAP-02 | `TestNoSandboxContract` (ALLOW param cases + blocklist pipe cases) | ✅ holds (in 242 total) |
-| E2E-001-GAP-03 (new, fixed #77) | Warn mode now prints would-have-blocked warning on stderr | ✅ fixed + regression test |
+| E2E-001-GAP-02 | `TestNoSandboxContract` (ALLOW param cases + blocklist pipe cases) | ✅ holds (17/17) |
+| E2E-001-GAP-03 | Warn mode now prints would-have-blocked warning on stderr (fixed #77, `448e00a`) | ✅ holds |
+| E2E-001-GAP-04 (new, fixed #82) | killpg(0)/kill(0)/process.kill(0) own-process-group vectors now blocked | ✅ fixed + regression tests |
 
 ## 5. Performance Benchmarks (in-process, T11.17 targets)
 
-| Metric | Tick #77 | Target | Result |
+| Metric | Tick #82 | Target | Result |
 |---|---|---|---|
 | Cold start | 0.08 ms | <50 ms | ✅ |
-| Warm (avg) | 0.030 ms | <5 ms | ✅ |
-| 1KB parse | 0.289 ms | <10 ms | ✅ |
-| 500-rule eval | 0.767 ms | <5 ms | ✅ |
+| Warm (avg) | 0.029 ms | <5 ms | ✅ |
+| 1KB parse | 0.276 ms | <10 ms | ✅ |
+| 500-rule eval | 0.812 ms | <5 ms | ✅ |
 
 (Per-process bridge overhead ≈70-110 ms = interpreter startup; not the engine.)
 
 ## 6. Other Gates
 
-- pytest: 242 passed / 32 skipped in 3.21s (+1 new regression case)
+- pytest: 254 passed / 32 skipped in 4.40s (+12 killpg regression cases)
 - ruff: clean (0 findings, plugin/ + standalone/)
-- GitReins guard: PASS 4/4 (secrets / lint / tests / static_analysis)
-- Version consistency: 1.1.0 everywhere, zero 1.0.0 stragglers (VERSION-001 holds)
-- CI: 5/5 recent runs green (latest tick #76 push 03:34:48Z success); remote clean (0 unpushed, 0 remote commits); no open issues
+- Version consistency: 1.1.0 everywhere (VERSION-001 holds)
+- CI: 3/3 recent runs green (latest tick #81 push 06:36:05Z success); remote clean (0 unpushed, 0 remote commits); no open issues
+- Scheduler: Enabled, CooldownS=1350 (externally changed from pinned 900 at 2026-08-02T18:42:12Z — noted, no PUT; E2E fixture gates pause, not idle counter)
 
 ## 7. Limitations (unchanged, environmental)
 
@@ -80,11 +82,8 @@ warning. Fixed (commit `448e00a`) with a regression test.
   the bridge's `unshare --user --pid` modify path is proven live on host.
 - No browser surface (CLI/plugin project) — Playwright/screenshot N/A.
 - Rule loader user-directory layer (Layer 4) stubbed by design (3 skips T-I38-40).
-- Warn/disabled mode full command execution also hits host unshare EPERM (rc=1 after
-  the WARN print); the firewall verdict itself (warn = allow + warning, disabled =
-  bypass) is verified at the engine + CLI level.
 
 ## 8. Verdict
 
-**E2E PASS — 1 new gap found and closed (GAP-03 warn-mode silent pass-through),
-GAP-01/GAP-02 hold. Next E2E tick in window #82-87.**
+**E2E PASS — 1 new gap found and closed (GAP-04 own-process-group kill vectors),
+GAP-01/GAP-02/GAP-03 hold. Next E2E tick in window #87-92.**
