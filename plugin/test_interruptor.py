@@ -111,6 +111,18 @@ class TestSandbox:
             ("pip install foo", "auto-pip"),
             # T-I16: script execution
             # Note: auto-script pattern requires .sh/.py/.rb extension
+            ("./script.sh", "auto-script"),
+            ("./deploy.py", "auto-script"),
+            # Explicit interpreter invocation of a script file must ALSO be
+            # sandboxed — `bash evil.sh` bypassed the ./ pattern (tick #72,
+            # prior interactive session finding: only ./ matched).
+            ("bash evil_script.sh", "auto-script"),
+            ("sh evil_script.sh", "auto-script"),
+            ("dash script.sh", "auto-script"),
+            ("zsh custom.sh", "auto-script"),
+            ("python3 deploy.py", "auto-script"),
+            ("python run_tests.py", "auto-script"),
+            ("bash ./scripts/run.sh", "auto-script"),
         ],
     )
     def test_sandboxed(self, command: str, rule_id: str) -> None:
@@ -148,6 +160,13 @@ class TestNoSandboxContract:
             "docker ps",
             "docker images",
             "podman ps",
+            # Interpreter invocations without a script file — NOT sandboxed
+            # (tick #72: pattern must not over-match --version / -c / -m)
+            "bash --version",
+            "sh -c 'echo hi'",
+            "python3 -c 'print(1)'",
+            "ls *.sh",
+            "grep -r bash /etc",
         ],
     )
     def test_plain_network_package_container_commands_allowed(
