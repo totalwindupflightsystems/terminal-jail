@@ -21,6 +21,17 @@ BUILTIN_BLOCKLIST: list[Rule] = [
         },
     ),
     Rule(
+        rule_id="builtin-killpg-pid1",
+        description="Process-group kill targeting PID 1 (killpg API)",
+        priority=1000,
+        action="block",
+        block_message="Process-group kill targeting PID 1 (killpg(1, ...)) is blocked — this is the MagicMock incident vector.",
+        match={
+            "type": "pattern",
+            "pattern": r"(os\.killpg|killpg)\s*\(\s*1\s*,|os\.kill\s*\(\s*1\s*,|process\.kill\s*\(\s*-?1\s*,|kill\(-?1,|kill\s*\(\s*1\s*,\s*(9|SIGKILL)",
+        },
+    ),
+    Rule(
         rule_id="builtin-fork-bomb",
         description="Fork bomb pattern",
         priority=1000,

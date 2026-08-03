@@ -94,7 +94,7 @@ BUILTIN_SANDBOX: list[Rule] = [
         block_message="Auto-sandboxed: script execution in isolated namespace.",
         match={
             "type": "pattern",
-            "pattern": r"\./(.+\.(sh|py|rb)|[^/]+\.(sh|py|rb))",
+            "pattern": r"\./(.+\.(sh|py|rb|zsh|bash|ksh)|[^/]+\.(sh|py|rb|zsh|bash|ksh))|\b(bash|sh|dash|zsh|python3?|ksh)\s+[^\s|;&]+\.(sh|py|rb|zsh|bash|ksh)",
         },
     ),
 ]

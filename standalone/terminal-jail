@@ -173,12 +173,20 @@ print(r.get('modified') or r.get('command', ''))
             echo "[terminal-jail] Modified: ${CMD_STR:0:40}... → sandboxed" >&2
             # Override CMD_STR with the modified version
             CMD_STR="$modified_cmd"
+            # The modified command ALREADY contains the unshare prefix (the
+            # bridge prepends it). Mark so we don't double-wrap below.
+            MODIFIED=1
             # Unset the args — we'll execute via bash -c with the modified command
             set --
             set -- bash -c "$CMD_STR"
         fi
     fi
 fi
+
+# The bridge prepends its own unshare prefix when action=modify.
+# Double-wrapping (wrapping the modified command again) fails with EPERM
+# because the inner unshare lacks privileges inside the outer namespace.
+MODIFIED="${MODIFIED:-0}"
 
 # --- preflight ----------------------------------------------------------------
 
@@ -206,7 +214,7 @@ else
     UNSHARE_FLAGS="$UNSHARE_FLAGS --mount-proc"
 fi
 
-if [ "$USE_SECCOMP" -eq 1 ]; then
+if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
     if [ ! -f "$SECCOMP_LOADER" ]; then
         echo "terminal-jail: seccomp loader not found at ${SECCOMP_LOADER}" >&2
         exit 2
@@ -217,6 +225,10 @@ if [ "$USE_SECCOMP" -eq 1 ]; then
     exec unshare \
         $UNSHARE_FLAGS \
         bash -c 'exec python3 "$@"' terminal-jail "$SECCOMP_LOADER" "$@"
+elif [ "$MODIFIED" -eq 1 ]; then
+    # The bridge already prepended its own unshare prefix — run as-is,
+    # no additional wrapping (double unshare → EPERM).
+    exec bash -c "$CMD_STR"
 else
     exec unshare \
         $UNSHARE_FLAGS \
