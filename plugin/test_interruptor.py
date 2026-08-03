@@ -52,6 +52,15 @@ class TestBlocklist:
             # fdisk
             ("fdisk /dev/sda", "builtin-fdisk"),
             ("parted /dev/sda", "builtin-fdisk"),
+            # T-killpg: process-group kill API vectors (PID 1 AND own pgroup)
+            ("os.killpg(1, signal.SIGTERM)", "builtin-killpg-pid1"),
+            ("os.killpg(0, signal.SIGTERM)", "builtin-killpg-pid1"),
+            ("os.kill(1, signal.SIGKILL)", "builtin-killpg-pid1"),
+            ("os.kill(0, 9)", "builtin-killpg-pid1"),
+            ("process.kill(-1, signal.SIGTERM)", "builtin-killpg-pid1"),
+            ("process.kill(0, signal.SIGTERM)", "builtin-killpg-pid1"),
+            ("kill(-1, 9)", "builtin-killpg-pid1"),
+            ("kill(0, 15)", "builtin-killpg-pid1"),
         ],
     )
     def test_blocked(self, command: str, rule_id: str) -> None:
@@ -75,6 +84,9 @@ class TestBlocklist:
             "git status",
             "which python3",
             "python3 --version",
+            # T-killpg benign: high-pid pgroup kills must stay allowed
+            "os.killpg(12345, signal.SIGTERM)",
+            "os.kill(456, signal.SIGTERM)",
         ],
     )
     def test_safe_commands(self, command: str) -> None:
@@ -217,6 +229,9 @@ class TestAllowlist:
             "find . -name '*.py'",
             "which python3",
             "python3 --version",
+            # T-killpg benign: high-pid pgroup kills are exactly ALLOW
+            "os.killpg(12345, signal.SIGTERM)",
+            "os.kill(456, signal.SIGTERM)",
         ],
     )
     def test_allowed(self, command: str) -> None:
