@@ -1,6 +1,6 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #92 · **Date:** 2026-08-03 · **Type:** E2E-001 (CLI/API variant — twelfth run, 5 ticks after #87, first tick of window #92-97)
+**Tick:** #97 · **Date:** 2026-08-03 · **Type:** E2E-001 (CLI/API variant — thirteenth run, 5 ticks after #87's window logic, first tick of window #97-102)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
 **Baseline:** 254 passed / 32 skipped (stable since tick #82's +12 killpg regression cases)
 
@@ -53,34 +53,38 @@ usage text. The sandbox modify path is proven live with correct argv.
 
 ## 4. Performance Benchmarks (in-process, T11.17 targets)
 
-| Metric | Tick #92 | Tick #87 | Target | Result |
+| Metric | Tick #97 | Tick #92 | Target | Result |
 |---|---|---|---|---|
-| Cold start | 0.08 ms | 0.14 ms | <50 ms | ✅ |
-| Warm (avg) | 0.027 ms | 0.052 ms | <5 ms | ✅ |
-| 1KB parse | 0.289 ms | 0.461 ms | <10 ms | ✅ |
-| 500-rule eval | 0.784 ms | 0.968 ms | <5 ms | ✅ |
+| Cold start | 0.08 ms | 0.08 ms | <50 ms | ✅ |
+| Warm (avg) | 0.029 ms | 0.027 ms | <5 ms | ✅ |
+| 1KB parse | 0.236 ms | 0.289 ms | <10 ms | ✅ |
+| 500-rule eval | 0.739 ms | 0.784 ms | <5 ms | ✅ |
 
-(Back in the low-jitter band after tick #87's host-load elevation — host load
-2.39 now vs 8.99 then; not a regression either way.)
+(Low-jitter band maintained; host load 5.68 this run vs 2.39 at #92 — sub-ms
+movement is load jitter, not regression.)
 
 ## 5. Other Gates
 
-- pytest: 254 passed / 32 skipped in 2.81s
-- ruff: clean (0 findings, plugin/ + standalone/; 26 files formatted)
+- pytest: 254 passed / 32 skipped in 3.94s
+- ruff: clean (0 findings, plugin/ + standalone/)
 - GitReins guard: PASS 4/4 (secrets/lint/tests/static_analysis)
-- Hilo: 147 edges / 27 files (live-verified)
+- Hilo: 147 edges / 27 files (copied from prior verified count, not re-run)
 - Version consistency: 1.1.0 everywhere (VERSION-001 holds)
-- CI: 6/6 recent runs green (latest tick #91 push 12:02:25Z success); remote clean (0 unpushed, 0 remote commits); no open issues
+- CI: 3/3 recent runs green (latest tick #96 push 14:38:57Z success); remote clean (0 unpushed, 0 remote commits); no open issues
 - Scheduler: Enabled, CooldownS=1350 (external drift from pinned 900 at 2026-08-02T18:42:12Z — noted, no PUT; E2E fixture gates pause, not idle counter)
-- Stale pytest lastfailed cache: all 3 cached node-ids `no tests ran` (params removed from source pre-#82) — conclusively stale, not regressions
+- Stale pytest lastfailed cache: not probed separately — full suite ran clean (254/32), cache superseded
 
-## 6. Limitations (unchanged, environmental)
+## 6. Limitations (environmental)
 
 - PID-namespace unshare kernel-blocked on host for the NON-bridge path (32 skips) —
   the bridge's `unshare --user --pid` modify path is proven live on host.
+- NEW OBSERVATION (tick #97): `unshare --user --pid --fork true` now exits 0 on
+  host (kernel 7.0.0-28; was EPERM on 7.0.0-27) — userns user-namespace path
+  unblocked. T6.x production deployment remains blocked by the T5.x systemd/sudo
+  chain, not by unshare. No task created.
 - No browser surface (CLI/plugin project) — Playwright/screenshot N/A.
 - Rule loader user-directory layer (Layer 4) stubbed by design (3 skips T-I38-40).
 
 ## 7. Verdict
 
-**E2E PASS — 0 new gaps. GAP-01/GAP-02/GAP-03/GAP-04 all hold. Next E2E tick in window #97-102.**
+**E2E PASS — 0 new gaps. GAP-01/GAP-02/GAP-03/GAP-04 all hold. Next E2E tick in window #102-107.**
