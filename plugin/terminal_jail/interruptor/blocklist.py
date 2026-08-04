@@ -39,7 +39,11 @@ BUILTIN_BLOCKLIST: list[Rule] = [
         block_message="Fork bomb pattern detected and blocked.",
         match={
             "type": "pattern",
-            "pattern": r":\s*\(\)\s*\{.*:\|:&\s*\}",
+            # Tolerate arbitrary whitespace between `:|:&` so the
+            # wrapper-quoted argv form ``':' '(){' ':' '|:' '&' '};:'``
+            # (which produces ``: (){ : |: & };:`` after the bridge
+            # strips the per-token quote pairs) is still caught.
+            "pattern": r":\s*\(\)\s*\{.*?:\s*\|\s*:\s*&\s*\}",
         },
     ),
     Rule(
@@ -72,7 +76,14 @@ BUILTIN_BLOCKLIST: list[Rule] = [
         block_message="Filesystem creation commands (mkfs.*) are blocked.",
         match={
             "type": "pattern",
-            "pattern": r"mkfs\.",
+            # Match ``mkfs.<type>`` (e.g. mkfs.ext4) AND the bash-syntax
+            # variant ``mkfs .ext4`` where the type is a separate argv
+            # token (the wrapper-quoted form ``'mkfs' '.ext4' ...``
+            # surfaces as ``mkfs .ext4 /dev/sdb1`` once the bridge strips
+            # the per-token quote pairs). The lookahead avoids matching
+            # benign text that merely mentions ``mkfs`` (e.g.
+            # ``echo mkfs``).
+            "pattern": r"mkfs(?:\.|\s+\.)",
         },
     ),
     Rule(
