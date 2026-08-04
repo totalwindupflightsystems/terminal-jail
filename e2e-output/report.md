@@ -1,6 +1,6 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #117 · **Date:** 2026-08-04 · **Type:** E2E-001 (CLI/API variant — seventeenth run, first tick of window #117-122)
+**Tick:** #122 · **Date:** 2026-08-04 · **Type:** E2E-001 (CLI/API variant — eighteenth run, first tick of window #122-127)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
 **Baseline:** 254 passed / 32 skipped (stable since tick #82's +12 killpg regression cases)
 
@@ -39,25 +39,24 @@ Plus the killpg rule probe (11 vectors, two-arg form): `os.killpg(1, SIGTERM)`,
 | Same mode `pytest --version` | ✅ `[terminal-jail] Modified … → sandboxed`, then `pytest 9.1.1` executes in jail (rc 0 — modify path WORKS this tick) |
 
 Live unshare probe (kernel 7.0.0-28): bare `unshare --user --pid --fork true`
-rc=0 (expected per tick #97); the jail modify path is per-probe — this tick's
-allow probe (pytest --version) executed live in the jail, no EPERM (tick #116
-split refinement). T6.x stays blocked by the T5.x sudo/systemd chain, not
-unshare.
+rc=0; the jail modify path is per-probe — this tick's allow probe
+(pytest --version) executed live in the jail, no EPERM. T6.x stays blocked by
+the T5.x sudo/systemd chain, not unshare.
 
 ## 3. Performance Benchmarks
 
 | Benchmark | This run | Target | Result |
 |---|---|---|---|
-| Cold start (first invocation) | 0.08 ms | < 50 ms | ✅ |
-| Warm start (min of 100) | 0.029 ms | < 5 ms | ✅ |
-| 1KB parse (min of 100) | 0.274 ms | < 10 ms | ✅ |
-| 500-rule eval (min of 50) | 0.811 ms | < 5 ms | ✅ |
+| Cold start (first invocation) | 0.09 ms | < 50 ms | ✅ |
+| Warm start (min of 100) | 0.030 ms | < 5 ms | ✅ |
+| 1KB parse (min of 100) | 0.283 ms | < 10 ms | ✅ |
+| 500-rule eval (min of 50) | 0.840 ms | < 5 ms | ✅ |
 
 ## 4. Regression Gates
 
 | Gate | Result |
 |---|---|
-| Full pytest suite | ✅ 254 passed / 32 skipped (2.72s) |
+| Full pytest suite | ✅ 254 passed / 32 skipped (3.08s) |
 | NoSandboxContract (GAP-02 lock) | ✅ 17 passed |
 | Auto-sandbox spec (GAP-01 lock, integration.md:177) | ✅ exactly 8 rules |
 | Ruff (plugin/, standalone/) | ✅ clean |
@@ -65,7 +64,7 @@ unshare.
 
 ## 5. External Signals
 
-CI 3/3 green (latest: tick #116 push 30868601278 01:23:29Z success) · 0 open
+CI 3/3 green (latest: tick #121 push 30879534016 05:04:10Z success) · 0 open
 issues · 0 unpushed commits · no terminal-jail siblings. Scheduler: Enabled,
-CooldownS=1350 (known external drift, no PUT). Verdict: **E2E PASS — 0 new
-gaps, GAP-01/02/03/04 all hold.**
+CooldownS=1350 (known external drift, no PUT). Hilo 147 edges / 27 files
+(live-verified). Verdict: **E2E PASS — 0 new gaps, GAP-01/02/03/04 all hold.**
