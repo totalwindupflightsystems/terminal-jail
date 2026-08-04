@@ -1,6 +1,6 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #112 · **Date:** 2026-08-03 · **Type:** E2E-001 (CLI/API variant — sixteenth run, first tick of window #112-117)
+**Tick:** #117 · **Date:** 2026-08-04 · **Type:** E2E-001 (CLI/API variant — seventeenth run, first tick of window #117-122)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
 **Baseline:** 254 passed / 32 skipped (stable since tick #82's +12 killpg regression cases)
 
@@ -36,26 +36,28 @@ Plus the killpg rule probe (11 vectors, two-arg form): `os.killpg(1, SIGTERM)`,
 |---|---|
 | `standalone/terminal-jail --version` | ✅ `terminal-jail 1.1.0` (rc 0) |
 | `TERMINAL_JAIL_INTERRUPTOR_MODE=enforce … fdisk -l` | ✅ blocked box, `builtin-fdisk` attribution, rc 126 (captured pre-pipe) |
-| Same mode `pytest --version` | ✅ `[terminal-jail] Modified … → sandboxed`, then `pytest 9.1.1` executes in jail |
+| Same mode `pytest --version` | ✅ `[terminal-jail] Modified … → sandboxed`, then `pytest 9.1.1` executes in jail (rc 0 — modify path WORKS this tick) |
 
-Live unshare split (kernel 7.0.0-28): bare `unshare --user --pid --fork true`
-rc=0 (expected per tick #97); jail modify path (echo allow probe) EPERM rc=1 —
-expected split per tick #98, NOT a regression.
+Live unshare probe (kernel 7.0.0-28): bare `unshare --user --pid --fork true`
+rc=0 (expected per tick #97); the jail modify path is per-probe — this tick's
+allow probe (pytest --version) executed live in the jail, no EPERM (tick #116
+split refinement). T6.x stays blocked by the T5.x sudo/systemd chain, not
+unshare.
 
 ## 3. Performance Benchmarks
 
 | Benchmark | This run | Target | Result |
 |---|---|---|---|
-| Cold start (first invocation) | 0.09 ms | < 50 ms | ✅ |
-| Warm start (min of 100) | 0.031 ms | < 5 ms | ✅ |
-| 1KB parse (min of 100) | 0.272 ms | < 10 ms | ✅ |
-| 500-rule eval (min of 50) | 0.830 ms | < 5 ms | ✅ |
+| Cold start (first invocation) | 0.08 ms | < 50 ms | ✅ |
+| Warm start (min of 100) | 0.029 ms | < 5 ms | ✅ |
+| 1KB parse (min of 100) | 0.274 ms | < 10 ms | ✅ |
+| 500-rule eval (min of 50) | 0.811 ms | < 5 ms | ✅ |
 
 ## 4. Regression Gates
 
 | Gate | Result |
 |---|---|
-| Full pytest suite | ✅ 254 passed / 32 skipped (3.06s) |
+| Full pytest suite | ✅ 254 passed / 32 skipped (2.72s) |
 | NoSandboxContract (GAP-02 lock) | ✅ 17 passed |
 | Auto-sandbox spec (GAP-01 lock, integration.md:177) | ✅ exactly 8 rules |
 | Ruff (plugin/, standalone/) | ✅ clean |
@@ -63,7 +65,7 @@ expected split per tick #98, NOT a regression.
 
 ## 5. External Signals
 
-CI 3/3 green (latest: tick #111 push 22:55:22Z success) · 0 open issues ·
-0 unpushed commits · no terminal-jail siblings. Scheduler: Enabled,
+CI 3/3 green (latest: tick #116 push 30868601278 01:23:29Z success) · 0 open
+issues · 0 unpushed commits · no terminal-jail siblings. Scheduler: Enabled,
 CooldownS=1350 (known external drift, no PUT). Verdict: **E2E PASS — 0 new
 gaps, GAP-01/02/03/04 all hold.**
