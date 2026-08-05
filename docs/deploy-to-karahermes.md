@@ -23,8 +23,15 @@ sudo tee /usr/local/bin/terminal-jail-sh << 'SHIM'
 # terminal-jail-sh — SHELL replacement for Hermes gateway
 # Handles: bash -lic "set +m; COMMAND"
 # Extracts COMMAND, evaluates via interruptor, wraps in PID namespace.
+# Paths are env-configurable (TERMINAL_JAIL_HOME / TERMINAL_JAIL_BRIDGE /
+# TERMINAL_JAIL_CLI); defaults target the /usr/local/lib/terminal-jail
+# deployment layout. The canonical copy lives at
+# standalone/terminal-jail-sh in the repo — prefer installing from there:
+#   sudo install -m 755 standalone/terminal-jail-sh /usr/local/bin/terminal-jail-sh
 
-INTERRUPTOR_BRIDGE="/home/kara/terminal-jail/plugin/terminal_jail/interruptor_bridge.py"
+BASE="${TERMINAL_JAIL_HOME:-/usr/local/lib/terminal-jail}"
+INTERRUPTOR_BRIDGE="${TERMINAL_JAIL_BRIDGE:-$BASE/plugin/terminal_jail/interruptor_bridge.py}"
+TJ_CLI="${TERMINAL_JAIL_CLI:-$BASE/standalone/terminal-jail}"
 MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
 
 # Extract the actual command from bash -lic "set +m; <command>"
@@ -78,7 +85,7 @@ if [[ "$*" == *"-c"* ]] || [[ "$*" == *"-lic"* ]]; then
     
     # Execute in PID namespace with seccomp
     export TERMINAL_JAIL_SECCOMP="${TERMINAL_JAIL_SECCOMP:-1}"
-    exec /home/kara/terminal-jail/standalone/terminal-jail --user --seccomp "$cmd"
+    exec "$TJ_CLI" --user --seccomp "$cmd"
 else
     # Interactive shell fallback (shouldn't happen for terminal tool)
     exec /bin/bash "$@"

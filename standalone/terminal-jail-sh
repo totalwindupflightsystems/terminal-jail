@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
+# terminal-jail-sh — SHELL replacement for the Hermes gateway (deploy shim).
+# Wraps every shell invocation with setpriv --no-new-privs + the standalone
+# CLI's --user --seccomp flags and the interruptor firewall.
+#
+# NOTE: this is a deploy-specific convenience wrapper (see
+# docs/deploy-to-karahermes.md). The paths below are configurable:
+#   TERMINAL_JAIL_BRIDGE  — interruptor bridge script
+#   TERMINAL_JAIL_CLI     — standalone CLI to invoke
+# Defaults target the /usr/local/lib/terminal-jail deployment layout.
 
-INTERRUPTOR_BRIDGE="/home/kara/terminal-jail/plugin/terminal_jail/interruptor_bridge.py"
+BASE="${TERMINAL_JAIL_HOME:-/usr/local/lib/terminal-jail}"
+INTERRUPTOR_BRIDGE="${TERMINAL_JAIL_BRIDGE:-$BASE/plugin/terminal_jail/interruptor_bridge.py}"
+TJ_CLI="${TERMINAL_JAIL_CLI:-$BASE/standalone/terminal-jail}"
 MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
 
 cmd=""
@@ -59,5 +70,5 @@ fi
 
 export TERMINAL_JAIL_SECCOMP="${TERMINAL_JAIL_SECCOMP:-1}"
 exec /usr/bin/setpriv --no-new-privs \
-    /usr/local/lib/terminal-jail/standalone/terminal-jail \
+    "$TJ_CLI" \
     --user --seccomp --no-interruptor /bin/bash -c "$cmd"

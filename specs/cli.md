@@ -58,7 +58,7 @@ The installer is a separate POSIX `sh` script because it is invoked as `curl URL
 
 ```text
 terminal-jail [--help] [--version]
-terminal-jail <command> [args...]
+terminal-jail [--user] [--seccomp] [--interruptor | --no-interruptor] <command> [args...]
 ```
 
 `<command>` is required unless `--help` or `--version` is the sole argument.
@@ -76,17 +76,26 @@ terminal-jail <command> [args...]
 |---|---|---:|
 | `--help`, `-h` | Print the usage text to stdout and do not launch `unshare`. | 0 |
 | `--version`, `-V` | Print one machine-readable line: `terminal-jail <VERSION>`. The version is baked into the installed script by the release process. | 0 |
+| `--user` | Add user namespace isolation: launch with `unshare --user ...`; the payload runs as nobody (UID 65534). Incompatible with `--mount-proc`, so `/proc` shows host PIDs. | Payload |
+| `--seccomp` | Apply a seccomp BPF filter inside the jail (denies mount, pivot_root, kexec_load, and other dangerous syscalls) via `standalone/seccomp-loader.py`. Equivalent to `TERMINAL_JAIL_SECCOMP=1`; the env var controls the default (default off). | Payload |
+| `--interruptor` | Enable the Bash command firewall (default). The command is evaluated by the interruptor engine (JSON bridge to `plugin/terminal_jail/interruptor_bridge.py`) before execution: block → formatted block box on stderr + exit `126`; modify → the sandboxed rewrite is executed; allow → pass through. | 126 on block; payload otherwise |
+| `--no-interruptor` | Disable the Bash command firewall for this invocation. `TERMINAL_JAIL_INTERRUPTOR_MODE=disabled` has the same effect. | Payload |
 
-No other options exist in v1. In particular, there are no hidden `--`, `--shell`, resource-limit, mount, or networking flags.
+Flags may appear in any order but must precede `<command>`. There are no
+hidden `--`, `--shell`, resource-limit, mount, or networking flags: v1.1
+extends the v1 contract only with the four options above plus the
+`TERMINAL_JAIL_SECCOMP` and `TERMINAL_JAIL_INTERRUPTOR_MODE` environment
+variables. A bare `--` is not a flag terminator — a command literally named
+`--` is executed as the payload command.
 
 ### Parsing rules
 
 1. With no arguments, print an error and usage to stderr and return jail error `2`.
 2. If the sole argument is `--help` or `-h`, print help to stdout and exit `0`.
 3. If the sole argument is `--version` or `-V`, print version to stdout and exit `0`.
-4. Otherwise, the first argument is always `<command>`, even if it begins with `-`; all remaining arguments belong to that command. This makes commands such as `terminal-jail -program arg` representable if such a program path exists.
-5. `terminal-jail --help extra` and `terminal-jail --version extra` are treated as attempts to execute commands named `--help` and `--version`, respectively. The wrapper must not silently discard `extra` arguments.
-6. Option parsing must not use `getopts`, because v1 intentionally treats all multi-argument forms as payload argv, not wrapper options.
+4. Otherwise, consume any leading flags from the known set (`--user`, `--seccomp`, `--interruptor`, `--no-interruptor`) in any order via a `while`/`case` loop. The first non-flag argument is always `<command>`, even if it begins with `-`; all remaining arguments belong to that command. This makes commands such as `terminal-jail -program arg` representable if such a program path exists.
+5. `terminal-jail --help extra` and `terminal-jail --version extra` are treated as attempts to execute commands named `--help` and `--version`, respectively (the flag-consumption loop only recognizes the four extended flags; `--help`/`--version` are honored solely as a single-argument form). The wrapper must not silently discard `extra` arguments.
+6. Option parsing must not use `getopts` (a `while`/`case` loop is used instead), because the flag set is fixed and all multi-argument forms after the flags are payload argv, not wrapper options.
 
 ### Required usage text
 
@@ -94,11 +103,26 @@ The installed script must print this semantic content (minor whitespace wrapping
 
 ```text
 Usage: terminal-jail <command> [args...]
+       terminal-jail --user <command> [args...]
+       terminal-jail --seccomp <command> [args...]
+       terminal-jail --user --seccomp <command> [args...]
+       terminal-jail --interruptor <command> [args...]
+       terminal-jail --no-interruptor <command> [args...]
        terminal-jail --help
        terminal-jail --version
 
-Run COMMAND in a new Linux PID namespace with a namespace-local /proc.
-Arguments are passed without shell re-parsing.
+Run COMMAND in a new Linux PID namespace. Arguments are passed without
+shell re-parsing.
+
+Options:
+  --user         Add user namespace isolation (process runs as nobody=65534).
+                 Incompatible with --mount-proc; /proc shows host PIDs.
+  --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
+                 (mount, pivot_root, kexec_load, etc.) inside the jail.
+                 Controlled by TERMINAL_JAIL_SECCOMP env var (default off).
+  --interruptor  Enable the Bash command firewall (default). Evaluates
+                 commands against a rule engine before execution.
+  --no-interruptor  Disable the Bash command firewall.
 ```
 
 ## 4. Launcher implementation contract
@@ -133,6 +157,17 @@ Requirements:
 - Do not use `eval`, `bash -c "$*"`, `"$@"` as shell source, a temporary command file, a pipeline, command substitution, or `xargs`.
 - Do not modify `PATH`, current directory, environment variables, `umask`, resource limits, standard file descriptors, or terminal mode.
 - The CLI performs no automatic shell fallback. If a user wants shell syntax, they must explicitly request it: `terminal-jail bash -c 'echo "$HOME"; command | other'`.
+
+### Extended launch forms (v1.1)
+
+The four extended options change the launch shape as follows:
+
+- `--user`: the `--mount-proc` flag is replaced by `--user` (`unshare --user --pid --fork --kill-child=SIGKILL`). The payload runs as nobody (65534); because user namespaces cannot mount `/proc` unprivileged, `/proc` shows host PIDs — this is documented behavior, not a regression.
+- `--seccomp`: the launch becomes `unshare <flags> bash -c 'exec python3 "$@"' terminal-jail <seccomp-loader.py> <command> [args...]`. The loader applies the BPF filter inside the PID namespace, then `exec`s the payload. `TERMINAL_JAIL_SECCOMP` (values `1`/`true`/`yes`/`on`) enables the same path without the flag. The loader path is resolved relative to the wrapper (`standalone/seccomp-loader.py`); a missing loader is a preflight error (exit `2`).
+- Interruptor evaluation (`--interruptor`, default on): before preflight/launch, the reconstructed command string is piped to `plugin/terminal_jail/interruptor_bridge.py` (located next to the wrapper, or via the Python module path). The bridge returns JSON: `{"action":"block",...}` → the wrapper prints a formatted block box to stderr and exits `126` (in `warn` mode it prints `[terminal-jail] WARN: ...` to stderr and allows execution); `{"action":"modify","modified":"<unshare-prefixed rewrite>"}` → the rewrite already contains its own `unshare` prefix and is executed as-is via `bash -c` (no second wrapping — double `unshare` fails with EPERM); `{"action":"allow"}` → normal launch. If the bridge is unavailable the wrapper fails open with a warning to stderr. `--no-interruptor` and `TERMINAL_JAIL_INTERRUPTOR_MODE=disabled` skip evaluation entirely.
+- When the interruptor rewrites a command (`modify`), `--seccomp` is not applied (the rewrite's own namespace wrapper governs).
+
+`TERMINAL_JAIL_VERSION` overrides the reported version string (used by the release process to bake the version).
 
 ### Preflight checks
 
@@ -214,7 +249,8 @@ For a signal-terminated payload, the invoking shell reports the platform's norma
 |---:|---|---|
 | `0` | Successful wrapper action or payload success. | Help/version, or payload. |
 | `1` | Conventional payload command failure. | Payload/unshare execution path; passed through unchanged. |
-| `2` | Wrapper preflight/usage jail error: unsupported host, missing `unshare`, or missing command. | Wrapper only. |
+| `2` | Wrapper preflight/usage jail error: unsupported host, missing `unshare`, missing command, or missing seccomp loader. | Wrapper only. |
+| `126` | Command blocked by the interruptor (enforce mode). | Interruptor block box on stderr; also the payload's own `126` (permission denied) passes through unchanged. |
 | `3` | Reserved for a future explicit jail setup/configuration error. v1 does not intentionally emit it. | Wrapper only. |
 | `4` | Reserved for a future explicit resource/quota setup error. v1 does not intentionally emit it. | Wrapper only. |
 | `5`–`255` | Payload status, signal-derived status, or an `unshare`/kernel runtime failure; preserved exactly. | Launch path. |
@@ -244,6 +280,8 @@ curl -fsSL https://<project-host>/install.sh | sh
 ```
 
 Release documentation must replace `<project-host>` with the canonical HTTPS host. The installer itself must be usable by POSIX `sh` and must not assume Bash, Python, package managers, root, `sudo`, or a writable system prefix.
+
+**Local-checkout mode:** when `install.sh` is executed from a repository clone (`standalone/terminal-jail` present next to the script), it installs the local wrapper directly instead of downloading release assets, and skips the downloader/checksum requirements (the wrapper comes from the trusted checkout; the shebang/content sanity checks still run). This keeps the documented install path working before any release assets are published. Release mode remains the default for `curl | sh` invocations.
 
 ### Installer inputs and defaults
 

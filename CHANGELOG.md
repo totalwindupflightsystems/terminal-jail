@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Docs & install path (2026-08-05)
+
+- **Quick Start guide** (`docs/quickstart.md`): problem statement, which-component-for-which-user decision tree, install + verify steps for every path (CLI, interruptor modes, plugin, systemd drop-in, deploy shim), FAQ/troubleshooting. Linked from the README.
+- **systemd drop-in honesty fix**: the shipped `systemd/90-terminal-jail-hardening.conf` is now explicitly labeled LIGHTWEIGHT (4 active directives) — README and `specs/systemd.md` no longer claim PRIMARY PID-namespace isolation; the full profile (`PrivateUsers`, `RestrictNamespaces`, network/fs) is documented as staged pending per-host verification.
+- **Install path fix**: `install.sh` gained local-checkout mode (installs `standalone/terminal-jail` directly from a repo clone when release assets are absent); README Install now leads with the git-clone path and marks the release-URL one-liner as "when published". Scheduler registration `repo_url` corrected to `totalwindupflightsystems/terminal-jail` and pinned in `fleet.toml`.
+- **CLI spec alignment** (`specs/cli.md`): documents the real v1.1 interface — `--user`, `--seccomp`, `--interruptor`, `--no-interruptor`, the `while`/`case` parser rules, extended launch forms, exit `126` for blocked commands, and the installer's local-checkout mode.
+- **Deploy shim documented** (`standalone/terminal-jail-sh`): now env-configurable (`TERMINAL_JAIL_HOME` / `TERMINAL_JAIL_BRIDGE` / `TERMINAL_JAIL_CLI`) instead of hardcoded machine paths; listed in README Components; `docs/deploy-to-karahermes.md` heredoc updated to match.
+
 ## [1.1.0] — 2026-07-24
 
 ### Phase 11: Interruptor Bash Command Firewall

@@ -1,11 +1,39 @@
 #!/bin/sh
 # terminal-jail installer — POSIX sh, usable as: curl -fsSL <url> | sh
+# or from a repository checkout: ./install.sh
 set -eu
 
 # --- defaults ----------------------------------------------------------------
+# Capture whether the caller explicitly chose a release base URL BEFORE the
+# default is assigned — an explicit TERMINAL_JAIL_BASE_URL means release mode
+# even when the script runs from a checkout (test fixtures exercise the
+# release path from the repo; curl | sh runs always use release mode).
+BASE_URL_EXPLICIT=0
+[ -n "${TERMINAL_JAIL_BASE_URL:-}" ] && BASE_URL_EXPLICIT=1
 TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.1.0}"
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
+
+# --- source vs release mode --------------------------------------------------
+# When run from a repository checkout — invoked relatively (./install.sh or
+# install.sh) with standalone/terminal-jail present next to this script — and
+# no explicit TERMINAL_JAIL_BASE_URL override, install the local wrapper
+# instead of downloading release assets. This keeps the documented install
+# path working before (and without) published release assets. Absolute-path
+# invocations (sh /path/to/install.sh) and an explicit base URL always select
+# release mode — the release-mode tests depend on this.
+SCRIPT_DIR=""
+LOCAL_WRAPPER=""
+case "${0:-}" in
+    ./*install.sh|install.sh)
+        if [ -n "$0" ] && [ -f "$0" ]; then
+            SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd 2>/dev/null || true)"
+        fi
+        if [ "$BASE_URL_EXPLICIT" -eq 0 ] && [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/standalone/terminal-jail" ]; then
+            LOCAL_WRAPPER="$SCRIPT_DIR/standalone/terminal-jail"
+        fi
+        ;;
+esac
 
 # --- preflight ---------------------------------------------------------------
 if [ -z "${HOME:-}" ]; then
@@ -21,16 +49,29 @@ fi
 ARCH="$(uname -m)"
 echo "terminal-jail installer: detected architecture ${ARCH}"
 
-# --- downloader --------------------------------------------------------------
+# --- downloader / checksum verifier (release mode only) ----------------------
 has_curl=0
 has_wget=0
-if command -v curl >/dev/null 2>&1; then
-    has_curl=1
-elif command -v wget >/dev/null 2>&1; then
-    has_wget=1
-else
-    echo "terminal-jail installer: requires curl or wget (neither found)" >&2
-    exit 1
+has_sha256sum=0
+has_shasum=0
+if [ -z "$LOCAL_WRAPPER" ]; then
+    if command -v curl >/dev/null 2>&1; then
+        has_curl=1
+    elif command -v wget >/dev/null 2>&1; then
+        has_wget=1
+    else
+        echo "terminal-jail installer: requires curl or wget (neither found)" >&2
+        exit 1
+    fi
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        has_sha256sum=1
+    elif command -v shasum >/dev/null 2>&1; then
+        has_shasum=1
+    else
+        echo "terminal-jail installer: requires sha256sum or shasum (neither found)" >&2
+        exit 1
+    fi
 fi
 
 download() {
@@ -44,16 +85,8 @@ download() {
 }
 
 # --- checksum verifier -------------------------------------------------------
-has_sha256sum=0
-has_shasum=0
-if command -v sha256sum >/dev/null 2>&1; then
-    has_sha256sum=1
-elif command -v shasum >/dev/null 2>&1; then
-    has_shasum=1
-else
-    echo "terminal-jail installer: requires sha256sum or shasum (neither found)" >&2
-    exit 1
-fi
+# (functions defined for release mode; local-mode installs skip checksum
+# verification because the wrapper comes from the trusted checkout)
 
 check_sha256() {
     file="$1"
@@ -86,17 +119,23 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "terminal-jail installer: downloading v${TERMINAL_JAIL_VERSION}..."
+echo "terminal-jail installer: installing v${TERMINAL_JAIL_VERSION}..."
 
-download "${TERMINAL_JAIL_BASE_URL}/terminal-jail" "$tmp_payload"
-download "${TERMINAL_JAIL_BASE_URL}/terminal-jail.sha256" "$tmp_checksum"
+if [ -n "$LOCAL_WRAPPER" ]; then
+    echo "terminal-jail installer: repository checkout detected — installing local wrapper (${LOCAL_WRAPPER})"
+    cp "$LOCAL_WRAPPER" "$tmp_payload"
+else
+    echo "terminal-jail installer: downloading v${TERMINAL_JAIL_VERSION}..."
+    download "${TERMINAL_JAIL_BASE_URL}/terminal-jail" "$tmp_payload"
+    download "${TERMINAL_JAIL_BASE_URL}/terminal-jail.sha256" "$tmp_checksum"
 
-expected="$(awk '{print $1}' "$tmp_checksum")"
-if ! check_sha256 "$tmp_payload" "$expected"; then
-    echo "terminal-jail installer: checksum verification FAILED — aborting" >&2
-    exit 1
+    expected="$(awk '{print $1}' "$tmp_checksum")"
+    if ! check_sha256 "$tmp_payload" "$expected"; then
+        echo "terminal-jail installer: checksum verification FAILED — aborting" >&2
+        exit 1
+    fi
+    echo "terminal-jail installer: checksum OK"
 fi
-echo "terminal-jail installer: checksum OK"
 
 # Integrity sanity check — first line must be the expected shebang.
 first_line="$(head -n1 "$tmp_payload")"

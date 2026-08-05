@@ -1,12 +1,14 @@
 # Terminal Jail
 
-Defense-in-depth terminal command containment for Hermes Agent. Three layers: systemd kernel-enforced PID namespace isolation (primary), Hermes plugin observability (metrics + logging), and a standalone CLI wrapper (portable fallback).
+Defense-in-depth terminal command containment for Hermes Agent. Three layers: a systemd drop-in with lightweight hardening (process-visibility, privilege, and cgroup bounds — the full PID-namespace profile is staged, not active), Hermes plugin observability (metrics + logging), and a standalone CLI wrapper (portable PID namespace containment).
+
+> **New here?** Start with the [Quick Start guide](docs/quickstart.md) — it covers which component fits your use case, install + verify steps for every path, and a FAQ.
 
 ## Architecture
 
 | Layer | Role | Mechanism |
 |---|---|---|
-| **systemd drop-in** | PRIMARY — PID namespace isolation | `PrivateUsers=true`, `ProtectProc=invisible`, `RestrictNamespaces=true`, `NoNewPrivileges=true`, `TasksMax=256`, `RestrictAddressFamilies` |
+| **systemd drop-in** | LIGHTWEIGHT — process-visibility, privilege, cgroup bounds (4 active directives: `ProtectProc=invisible`, `NoNewPrivileges=true`, `ProtectControlGroups=true`, `TasksMax=256`) | Does NOT create a PID namespace. The full profile (`PrivateUsers`, `RestrictNamespaces`, network/fs hardening) is commented out pending per-host verification |
 | **Hermes Plugin** | Observability only | `pre_tool_call` (command visibility), `transform_terminal_output` (output annotation), byte-budget enforcement, metrics export |
 | **Standalone CLI** | Portable PID namespace wrapper | `unshare --pid --fork --mount-proc --kill-child=SIGKILL` for manual use outside Hermes or without systemd |
 
@@ -26,9 +28,10 @@ The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, ever
 
 | Component | Path | Purpose |
 |---|---|---|
-| systemd Drop-in | `systemd/90-terminal-jail-hardening.conf` | PRIMARY — kernel-enforced PID namespace isolation via `PrivateUsers`, `ProtectProc`, `RestrictNamespaces` |
+| systemd Drop-in | `systemd/90-terminal-jail-hardening.conf` | LIGHTWEIGHT hardening — 4 active directives (process visibility, no-new-privileges, cgroup protection, task bound). NOT a PID namespace boundary; the full isolation profile is staged/commented. |
 | Hermes Plugin | `plugin/terminal_jail/` | Observability: `pre_tool_call` and `transform_terminal_output` hooks. Metrics, logging, byte-budget enforcement. Does NOT wrap commands. |
 | Standalone CLI | `standalone/terminal-jail` | Portable `unshare` wrapper for use outside Hermes or without systemd |
+| Deploy Shim | `standalone/terminal-jail-sh` | SHELL replacement for the Hermes gateway: wraps every shell invocation with `setpriv --no-new-privs` + `--user --seccomp` + the interruptor. Deploy-specific — paths configurable via `TERMINAL_JAIL_HOME` / `TERMINAL_JAIL_BRIDGE` / `TERMINAL_JAIL_CLI` (defaults target `/usr/local/lib/terminal-jail`). See `docs/deploy-to-karahermes.md` |
 | Interruptor Engine | `plugin/terminal_jail/interruptor/` | Bash command firewall — parser, matcher, decider, 27 built-in rules, JSON bridge for CLI integration |
 
 ## Interruptor Bash Command Firewall (v1.1.0)
@@ -106,7 +109,20 @@ Configuration via environment variables:
 | `HERMES_TERMINAL_JAIL_USER_NS` | `false` | Enable user namespace isolation (`true`/`false`/`1`/`0`) |
 | `TERMINAL_JAIL_SECCOMP` ⚠️ | `0` | Enable seccomp BPF filter (`1`/`true`/`yes`/`on`). **Note:** does not use `HERMES_TERMINAL_JAIL_` prefix — legacy naming from pre-plugin seccomp module. |
 
-### systemd Hardening (PRIMARY isolation)
+### systemd Hardening (LIGHTWEIGHT — 4 active directives)
+
+**Important:** the shipped drop-in is *not* a PID namespace isolation boundary.
+It activates only `ProtectProc=invisible`, `NoNewPrivileges=true`,
+`ProtectControlGroups=true`, and `TasksMax=256` (process-visibility,
+privilege, cgroup, and task-count hardening). The stronger directives
+(`PrivateUsers=true`, `RestrictNamespaces=true`, network/fs hardening) are
+commented out in the file with rationale — they require per-host verification
+before activation. The full profile is specified in `specs/systemd.md` and the
+staged activation procedure in `docs/deploy-to-karahermes.md`.
+
+For actual PID namespace containment of terminal commands, use the standalone
+CLI (`./standalone/terminal-jail <command>`) or a verified full-profile
+deployment. See `docs/quickstart.md` for the decision tree.
 
 ```bash
 sudo cp systemd/90-terminal-jail-hardening.conf \
@@ -116,6 +132,23 @@ sudo systemctl restart hermes-gateway
 ```
 
 ## Install
+
+### From source (recommended)
+
+```bash
+git clone https://github.com/totalwindupflightsystems/terminal-jail.git
+cd terminal-jail
+./install.sh
+```
+
+The installer detects the repository checkout and installs the local
+`standalone/terminal-jail` wrapper to `~/.local/bin/terminal-jail` (override
+with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root, and it prints the
+exact PATH export to run if `~/.local/bin` is not on your PATH.
+
+### Release assets (when published)
+
+Once v1.1.0 release assets are published, the one-line install works:
 
 ```bash
 curl -fsSL https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v1.1.0/install.sh | sh
@@ -127,11 +160,14 @@ Or set a custom install directory:
 TERMINAL_JAIL_INSTALL_DIR=/usr/local/bin curl -fsSL ... | sh
 ```
 
+The release-mode installer downloads the wrapper plus its SHA-256 checksum,
+verifies both, and atomically installs to `~/.local/bin/`.
+
 ## Graceful Degradation
 
 Every layer degrades independently:
 
-- **systemd drop-in**: optional — gateway runs without it. When deployed, it is the authoritative containment boundary.
+- **systemd drop-in**: optional — gateway runs without it. Provides process-visibility/privilege/cgroup hardening only; it is NOT a PID namespace boundary (the stronger directives are staged).
 - **Plugin**: observes and logs. Returns command unchanged if disabled. Does not block execution.
 - **CLI**: exits with code 2 and a message if `unshare` not found, not on Linux, or namespace creation fails.
 
@@ -144,7 +180,7 @@ Every layer degrades independently:
 
 ## Host Limitations
 
-`unshare --mount-proc` requires privileges unavailable in unprivileged user namespaces on some distributions. On Ubuntu 26.04 (kernel 7.0.0-27), the CLI and plugin wrapping functions will fail. This is a host kernel policy limitation, not a code defect. The systemd layer (`PrivateUsers=true`, `ProtectProc=invisible`) provides PID isolation independently of `unshare`.
+`unshare --mount-proc` requires privileges unavailable in unprivileged user namespaces on some distributions. On Ubuntu 26.04 (kernel 7.0.0-27), the CLI and plugin wrapping functions will fail. This is a host kernel policy limitation, not a code defect. The systemd layer provides process-visibility and privilege hardening (`ProtectProc=invisible`, `NoNewPrivileges=true`) independently of `unshare`, but it does not create a PID namespace (the shipped drop-in's `PrivateUsers`/`RestrictNamespaces` directives are commented out pending verification).
 
 ## License
 

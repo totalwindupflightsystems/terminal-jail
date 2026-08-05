@@ -1,5 +1,16 @@
 # systemd hardening for `hermes-gateway.service`
 
+> **Deployment status (2026-08-05):** the drop-in shipped in this repository
+> (`systemd/90-terminal-jail-hardening.conf`) is currently the **lightweight
+> baseline** — only `ProtectProc=invisible`, `NoNewPrivileges=true`,
+> `ProtectControlGroups=true`, and `TasksMax=256` are active. `PrivateUsers`,
+> `RestrictNamespaces`, `CapabilityBoundingSet`, network, and filesystem
+> directives below are commented out in the shipped file with rationale and
+> require per-host verification (see `docs/deploy-to-karahermes.md` for the
+> staged activation procedure). Until the full profile is verified on a host,
+> the drop-in provides process-visibility/privilege/cgroup hardening only and
+> is **not** a PID namespace isolation boundary.
+
 ## Purpose and security boundary
 
 Terminal-jail's primary PID namespace isolation is delivered through systemd service hardening. The Hermes plugin provides observability only (it cannot wrap commands — Hermes core has no pre-execution command-transform hook). This drop-in is therefore the authoritative containment boundary for `hermes-gateway.service`:
