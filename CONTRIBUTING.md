@@ -98,7 +98,7 @@ DirectiveName=true
 3. **Write tests** — no PR merges without tests. Unit tests for logic, integration tests for kernel behavior.
 4. **Run the full suite** — `python3 -m pytest plugin/ -v`. All tests must pass.
 5. **Lint** — `ruff check plugin/` must be clean.
-6. **Update the board** — if your PR addresses an item in `.coding-hermes/tasks.md`, mark it complete.
+6. **Update the board** — if your PR addresses an item in `.coding-hermes/board/tasks.jsonl`, mark it complete.
 7. **Signed commits** — all commits must include `Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>`.
 
 ## Security Considerations

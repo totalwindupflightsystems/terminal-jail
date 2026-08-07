@@ -10,7 +10,7 @@ These rules are given to agentic coding agents operating in this repo.
 - systemd snippets: `systemd/` — gateway hardening examples
 - Product specs: `specs/`
 - Long-term memory: `.memory-bank/`
-- Task board: `.coding-hermes/tasks.md`
+- Task board: `.coding-hermes/board/tasks.jsonl`
 
 ## Process
 - Make the smallest meaningful change. Validate after every step.
