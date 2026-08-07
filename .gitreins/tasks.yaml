@@ -22,3 +22,17 @@ tasks:
   status: complete
   created_at: '2026-08-04T13:37:35.198147+00:00'
   completed_at: '2026-08-04T13:39:59.721042+00:00'
+- id: tj-gap-010
+  title: Remove dead transform_command/transform_exec_command (TJ-GAP-010)
+  criteria:
+  - grep -rn 'transform_command\|transform_exec_command' plugin/ --include='*.py'
+    | grep -v test produces ZERO output
+  - 'Full test suite passes: .venv/bin/python -m pytest -q shows 233 passed, 6 skipped'
+  - .venv/bin/ruff check plugin/ standalone/ is clean
+  - PATH="$HOME/go/bin:$HOME/gitreins-poc/.venv/bin:$PATH" gitreins guard passes 4/4
+    (secrets, lint, tests, static_analysis)
+  - Commit 577ca40 removes transform_command/transform_exec_command + their tests
+    + spec references and includes Co-authored-by trailer
+  status: complete
+  created_at: '2026-08-07T15:47:58.009299+00:00'
+  completed_at: '2026-08-07T15:48:01.859388+00:00'
