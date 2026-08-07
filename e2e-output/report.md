@@ -1,6 +1,6 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #147 · **Date:** 2026-08-06 · **Type:** E2E-001 (CLI/API variant — twenty-third run, GAP-05 quoted-form matrix re-verify)
+**Tick:** #152 · **Date:** 2026-08-06 · **Type:** E2E-001 (CLI/API variant — twenty-fourth run, GAP-05 quoted-form matrix re-verify)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
 **Baseline:** 283 passed / 32 skipped (stable since tick #133's +29 quoted-vector regression cases)
 
@@ -69,19 +69,19 @@ T6.x stays blocked by the T5.x sudo/systemd chain, not unshare.
 
 | Benchmark | This run | Target | Result |
 |---|---|---|---|
-| Cold start (first invocation) | 0.09 ms | < 50 ms | ✅ |
-| Warm start (min of 100) | 0.040 ms | < 5 ms | ✅ |
-| 1KB parse (min of 100) | 0.267 ms | < 10 ms | ✅ |
-| 500-rule eval (min of 50) | 1.228 ms | < 5 ms | ✅ |
+| Cold start (first invocation) | 0.10 ms | < 50 ms | ✅ |
+| Warm start (min of 100) | 0.046 ms | < 5 ms | ✅ |
+| 1KB parse (min of 100) | 0.269 ms | < 10 ms | ✅ |
+| 500-rule eval (min of 50) | 1.196 ms | < 5 ms | ✅ |
 
 (500-rule slightly elevated vs the usual 0.70-0.97 band — host-load jitter,
-far under target; not a regression.)
+far under target; not a regression. Same band as run #147's 1.228 ms.)
 
 ## 5. Regression Gates
 
 | Gate | Result |
 |---|---|
-| Full pytest suite | ✅ 283 passed / 32 skipped (3.63s) |
+| Full pytest suite | ✅ 283 passed / 32 skipped (4.17s) |
 | NoSandboxContract (GAP-02 lock) | ✅ 17 passed |
 | Auto-sandbox spec (GAP-01 lock, integration.md:177) | ✅ exactly 8 rules; curl/wget/apt/docker NOT sandboxed |
 | Ruff (plugin/, standalone/) | ✅ clean |
@@ -89,14 +89,11 @@ far under target; not a regression.)
 
 ## 6. External Signals
 
-CI: run 31128141933 (tick #145 board push) FAILED on runner acquisition —
-`The job was not acquired by Runner of type hosted even after multiple
-attempts` on the Lint + Python 3.13 jobs after 15m2s; the Audit, Python 3.12
-and 3.11 jobs PASSED. Tick #146's push created NO run at all. Both are
-consistent with the **GitHub Actions outage in progress (githubstatus:
-major / "Incident with Actions investigating critical" at 22:18Z)** — external,
-not a code regression. 0 open issues · 0 unpushed commits (git fetch verified)
-· no terminal-jail siblings (only an ASCE repo worker on this host).
+CI: last 4 pushes (#148-#151) all success — the GitHub Actions outage from
+run #147 (runner acquisition failure / no-run at 22:18Z 2026-08-06) is
+resolved. Latest run 31139350219 (tick #151 board push) success in 26s.
+0 open issues · 0 unpushed commits (git fetch verified) · no terminal-jail
+siblings (only ASCE + h3-shim workers on this host, other repos).
 Scheduler: Enabled=true, CooldownS=900 (fleet.toml pin, no PUT — E2E fixture
 gates pause). Hilo 147 edges / 27 files (baseline, stable since #43).
 NEVER-DONE probes: 0 TODO/FIXME, VERSION-001 holds (zero literal 1.0.0
@@ -105,4 +102,4 @@ source hits), user pytest cache absent, repo-local stale lastfailed entry
 (T9.4 still blocked).
 
 **Verdict: E2E PASS — 0 new gaps, GAP-05 fix verified holding (quoted matrix
-18/18), no code change, no worker. Next E2E window #147-152.**
+18/18), no code change, no worker. Next E2E window #152-157.**
