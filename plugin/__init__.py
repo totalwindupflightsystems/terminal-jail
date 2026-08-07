@@ -1,20 +1,19 @@
 """
-terminal-jail — PID namespace sandbox for Hermes terminal commands.
+terminal-jail — observability plugin for Hermes terminal commands.
 
-This plugin wraps every terminal(background=false) command in a Linux PID
-namespace via ``unshare --pid --fork --mount-proc --kill-child=SIGKILL``.
+CURRENT LIMITATION (2026-07-20, HOOK-GAP-03): Hermes core does NOT expose a
+pre-execution command-transform hook. The plugin's former command-wrapping
+functions were removed in v1.1.x as dead code — they could not be wired to
+command execution without a core change. The ``pre_tool_call`` hook can only
+BLOCK or ALLOW tool calls — it cannot modify the command string.
 
-CURRENT LIMITATION (2026-07-20): Hermes core does NOT expose a pre-execution
-command-transform hook. The plugin's transform_command/transform_exec_command
-functions (in .terminal_jail.plugin) are loadable but there is no hook to
-wire them into before execution. The ``pre_tool_call`` hook can only BLOCK
-or ALLOW tool calls — it cannot modify the command string.
-
-Until Hermes core adds a pre-execution command-transform hook (see task
-HOOK-GAP-01), this plugin provides:
-- Observability via ``transform_terminal_output`` (logs wrapped commands post-exec)
+This plugin provides:
+- Observability via ``transform_terminal_output`` (annotates output post-exec)
 - A pre_tool_call observer for tracking terminal tool usage
-- The wrapping functions are importable and tested
+- Metrics export (``get_metrics`` / ``scripts/metrics-export.py``)
+
+PID namespace wrapping is provided by the standalone CLI (``unshare``) and
+the interruptor firewall, not by this plugin.
 """
 
 from __future__ import annotations
@@ -25,8 +24,6 @@ from typing import Any
 from .terminal_jail.plugin import (
     _enabled_from_environment,
     _unshare_executable_from_environment,
-    transform_command,
-    transform_exec_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,6 +90,4 @@ def register(ctx) -> None:
 
 __all__ = [
     "register",
-    "transform_command",
-    "transform_exec_command",
 ]

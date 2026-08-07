@@ -153,16 +153,16 @@ The terminal-jail plugin was designed to wrap every terminal command in a PID na
 - `pre_tool_call` — Can only BLOCK or ALLOW tool calls. Cannot modify command strings.
 - `transform_terminal_output` — Fires AFTER execution. Can transform output, not the command.
 
-Without a `pre_terminal_exec` or `command_transform` hook, the wrapping functions (`transform_command`, `transform_exec_command`) cannot be wired into command execution.
+Without a `pre_terminal_exec` or `command_transform` hook, command wrapping cannot be wired into Hermes command execution. The plugin's former wrapping functions were removed as dead code (v1.1.x, TJ-GAP-010); the interruptor + standalone CLI provide the enforcement layers instead.
 
 ### Decision
 
-Ship v0.1.0 with observability hooks only. The wrapping functions are implemented, tested (75 tests, 92% coverage), and importable — but they are not wired to command execution. The plugin registers:
+Ship v0.1.0 with observability hooks only. The wrapping functions were implemented, tested (75 tests, 92% coverage), and importable — but they were not wired to command execution and were removed from the plugin on 2026-08-07 (TJ-GAP-010). The plugin registers:
 
 - `pre_tool_call` — Logs terminal usage, produces metrics
 - `transform_terminal_output` — No-op placeholder for future output transformation
 
-The wrapping functions become active when Hermes core gains a pre-execution command-transform hook (HOOK-GAP-01) or the `--sandbox` flag is merged upstream (T4.8 workaround).
+The wrapping functions would have become active when Hermes core gained a pre-execution command-transform hook (HOOK-GAP-01) or the `--sandbox` flag was merged upstream (T4.8 workaround); with the functions removed (TJ-GAP-010, 2026-08-07), this path no longer exists in the plugin.
 
 ### Alternatives considered
 

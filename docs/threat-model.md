@@ -267,7 +267,7 @@ Terminal-jail consists of three independently deployable layers:
 
 ### 6.2 Current Gap: Plugin Cannot Wrap Commands
 
-The most significant current limitation is structural: Hermes core has no pre-execution command-transform hook. The plugin's `transform_command()` and `transform_exec_command()` functions are implemented and tested (87 tests pass, 92% coverage) but cannot be wired to command execution. Until HOOK-GAP-01 (PR #68216) is merged or an equivalent hook is added to Hermes core:
+The most significant current limitation is structural: Hermes core has no pre-execution command-transform hook. The plugin's former wrapping functions (implemented and tested in earlier versions) could not be wired to command execution and were removed as dead code in v1.1.x (TJ-GAP-010). Until HOOK-GAP-01 (PR #68216) is merged or an equivalent hook is added to Hermes core:
 
 - The plugin provides **metrics and visibility only**
 - PID namespace isolation depends entirely on systemd (for gateway) or CLI (for manual use)

@@ -147,6 +147,64 @@ class TestBuildBpfProgram:
         assert count_extra > count_base
         assert body_extra != body_base
 
+    def test_arch_check_jump_semantics_allow_matching_arch(self) -> None:
+        """The arch-check JEQ must ALLOW the matching arch and KILL others.
+
+        Classic BPF jump semantics: ``jt`` is taken when the condition is
+        TRUE, ``jf`` when FALSE — both relative to the *next* instruction.
+        A filter with jt=0/jf=1 is INVERTED: it kills the very process it
+        was built for (every syscall after install lands in RET KILL).
+        Regression test for the setpriv-under-filter SIGSYS bug found in
+        tick #155 (TJ-GAP-009 verification): the wrapper's
+        ``setpriv --no-new-privs`` made the filter actually install, and
+        every wrapped command died with SIGSYS.
+
+        Layout of the built filter:
+            0: LD [4]            (arch)
+            1: JEQ arch, jt, jf  <- the instruction under test
+            2: RET KILL_PROCESS
+            3: LD [0]            (syscall nr)
+            4..: deny JEQ chain
+        """
+        body, count, audit_arch = build_bpf_program(arch="x86_64")
+        assert count >= 4
+
+        # Instruction 1: code=0x15 (BPF_JMP|BPF_JEQ|BPF_K), k=audit_arch
+        insn = body[8:16]
+        code = int.from_bytes(insn[0:2], "little")
+        jt = insn[2]
+        jf = insn[3]
+        k = int.from_bytes(insn[4:8], "little")
+        assert code == 0x15, f"expected BPF_JMP|BPF_JEQ|BPF_K (0x15), got {code:#x}"
+        assert k == audit_arch, f"JEQ must compare against audit arch {audit_arch:#x}"
+        # jt (jump-if-true) must skip over instruction 2 (RET KILL) so the
+        # matching arch falls through to instruction 3 (LD nr).
+        assert jt == 1, (
+            f"arch-match jump must skip RET KILL (jt=1); got jt={jt} — "
+            "inverted filter would SIGSYS every command on the host arch"
+        )
+        assert jf == 0, f"arch-mismatch must fall into RET KILL (jf=0); got jf={jf}"
+
+    def test_noop_filter_arch_jump_semantics(self) -> None:
+        """The empty-deny no-op filter must also allow the matching arch."""
+        body, count, audit_arch = build_bpf_program(
+            arch="x86_64", extra_denies=frozenset()
+        )
+        # Empty deny set: filter has no extra_denies entries, so we build the
+        # no-op 4-instruction form when the DEFAULT set is also empty — but
+        # the default x86_64 set is non-empty. Simulate by passing a set
+        # that cancels: not possible here; instead verify the *arch prologue*
+        # of the full filter is identical to the no-op form.
+        # No-op form: LD arch; JEQ arch,jt,jf; RET KILL; RET ALLOW
+        # Build the no-op via the private path used for empty sets.
+        from terminal_jail import seccomp as seccomp_mod
+
+        noop_body, noop_count = seccomp_mod._build_filter(audit_arch, frozenset())
+        assert noop_count == 4
+        insn = noop_body[8:16]
+        assert insn[2] == 1, f"no-op arch JEQ must use jt=1; got jt={insn[2]}"
+        assert insn[3] == 0, f"no-op arch JEQ must use jf=0; got jf={insn[3]}"
+
 
 class TestFilterForHost:
     def test_returns_valid_tuple(self) -> None:

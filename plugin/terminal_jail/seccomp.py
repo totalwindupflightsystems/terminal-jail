@@ -255,12 +255,17 @@ def _build_filter(arch_value: int, deny_numbers: frozenset[int]) -> tuple[bytes,
     The filter is laid out so that misses fall through to ``ALLOW``:
 
         0:      LD   [4]                # A = arch
-        1:      JEQ  arch_value, 0, 2   # if equal, fall through; else kill
+        1:      JEQ  arch_value, 1, 0   # if equal, skip KILL; else fall into it
         2:      RET  KILL_PROCESS
         3:      LD   [0]                # A = nr
         4..N:   linear scan: JEQ nr, jt=deny, jf=1   (N-4 instructions)
         N:      RET  ALLOW
         N+1:    RET  ERRNO|EPERM   (the deny block — hit on match)
+
+    BPF jump semantics: ``jt`` is taken when the condition is TRUE,
+    ``jf`` when FALSE — both relative to the *next* instruction. So
+    instruction 1 uses ``jt=1, jf=0``: a matching arch skips the KILL
+    (pc+1 lands on LD nr); a mismatched arch falls through to KILL.
     """
     if not deny_numbers:
         # Nothing to deny — install a no-op filter that just checks arch.
@@ -268,7 +273,7 @@ def _build_filter(arch_value: int, deny_numbers: frozenset[int]) -> tuple[bytes,
         body = b"".join(
             (
                 _bpf_stmt(_BPF_LD | _BPF_W | _BPF_ABS, _SECCOMP_DATA_ARCH),
-                _bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, arch_value, 0, 1),
+                _bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, arch_value, 1, 0),
                 _bpf_stmt(_BPF_RET, 0x80000000),  # SECCOMP_RET_KILL_PROCESS
                 _bpf_stmt(_BPF_RET, _SECCOMP_RET_ALLOW),
             )
@@ -284,8 +289,9 @@ def _build_filter(arch_value: int, deny_numbers: frozenset[int]) -> tuple[bytes,
     instructions: list[bytes] = []
     # 0: LD [4]   — load arch
     instructions.append(_bpf_stmt(_BPF_LD | _BPF_W | _BPF_ABS, _SECCOMP_DATA_ARCH))
-    # 1: JEQ arch_value, jt=0, jf=1 — if equal, fall through to LD nr; else skip to RET KILL
-    instructions.append(_bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, arch_value, 0, 1))
+    # 1: JEQ arch_value, jt=1, jf=0 — matching arch skips the KILL and falls
+    #    through to LD nr; mismatched arch falls into RET KILL_PROCESS.
+    instructions.append(_bpf_jump(_BPF_JMP | _BPF_JEQ | _BPF_K, arch_value, 1, 0))
     # 2: RET KILL_PROCESS — wrong arch: kill the process
     instructions.append(_bpf_stmt(_BPF_RET, 0x80000000))
     # 3: LD [0]   — load syscall number

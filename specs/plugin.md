@@ -2,7 +2,9 @@
 
 ## 0. HOOK GAP NOTICE — Critical Architecture Constraint (2026-07-20)
 
-Hermes core does NOT expose a pre-execution command-transform hook. The plugin's `transform_command()` and `transform_exec_command()` functions (167 lines, fully tested, 75 passing tests) are ready to wrap terminal commands in PID namespaces — but there is no hook to wire them into before execution.
+Hermes core does NOT expose a pre-execution command-transform hook. The plugin's `transform_command()` and `transform_exec_command()` functions (167 lines, fully tested, 75 passing tests) were implemented to wrap terminal commands in PID namespaces — but there was no hook to wire them into before execution, and they were removed on 2026-08-07 as dead code (TJ-GAP-010).
+
+> **REMOVED 2026-08-07 (TJ-GAP-010):** `transform_command`/`transform_exec_command` were dead code — Hermes core has no pre-execution command-transform hook (HOOK-GAP-03) — and were removed from the plugin. Sections below describing the wrapping functions are historical design documentation and do not reflect the shipped plugin.
 
 **What exists in Hermes core:**
 - `pre_tool_call` — Can only BLOCK or ALLOW tool calls. Cannot modify command strings.
@@ -12,7 +14,7 @@ Hermes core does NOT expose a pre-execution command-transform hook. The plugin's
 - A `pre_terminal_exec` or `command_transform` hook that receives the command string and returns a modified command.
 
 **What this means for terminal-jail v1.0.0:**
-- The wrapping functions (`transform_command`, `transform_exec_command`) exist, are importable, and are tested.
+- The wrapping functions (`transform_command`, `transform_exec_command`) existed, were importable, and were tested — they have been removed (TJ-GAP-010, 2026-08-07).
 - The plugin provides **observability only** — it registers `pre_tool_call` (logs terminal usage) and `transform_terminal_output` (no-op).
 - Commands are NOT actually wrapped in PID namespaces at execution time.
 
@@ -22,7 +24,7 @@ Hermes core does NOT expose a pre-execution command-transform hook. The plugin's
 3. **HOOK-GAP-03:** systemd sandbox as sole isolation — accept that PID namespace wrapping lives entirely in the systemd layer (Phase 5), plugin provides observability only.
 4. **T4.8 (partial workaround):** `--sandbox` flag was implemented in Hermes core fork (commit `40ae3f6e1`, branch `fix/cron-repeat-int-format`, repo `totalwindupflightsystems/hermes-agent`) but not merged upstream. That flag adds `terminal.jail_enabled` config key and wraps at the config layer rather than the plugin layer.
 
-**Sections below describe the wrapping functions as designed.** The algorithm, configuration schema, exit status behavior, and test matrix are all accurate for `transform_command()`/`transform_exec_command()`. The hook registration (Section 4) and sequence diagram (Section 10) reflect the actual register()-based plugin with observability hooks.
+**Sections below describe the wrapping functions as designed — they are historical design documentation and do not reflect the shipped plugin (removed 2026-08-07, TJ-GAP-010).** The algorithm, configuration schema, exit status behavior, and test matrix describe the removed `transform_command()`/`transform_exec_command()` implementations. The hook registration (Section 4) and sequence diagram (Section 10) reflect the actual register()-based plugin with observability hooks.
 
 ---
 
@@ -622,7 +624,7 @@ The implementation is complete only when all of the following are true:
 
 1. The package contains `terminal_jail/__init__.py` and `terminal_jail/plugin.py` with the imports, metadata, symbols, and public signatures specified above.
 2. The plugin exports `register(ctx)` and registers `pre_tool_call` + `transform_terminal_output` hooks for observability.
-3. `transform_command` and `transform_exec_command` are importable, callable, and fully tested — but NOT wired to command execution (blocked by HOOK-GAP-01).
+3. ~~`transform_command` and `transform_exec_command` are importable, callable, and fully tested — but NOT wired to command execution (blocked by HOOK-GAP-01).~~ **Superseded 2026-08-07 (TJ-GAP-010):** the wrapping functions were dead code and were removed from the plugin; this criterion no longer applies. The plugin is observability-only (criteria 2, 6).
 4. A usable `unshare` causes non-empty commands to be transformed into the specified resolved-executable + flags + `bash -c` format, with the original command quoted exactly once by `shlex.quote()`.
 5. Missing or invalid `unshare` configuration, disabled configuration, empty input, budget overflow, and unexpected transformation failures return the raw command unchanged and do not expose command contents in logs.
 6. The plugin never launches a process, buffers output, changes terminal descriptors, or implements exit handling itself.

@@ -139,3 +139,4 @@
 {"from":"plugin/terminal_jail/interruptor/allowlist.py","to":"pkg:.rules","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"plugin/conftest.py","to":"pkg:sys","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"plugin/conftest.py","to":"pkg:pathlib","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"plugin/test_seccomp.py","to":"pkg:terminal_jail","rel":"imports","provenance":"ast_exact","confidence":1.0}

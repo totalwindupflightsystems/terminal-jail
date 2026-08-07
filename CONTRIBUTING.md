@@ -108,7 +108,7 @@ This project handles process isolation. Changes to any of these areas require ex
 - **PID namespace creation** (`unshare` flags, `clone(2)` parameters)
 - **Signal handling** (`--kill-child=SIGKILL`, cleanup on namespace exit)
 - **systemd directives** (anything under `systemd/`)
-- **Command wrapping** (`transform_command`, `transform_exec_command`)
+- **Plugin observability** (pre_tool_call observer, output annotation, metrics export)
 - **Plugin hook registration** (what Hermes hooks are subscribed to)
 
 If your change touches any of these, tag the PR with `security` and request review from a maintainer.
