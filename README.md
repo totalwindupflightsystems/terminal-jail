@@ -146,22 +146,10 @@ The installer detects the repository checkout and installs the local
 with `TERMINAL_JAIL_INSTALL_DIR`). It never requires root, and it prints the
 exact PATH export to run if `~/.local/bin` is not on your PATH.
 
-### Release assets (when published)
-
-Once v1.1.0 release assets are published, the one-line install works:
-
-```bash
-curl -fsSL https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v1.1.0/install.sh | sh
-```
-
-Or set a custom install directory:
-
-```bash
-TERMINAL_JAIL_INSTALL_DIR=/usr/local/bin curl -fsSL ... | sh
-```
-
-The release-mode installer downloads the wrapper plus its SHA-256 checksum,
-verifies both, and atomically installs to `~/.local/bin/`.
+Release-mode installs (downloading the wrapper from a published release plus
+its SHA-256 checksum, verified and atomically installed) are supported by
+`install.sh` via `TERMINAL_JAIL_BASE_URL`, but no release assets are published
+yet — the git-clone path above is the supported install path.
 
 ## Graceful Degradation
 

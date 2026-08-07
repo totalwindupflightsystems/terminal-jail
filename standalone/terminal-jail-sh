@@ -5,11 +5,23 @@
 #
 # NOTE: this is a deploy-specific convenience wrapper (see
 # docs/deploy-to-karahermes.md). The paths below are configurable:
-#   TERMINAL_JAIL_BRIDGE  — interruptor bridge script
-#   TERMINAL_JAIL_CLI     — standalone CLI to invoke
-# Defaults target the /usr/local/lib/terminal-jail deployment layout.
+#   TERMINAL_JAIL_HOME   — base directory (default: repo root, else /usr/local/lib)
+#   TERMINAL_JAIL_BRIDGE — interruptor bridge script
+#   TERMINAL_JAIL_CLI    — standalone CLI to invoke
+# Defaults resolve relative to the repository checkout when run from one,
+# falling back to the /usr/local/lib/terminal-jail deployment layout.
 
-BASE="${TERMINAL_JAIL_HOME:-/usr/local/lib/terminal-jail}"
+# --- path resolution ---------------------------------------------------------
+# This wrapper lives at <repo>/standalone/terminal-jail-sh, so a checkout can
+# run without any env vars. Deployed installs use /usr/local/lib/terminal-jail.
+# Override explicitly with TERMINAL_JAIL_HOME (or TERMINAL_JAIL_CLI directly).
+_SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd 2>/dev/null || true)"
+_REPO_ROOT="$(CDPATH= cd -- "$_SCRIPT_DIR/.." && pwd 2>/dev/null || true)"
+if [ -n "$_REPO_ROOT" ] && [ -f "$_REPO_ROOT/standalone/terminal-jail" ]; then
+    BASE="${TERMINAL_JAIL_HOME:-$_REPO_ROOT}"
+else
+    BASE="${TERMINAL_JAIL_HOME:-/usr/local/lib/terminal-jail}"
+fi
 INTERRUPTOR_BRIDGE="${TERMINAL_JAIL_BRIDGE:-$BASE/plugin/terminal_jail/interruptor_bridge.py}"
 TJ_CLI="${TERMINAL_JAIL_CLI:-$BASE/standalone/terminal-jail}"
 MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
@@ -35,8 +47,24 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Bare command form: `terminal-jail-sh echo hello` (no -c flag). Treat the
+# remaining positional args as the command string so both invocation styles
+# work identically.
+if [[ -z "$cmd" && $# -gt 0 ]]; then
+    cmd="$*"
+fi
+
 if [[ -z "$cmd" ]]; then
     exec /bin/bash "$@"
+fi
+
+if [[ ! -x "$TJ_CLI" ]]; then
+    echo "terminal-jail: standalone CLI not found at '$TJ_CLI'" >&2
+    echo "  Resolve it with one of:" >&2
+    echo "    TERMINAL_JAIL_HOME=/path/to/terminal-jail  (repo root or deploy dir)" >&2
+    echo "    TERMINAL_JAIL_CLI=/path/to/terminal-jail    (exact CLI path)" >&2
+    echo "  Hint: run from the repository checkout, or install via ./install.sh" >&2
+    exit 2
 fi
 
 cmd="${cmd#set +m;}"
@@ -69,6 +97,15 @@ if [[ -f "$INTERRUPTOR_BRIDGE" && "$MODE" != "disabled" ]]; then
 fi
 
 export TERMINAL_JAIL_SECCOMP="${TERMINAL_JAIL_SECCOMP:-1}"
-exec /usr/bin/setpriv --no-new-privs \
-    "$TJ_CLI" \
-    --user --seccomp --no-interruptor /bin/bash -c "$cmd"
+if [[ -x /usr/bin/setpriv ]]; then
+    exec /usr/bin/setpriv --no-new-privs \
+        "$TJ_CLI" \
+        --user --seccomp --no-interruptor /bin/bash -c "$cmd"
+else
+    # Containers often lack setpriv (util-linux). The standalone CLI still
+    # provides --user/--seccomp isolation; only the extra no-new-privs belt
+    # is skipped. Documented escape hatch: install setpriv or use the CLI
+    # directly.
+    exec "$TJ_CLI" \
+        --user --seccomp --no-interruptor /bin/bash -c "$cmd"
+fi
