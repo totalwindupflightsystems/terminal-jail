@@ -187,7 +187,7 @@ class TestBuildBpfProgram:
 
     def test_noop_filter_arch_jump_semantics(self) -> None:
         """The empty-deny no-op filter must also allow the matching arch."""
-        body, count, audit_arch = build_bpf_program(
+        _, _, audit_arch = build_bpf_program(
             arch="x86_64", extra_denies=frozenset()
         )
         # Empty deny set: filter has no extra_denies entries, so we build the
