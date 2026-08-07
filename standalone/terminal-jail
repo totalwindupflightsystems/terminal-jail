@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$SCRIPT_DIR" && pwd)"
 SECCOMP_LOADER="${SCRIPT_DIR}/seccomp-loader.py"
 USE_SECCOMP=0
 USE_USER_NS=0
-USE_INTERRUPTOR=1  # on by default
+USE_INTERRUPTOR="${USE_INTERRUPTOR:-1}"  # on by default, override with USE_INTERRUPTOR=0
 
 usage() {
     cat <<'EOF'

@@ -80,11 +80,11 @@ flowchart TB
     end
 
     SD[systemd drop-in\n90-terminal-jail-hardening.conf]
-    SD -->|PrivateUsers| S
+    SD -->|PrivateUsers (staged)| S
     SD -->|ProtectProc=invisible| S
     SD -->|NoNewPrivileges| S
     SD -->|TasksMax| S
-    SD -->|RestrictAddressFamilies| S
+    SD -->|RestrictAddressFamilies (staged)| S
 
     US2 --> K[Kernel namespace and mount enforcement]
     SD --> K
@@ -161,7 +161,7 @@ Filesystem isolation does not prove that a downloaded payload is benign. It redu
 
 ### Network escapes
 
-`RestrictAddressFamilies` in the systemd drop-in limits the socket address families that `hermes-gateway.service` and descendants may create. The policy must allow only address families required for normal gateway function and deny families that could create unintended network paths, raw sockets, packet sockets, Bluetooth, Netlink mutation paths, or other unnecessary communications.
+`RestrictAddressFamilies` (staged — commented out as shipped) in the systemd drop-in limits the socket address families that `hermes-gateway.service` and descendants may create. The policy must allow only address families required for normal gateway function and deny families that could create unintended network paths, raw sockets, packet sockets, Bluetooth, Netlink mutation paths, or other unnecessary communications.
 
 The drop-in is the authoritative full-service network control. Plugin and CLI filesystem isolation limit the ability of downloaded tools to persist, while systemd constrains their ability to establish unauthorized network channels when they run in the gateway service tree.
 
@@ -190,7 +190,7 @@ The Interruptor Bash engine adds a pre-execution command evaluation layer that o
 | `/proc` inspection of unrelated processes | systemd, plugin, CLI | `ProtectProc` hides/restricts process metadata; PID namespace narrows wrapped command visibility. | Systemd is unavailable/misconfigured; command runs outside service and wrappers; host permits alternative observability interfaces. | Metadata for permitted/same-namespace processes may remain visible. |
 | Malicious `pip` package modifies host files | Plugin, CLI; systemd reduces service privilege | Filesystem namespace/mount policy prevents writes to host-visible persistent paths. | Writable host bind mount, home directory, project directory, cache, socket, or shared volume is exposed; command is run outside wrapper. | Payload can alter sandbox-visible data or build artifacts intentionally mounted writable. |
 | `curl | sh` persistence or bootstrap script | Plugin, CLI; systemd | Filesystem isolation limits persistence; service privilege restrictions limit escalation. | Internet access and a writable shared host mount remain available; direct host shell is used. | Payload can execute in sandbox and attack allowed resources. |
-| Network escape, arbitrary socket creation | systemd | `RestrictAddressFamilies` denies unnecessary socket families for the service process tree. | Required `AF_INET`/`AF_INET6` is allowed and no egress firewall exists; command runs outside service. | Traffic over allowed families/endpoints can remain possible; apply egress filtering for stronger control. |
+| Network escape, arbitrary socket creation | systemd | `RestrictAddressFamilies` (staged — commented out as shipped) denies unnecessary socket families for the service process tree when enabled. | Required `AF_INET`/`AF_INET6` is allowed and no egress firewall exists; command runs outside service. | Traffic over allowed families/endpoints can remain possible; apply egress filtering for stronger control. |
 | Namespace escape via kernel vulnerability | None fully; all reduce attack surface | Layering reduces privileges, files, process visibility, and networking available to exploit code. | Exploit targets vulnerable kernel or privileged helper. | Kernel compromise is high impact; patch kernel, minimize exposed namespaces/capabilities, use MAC/VM boundaries for hostile code. |
 | Direct manual command not prefixed with `terminal-jail` | Plugin only for Hermes; otherwise none | Hermes plugin catches commands issued through Hermes. | User runs a command in an ordinary host shell outside Hermes and without CLI. | Full host impact is possible; provide shell aliases, documentation, training, and consider stronger account/container isolation. |
 | Plugin disabled or unavailable | CLI and systemd where used | CLI explicitly wraps manual calls; systemd continues hardening the gateway service. | Manual command bypasses CLI; Docker lacks systemd. | Namespace containment depends on operator use of CLI. |
@@ -210,7 +210,7 @@ The default security posture for commands explicitly requested to be sandboxed i
 | All layers installed and healthy | Observes Hermes terminal commands via `pre_tool_call`; annotates output via `transform_terminal_output`. Does NOT wrap commands. | Wraps explicit manual invocations in `unshare` PID namespace. | Applies service-level hardening (`ProtectProc=invisible`, `NoNewPrivileges`, `ProtectControlGroups`, `TasksMax`); `PrivateUsers`/`RestrictNamespaces` staged commented-out. | Defense-in-depth: interruptor firewall; CLI provides PID isolation; plugin provides observability; systemd provides process-visibility/privilege hardening. | Run periodic verification checklist. |
 | Plugin not installed or disabled | Hermes commands are not observed or annotated. | `terminal-jail ...` still supplies namespace/filesystem isolation for commands explicitly invoked through it. | Still constrains `hermes-gateway.service` if deployed. | CLI plus service hardening; plugin observability is lost. | Install/repair plugin to restore metrics and logging. |
 | CLI not installed or not used | Plugin observes Hermes commands. | No protection for ordinary manual host-shell commands. | Still constrains gateway process tree. | Systemd hardening plus plugin observability for Hermes sessions only. | Install CLI for manual/high-risk work outside Hermes. |
-| systemd unavailable, such as Docker without systemd | Plugin observes Hermes commands but does not wrap them. | CLI still wraps commands if `unshare` is available. | Drop-in cannot apply. | CLI `unshare` isolation only; no systemd-level `NoNewPrivileges`, `ProtectProc`, `TasksMax`, or `RestrictAddressFamilies`. | Use container runtime controls (`--pids-limit`, read-only filesystem, dropped capabilities, seccomp, network policy) or run under a systemd-enabled host. |
+| systemd unavailable, such as Docker without systemd | Plugin observes Hermes commands but does not wrap them. | CLI still wraps commands if `unshare` is available. | Drop-in cannot apply. | CLI `unshare` isolation only; no systemd-level `NoNewPrivileges`, `ProtectProc`, `TasksMax`, or `RestrictAddressFamilies` (staged — commented out as shipped). | Use container runtime controls (`--pids-limit`, read-only filesystem, dropped capabilities, seccomp, network policy) or run under a systemd-enabled host. |
 | `unshare` not on `PATH` | Plugin observes but does not wrap (regardless of unshare availability). | Detect before executing. Required-isolation mode returns an actionable error. | Systemd hardening remains active for the gateway service. | systemd-only for Hermes gateway; no CLI wrapper available. | Install/configure `unshare` from util-linux, correct `PATH`, and verify namespace support. |
 | `unshare` exists but required namespace creation fails | Plugin observes but does not wrap. | Do not run original command in fail-closed mode. | Systemd hardening remains active for service tree. | Same as prior row unless an explicitly approved development fail-open policy is selected. | Diagnose kernel/user namespace policy, required permissions, and mount setup. |
 | Manual command is run directly outside Hermes and without CLI | Not in path. | Not in path. | Not in path unless the shell itself belongs to hardened gateway service. | None of terminal-jail's normal controls. | Use `terminal-jail`, a dedicated unprivileged account/container, or another approved execution environment. |
@@ -252,7 +252,7 @@ Before installation, confirm that:
 ### Step 1: install and activate the systemd drop-in
 
 1. Place `90-terminal-jail-hardening.conf` in the `hermes-gateway.service.d` drop-in directory used by the deployment.
-2. Review the drop-in against the gateway's real operational requirements. In particular, validate `NoNewPrivileges`, `ProtectProc`, `TasksMax`, and `RestrictAddressFamilies` rather than weakening them preemptively.
+2. Review the drop-in against the gateway's real operational requirements. In particular, validate `NoNewPrivileges`, `ProtectProc`, `TasksMax`, and `RestrictAddressFamilies` (staged — commented out as shipped) rather than weakening them preemptively.
 3. Reload systemd manager configuration.
 4. Restart `hermes-gateway.service` in a controlled maintenance window.
 5. Inspect the effective unit configuration and service status to confirm the drop-in is loaded.
@@ -385,7 +385,7 @@ Also verify:
 - [ ] The effective unit configuration contains `NoNewPrivileges=yes`.
 - [ ] The effective unit configuration contains the intended `ProtectProc` setting.
 - [ ] The effective unit configuration contains a non-default, documented `TasksMax` value appropriate to the service.
-- [ ] The effective unit configuration contains the intended `RestrictAddressFamilies` allowlist/deny policy.
+- [ ] The effective unit configuration contains the intended `RestrictAddressFamilies` (staged — commented out as shipped) allowlist/deny policy when the directive is enabled.
 - [ ] A test process launched through the gateway cannot gain privilege through a setuid/file-capability path.
 - [ ] A test process cannot inspect unrelated `/proc` entries beyond the selected `ProtectProc` policy.
 - [ ] Task-limit events are observable in journal/service monitoring when a controlled test reaches the limit.
@@ -490,7 +490,7 @@ The integration is acceptable only when all of the following are true:
 
 0. The Interruptor Bash engine is integrated into the standalone CLI (default enabled) and evaluates commands against the 27 built-in rules before execution.
 1. The systemd drop-in is active for `hermes-gateway.service`, and `systemd-analyze security hermes-gateway.service` reports a score of at least 9.0.
-2. The drop-in enforces `NoNewPrivileges`, `ProtectProc`, a documented `TasksMax`, and a documented `RestrictAddressFamilies` policy compatible with the service's legitimate operation.
+2. The drop-in enforces `NoNewPrivileges`, `ProtectProc`, a documented `TasksMax`, and a documented `RestrictAddressFamilies` (staged — commented out as shipped) policy compatible with the service's legitimate operation when the directive is enabled.
 3. The Hermes plugin transforms terminal commands through the approved `unshare` policy in fresh Hermes sessions.
 4. The standalone `terminal-jail` CLI applies equivalent required namespace/filesystem isolation for explicit manual invocations.
 5. `hermes chat -q "pkill -f hermes"` returns an error without damaging the non-production gateway or host sentinel process.

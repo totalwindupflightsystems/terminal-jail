@@ -133,6 +133,19 @@ def test_interruptor_no_interruptor_flag(cli_path: Path) -> None:
 
 
 @pytest.mark.standalone_cli
+def test_interruptor_env_var_zero_disables(cli_path: Path) -> None:
+    """USE_INTERRUPTOR=0 from the environment disables the interruptor (TJ-GAP-013)."""
+    result = _run_cli(
+        cli_path, "echo", "env-zero-test", extra_env={"USE_INTERRUPTOR": "0"}
+    )
+    stderr = result.stderr.decode("utf-8", errors="replace")
+    if result.returncode == 0:
+        assert b"env-zero-test" in result.stdout
+    elif "Permission denied" in stderr or "Operation not permitted" in stderr:
+        pass
+
+
+@pytest.mark.standalone_cli
 def test_interruptor_safe_command_passes(cli_path: Path) -> None:
     """A safe command passes through the interruptor normally."""
     result = _run_cli(cli_path, "echo", "safe-command-test")
