@@ -20,6 +20,10 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a 
 # CLI only — the sole component that wraps commands:
 ./standalone/terminal-jail echo "I'm in a PID namespace"
 # → unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c 'echo "I'"'"'m in a PID namespace"'
+# On hosts that deny unprivileged PID namespaces (unshare: Operation not
+# permitted, EPERM), fall back to --user (runs as nobody=65534, /proc shows
+# host PIDs):
+./standalone/terminal-jail --user echo "I'm in a PID namespace"
 ```
 
 The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, every descendant is immediately killed — even processes that double-fork or change session leaders.
@@ -88,6 +92,13 @@ Set via `TERMINAL_JAIL_INTERRUPTOR_MODE` env var or `--no-interruptor` flag on t
 ./standalone/terminal-jail --help
 ./standalone/terminal-jail --version
 ```
+
+> **Host limitation:** the first example requires an unprivileged PID
+> namespace (`unshare --pid`). On hosts that deny it (e.g. this one —
+> `unshare: unshare failed: Operation not permitted`, EPERM), use the `--user`
+> fallback instead: `./standalone/terminal-jail --user echo "I'm in a PID
+> namespace"` (runs as nobody=65534; `/proc` shows host PIDs). See
+> [Host Limitations](#host-limitations).
 
 ### Plugin (Hermes)
 
