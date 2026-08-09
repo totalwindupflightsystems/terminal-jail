@@ -13,13 +13,14 @@
 
 ## Purpose and security boundary
 
-Terminal-jail's primary PID namespace isolation is delivered through systemd service hardening. The Hermes plugin provides observability only (it cannot wrap commands — Hermes core has no pre-execution command-transform hook). This drop-in is therefore the authoritative containment boundary for `hermes-gateway.service`:
+Terminal-jail's PID namespace isolation is delivered by the standalone CLI (`unshare`), not by this drop-in as shipped. The Hermes plugin provides observability only (it cannot wrap commands — Hermes core has no pre-execution command-transform hook). As shipped, this drop-in is **lightweight hardening** for `hermes-gateway.service`, not a containment boundary:
 
-- the gateway process and all of its descendants run in a private user namespace (`PrivateUsers=true`) with a filtered `/proc` view (`ProtectProc=invisible`);
-- they cannot create replacement namespaces to escape the sandbox topology (`RestrictNamespaces=true`);
-- they cannot acquire privilege through set-ID files or file capabilities (`NoNewPrivileges=true`);
-- their filesystem writes and resource consumption are bounded; and
-- networking is denied unless the deployment explicitly requires it.
+- the gateway process tree gets a filtered `/proc` view (`ProtectProc=invisible`), hiding unrelated host/service processes from it;
+- descendants cannot acquire privilege through set-ID files or file capabilities (`NoNewPrivileges=true`);
+- the host cgroup hierarchy is protected from a compromised descendant (`ProtectControlGroups=true`);
+- task creation in the service cgroup is capped (`TasksMax=256`).
+
+The stronger directives (`PrivateUsers`, `RestrictNamespaces`, `CapabilityBoundingSet`, `RestrictAddressFamilies`, `ProtectSystem=strict`, `ProtectHome=true`) are staged — commented out in the shipped file with rationale — and require per-host verification (see `docs/deploy-to-karahermes.md`). Until the full profile is verified on a host, the drop-in provides process-visibility/privilege/cgroup hardening only and is **not** a PID namespace isolation boundary; use the standalone CLI (`standalone/terminal-jail`) for that.
 
 This is defense in depth, not a substitute for patching Hermes, terminal-jail, or the host kernel. The host service account, filesystem ownership, AppArmor profile, and the service's existing unit configuration remain part of the trusted computing base.
 
@@ -47,41 +48,29 @@ After installing or changing any drop-in, run `systemctl daemon-reload` before r
 
 ## Exact drop-in content
 
-The following is the baseline drop-in. The `ReadWritePaths=` values are deliberately narrow and are the only durable write roots granted after `ProtectSystem=strict`. The service user must own only the directories it actually requires.
+The shipped file (`systemd/90-terminal-jail-hardening.conf`) is the **lightweight baseline** — only the four directives below are active. The full hardening profile (`PrivateUsers`, `RestrictNamespaces`, `CapabilityBoundingSet`, `RestrictAddressFamilies`, `ProtectSystem=strict`, `ProtectHome=true`, `ReadWritePaths=`, `MemoryMax=`) is present in the shipped file but commented out with rationale, pending per-host verification (see `docs/deploy-to-karahermes.md` for the staged activation procedure). The shipped file is the source of truth for what is active; keep this example in sync with it.
 
 ```ini
 # /etc/systemd/system/hermes-gateway.service.d/90-terminal-jail-hardening.conf
-# Defense-in-depth for terminal-jail / Hermes gateway.
-# Review ReadWritePaths and RestrictAddressFamilies before deployment.
+# ⚠️ LIGHTWEIGHT HARDENING (4 active directives) — NOT a PID namespace
+# isolation boundary. Active: ProtectProc=invisible, NoNewPrivileges=true,
+# ProtectControlGroups=true, TasksMax=256.
 
 [Service]
 # Namespace and process-visibility containment
 ProtectProc=invisible
-PrivateUsers=true
-RestrictNamespaces=true
 
 # Privilege containment
 NoNewPrivileges=true
-CapabilityBoundingSet=
-
-# Network deny profile: retain AF_UNIX only. See the specification before use
-# with a TCP/HTTPS gateway or a gateway needing outbound network access.
-RestrictAddressFamilies=~AF_INET AF_INET6 AF_NETLINK
-
-# Immutable operating-system view with explicit persistent write roots.
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/hermes
-ReadWritePaths=/var/log/hermes
-ReadWritePaths=/var/lib/terminal-jail
 
 # Protect the host cgroup hierarchy from a compromised descendant.
 ProtectControlGroups=true
 
 # Bound an agent loop or fork bomb before it can exhaust the host.
-MemoryMax=1G
 TasksMax=256
 ```
+
+The sections below document the full staged profile — directives named there are **not** enforced as shipped; activate them per-host only after verification.
 
 ### Deliberate correction: `CloseOnExec=true`
 
@@ -180,11 +169,11 @@ Hermes cron schedules, run history, and lock/state files must be under an allowe
 
 Prevent overlapping jobs at the application layer as well: `TasksMax` is a backstop, not a scheduler. A failed cron job caused by an access denial must be treated as a deployment defect, not fixed by broadly weakening the sandbox.
 
-### `PrivateUsers=true` identity effects
+### Private user namespace identity effects (staged directive)
 
 A private user namespace can expose unmapped ownership (`nobody`/overflow IDs) for host files that are not mapped into the namespace. Test all bind mounts, state directories, and helper processes under the actual service user. Do not use `chmod 777` as a workaround. If a required host integration cannot work with private user mappings, split that integration into a minimal separate service rather than disabling `PrivateUsers` for the gateway wholesale.
 
-### `RestrictNamespaces=true` and container tooling
+### Namespace-creation restriction (`RestrictNamespaces`) and container tooling
 
 This setting blocks `unshare`, `setns`, and namespace-creating clone flags from service descendants. Tools that try to launch containers, nested sandboxes, or build environments inside the gateway service may fail. That is the desired outcome for this security boundary. Run such tooling in a dedicated build/runner service with a separately reviewed policy; do not grant namespace creation to the internet-facing gateway merely for convenience.
 
@@ -195,8 +184,8 @@ Ubuntu package revisions vary over an LTS lifetime; verify the installed manager
 | Control | Ubuntu 24.04 LTS (systemd 255) | Ubuntu 26.04 LTS (systemd 257-series) | Notes |
 |---|---|---|---|
 | `ProtectProc=invisible` | Supported | Supported | Requires systemd >= 247. |
-| `PrivateUsers=true` | Supported | Supported | Requires systemd >= 232. |
-| `RestrictNamespaces=true` | Supported | Supported | Requires systemd >= 231. |
+| `PrivateUsers` (staged — commented out as shipped) | Supported | Supported | Requires systemd >= 232. |
+| `RestrictNamespaces` (staged — commented out as shipped) | Supported | Supported | Requires systemd >= 231. |
 | `NoNewPrivileges=true` | Supported | Supported | Requires systemd >= 187. |
 | `RestrictAddressFamilies=` with `~` deny syntax | Supported | Supported | Requires systemd >= 228. |
 | `ProtectSystem=strict` | Supported | Supported | Requires systemd >= 214. |

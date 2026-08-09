@@ -12,87 +12,20 @@ sudo cp /home/kara/terminal-jail/standalone/terminal-jail /usr/local/bin/termina
 sudo chmod 755 /usr/local/bin/terminal-jail-bash
 ```
 
-### Step 2 — Create the SHELL shim (handles -lic invocation)
+### Step 2 — Install the SHELL shim (handles -lic invocation)
 
 The Hermes terminal tool invokes the shell as: `bash -lic "set +m; {command}"`. We need a thin
 wrapper that extracts the command, runs it through the interruptor, wraps with unshare, and execs.
+The canonical wrapper lives in this repo at `standalone/terminal-jail-sh` — install it from there
+(do NOT copy a script by hand; the repo copy is the maintained one):
 
 ```bash
-sudo tee /usr/local/bin/terminal-jail-sh << 'SHIM'
-#!/bin/bash
-# terminal-jail-sh — SHELL replacement for Hermes gateway
-# Handles: bash -lic "set +m; COMMAND"
-# Extracts COMMAND, evaluates via interruptor, wraps in PID namespace.
-# Paths are env-configurable (TERMINAL_JAIL_HOME / TERMINAL_JAIL_BRIDGE /
-# TERMINAL_JAIL_CLI); defaults target the /usr/local/lib/terminal-jail
-# deployment layout. The canonical copy lives at
-# standalone/terminal-jail-sh in the repo — prefer installing from there:
-#   sudo install -m 755 standalone/terminal-jail-sh /usr/local/bin/terminal-jail-sh
-
-BASE="${TERMINAL_JAIL_HOME:-/usr/local/lib/terminal-jail}"
-INTERRUPTOR_BRIDGE="${TERMINAL_JAIL_BRIDGE:-$BASE/plugin/terminal_jail/interruptor_bridge.py}"
-TJ_CLI="${TERMINAL_JAIL_CLI:-$BASE/standalone/terminal-jail}"
-MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
-
-# Extract the actual command from bash -lic "set +m; <command>"
-extract_command() {
-    local raw="$1"
-    # Strip "set +m; " prefix if present
-    raw="${raw#set +m; }"
-    # Strip leading/trailing whitespace
-    raw="${raw#"${raw%%[![:space:]]*}"}"
-    raw="${raw%"${raw##*[![:space:]]}"}"
-    echo "$raw"
-}
-
-# If invoked as a login shell (-l flag), extract command and jail it
-if [[ "$*" == *"-c"* ]] || [[ "$*" == *"-lic"* ]]; then
-    # Find the -c argument — it's the last argument
-    cmd=""
-    while [[ $# -gt 0 ]]; do
-        if [[ "$1" == "-c" ]]; then
-            cmd="$2"
-            break
-        fi
-        shift
-    done
-    
-    cmd=$(extract_command "${cmd:-$*}")
-    
-    # Run through interruptor if available
-    if [[ -f "$INTERRUPTOR_BRIDGE" ]] && [[ "$MODE" != "disabled" ]]; then
-        result=$(echo "{\"command\":$(echo "$cmd" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().rstrip('\n')))")}" | python3 "$INTERRUPTOR_BRIDGE" 2>/dev/null)
-        action=$(echo "$result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('action','allow'))" 2>/dev/null || echo "allow")
-        
-        if [[ "$action" == "block" ]]; then
-            rule_id=$(echo "$result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('rule_id','unknown'))" 2>/dev/null)
-            reason=$(echo "$result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('reason','Blocked by security policy'))" 2>/dev/null)
-            {
-                echo "╔══════════════════════════════════════════════════════════╗"
-                echo "║  COMMAND BLOCKED — $rule_id"
-                echo "╠══════════════════════════════════════════════════════════╣"
-                echo "║  $reason"
-                echo "╚══════════════════════════════════════════════════════════╝"
-            } >&2
-            exit 126
-        elif [[ "$action" == "modify" ]]; then
-            modified=$(echo "$result" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('modified',''))" 2>/dev/null)
-            if [[ -n "$modified" ]]; then
-                cmd="$modified"
-            fi
-        fi
-    fi
-    
-    # Execute in PID namespace with seccomp
-    export TERMINAL_JAIL_SECCOMP="${TERMINAL_JAIL_SECCOMP:-1}"
-    exec "$TJ_CLI" --user --seccomp "$cmd"
-else
-    # Interactive shell fallback (shouldn't happen for terminal tool)
-    exec /bin/bash "$@"
-fi
-SHIM
-sudo chmod 755 /usr/local/bin/terminal-jail-sh
+sudo install -m 755 /home/kara/terminal-jail/standalone/terminal-jail-sh /usr/local/bin/terminal-jail-sh
 ```
+
+The wrapper resolves its base directory relative to the repo checkout when present, and falls back
+to `/usr/local/lib/terminal-jail` (override with `TERMINAL_JAIL_HOME` / `TERMINAL_JAIL_BRIDGE` /
+`TERMINAL_JAIL_CLI`). On hosts without `setpriv` it degrades gracefully.
 
 ### Step 3 — Verify the shim works
 
