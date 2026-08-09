@@ -1,6 +1,6 @@
 # E2E Verification Report — terminal-jail
 
-**Tick:** #162 · **Date:** 2026-08-08 · **Type:** E2E-001 (CLI/API variant — twenty-sixth run)
+**Tick:** #167 · **Date:** 2026-08-08 · **Type:** E2E-001 (CLI/API variant — twenty-seventh run)
 **Executor:** Foreman direct (operational CLI verification — project has no browser surface)
 **Baseline:** 234 passed / 6 skipped (changed from 283/32 — `plugin/test_integration.py` removed 2026-08-07 by TJ-GAP-010; it tested dead `transform_command` wrapping. Killpg/quoted battery lives in `test_interruptor.py`, unaffected)
 
@@ -75,35 +75,34 @@ was 9.1.1) — venv change, not a code regression.
 
 | Metric | Target | Live | Result |
 |---|---|---|---|
-| Cold start | <50ms | 0.10 ms | ✅ |
-| Warm start (min 100) | <5ms | 0.042 ms | ✅ |
-| 1KB parse (min 100) | <10ms | 0.288 ms | ✅ |
-| 500-rule eval (min 50) | <5ms | 1.261 ms | ✅ |
+| Cold start | <50ms | 0.11 ms | ✅ |
+| Warm start (min 100) | <5ms | 0.046 ms | ✅ |
+| 1KB parse (min 100) | <10ms | 0.284 ms | ✅ |
+| 500-rule eval (min 50) | <5ms | 1.293 ms | ✅ |
 
 All well under target; 500-rule sub-ms movement is host-load jitter, not
 regression (band 0.70-0.97, target 5ms).
 
 ## 6. Suite / Guard / Hilo
 
-- Full suite: **234 passed / 6 skipped** (3.47s) — baseline per TJ-GAP-010
+- Full suite: **234 passed / 6 skipped** (3.94s) — baseline per TJ-GAP-010
   (test_integration.py removed); ruff clean (inside guard lint).
 - GitReins guard: **PASS 4/4** (secrets / lint / tests / static_analysis).
 - Hilo: **148 edges / 27 files** (live `hilo graph stats`).
 
 ## 7. External Signals
 
-CI: last 4 pushes all success (#158 phase-2 2628e74 run 31223467341, #159
-df517b9 run 31230374927, #160 2dedaf2 run 31236164276, #161 f8b0997 run
-31242528003). 0 open issues · 0 unpushed commits (git fetch verified) · no
-terminal-jail siblings (only helix/asce/h3-sdk-python foremen on other repos,
-cmdline-verified). Scheduler: Enabled=true, CooldownS=7200 (external
-Bane-policy value since #153; no PUT — E2E fixture gates pause). NEVER-DONE
-probes: 0 TODO/FIXME, VERSION-001 holds (zero literal 1.0.0 source hits),
-user pytest cache absent, repo-local stale lastfailed entry (pre-#82 node-id)
-= known non-regression. Blocked-task probe: gpg empty (T9.4 still blocked).
-Two documented untracked strays (dagger.db, .coding-hermes/extract_skill.py)
-left uncommitted.
+CI: last 3 pushes all success (#166 phase-2 f26af7c run 31286375900, #165
+6391d97 run 31281684900, #164 435c119 run 31274615130). 0 open issues · 0
+unpushed commits (git fetch verified) · no terminal-jail siblings (only
+helios-work/canopy/mafia-ai-benchmark foremen on other repos, cmdline+cwd
+verified; own tick process is self). Scheduler: Enabled=true, CooldownS=7200
+(external Bane-policy value since #153; no PUT — E2E fixture gates pause).
+NEVER-DONE probes: 0 TODO/FIXME, VERSION-001 holds (zero literal 1.0.0 source
+hits), user pytest cache absent, repo-local stale lastfailed entry (pre-#82
+node-id) = known non-regression. Blocked-task probe: gpg empty (T9.4 still
+blocked). 0 untracked strays (2 cleaned at tick #165, none present).
 
 **Verdict: E2E PASS — 0 new gaps, BUG-001 seccomp fix verified holding
 (live probe + regression tests), GAP-01..05 all hold, no code change, no
-worker. Next E2E window #167 (window #162-167).**
+worker. Next E2E window #172 (window #167-172).**
