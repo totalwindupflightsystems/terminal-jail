@@ -40,6 +40,12 @@ cd terminal-jail
 ./install.sh        # installs to ~/.local/bin/terminal-jail (no root needed)
 ```
 
+Release-mode downloads (wrapper + SHA-256 from a published release) are
+**opt-in only**: set `TERMINAL_JAIL_USE_RELEASE=1` (with
+`TERMINAL_JAIL_BASE_URL` if you host assets yourself). Without the flag the
+installer refuses rather than hitting the dead default release URL — release
+assets are not published yet.
+
 Verify:
 
 ```bash
