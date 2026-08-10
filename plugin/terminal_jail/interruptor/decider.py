@@ -16,8 +16,13 @@ from .blocklist import BUILTIN_BLOCKLIST
 from .config import Config
 from .matcher import Matcher
 from .parser import Segment, SegmentType
+from .rules import Rule, RuleLoader, RuleSet
 from .sandbox import BUILTIN_SANDBOX
 from .types import Action, InterceptResult
+
+# The unshare namespace prefix used by both the built-in auto-sandbox
+# layer and user-defined modify rules (identical wrap semantics).
+_UNSHARE_PREFIX = "unshare --user --pid --fork --kill-child=SIGKILL bash -c "
 
 
 class Decider:
@@ -28,11 +33,59 @@ class Decider:
     2. Allowlist (skip further evaluation if matched)
     3. Auto-sandbox (wrap in unshare)
     4. User-defined rules
+
+    User rules are loaded once per Decider via RuleLoader (system then
+    user rules.d directories; missing directories pass through). A user
+    rule whose id matches a built-in rule id REPLACES that built-in entry
+    in its layer (same-ID override, per blocklist.py's contract and spec
+    T-I38); user rules with brand-new ids are evaluated in Layer 4 after
+    auto-sandbox, highest priority first, first match wins (spec §4(d)).
     """
 
     def __init__(self, config: Config) -> None:
         self.config = config
         self.matcher = Matcher()
+        user_rules = RuleLoader(
+            system_dir=config.system_rules_dir,
+            user_dir=config.user_rules_dir,
+        ).load_all()
+        self._user_rules = user_rules
+        (
+            self._blocklist,
+            self._allowlist,
+            self._sandbox,
+            self._layer4,
+        ) = self._build_layers(user_rules)
+
+    def _build_layers(
+        self, user_rules: RuleSet
+    ) -> tuple[list[Rule], list[Rule], list[Rule], list[Rule]]:
+        """Build the per-layer effective rule lists once.
+
+        Same-ID override semantics: any user rule whose id matches a
+        built-in rule id replaces that built-in entry in its layer (the
+        built-in is removed and the user rule is evaluated in its place).
+        User rules with new ids are collected into the Layer 4 list,
+        already sorted by priority descending (RuleSet order is preserved).
+        """
+        user_by_id = {r.id for r in user_rules.rules}
+
+        def effective(builtins: list[Rule], layer_ids: set[str]) -> list[Rule]:
+            rules = [r for r in builtins if r.id not in user_by_id]
+            rules.extend(r for r in user_rules.rules if r.id in layer_ids)
+            rules.sort(key=lambda r: r.priority, reverse=True)
+            return rules
+
+        block_ids = {r.id for r in BUILTIN_BLOCKLIST}
+        allow_ids = {r.id for r in BUILTIN_ALLOWLIST}
+        sandbox_ids = {r.id for r in BUILTIN_SANDBOX}
+        blocklist = effective(BUILTIN_BLOCKLIST, block_ids)
+        allowlist = effective(BUILTIN_ALLOWLIST, allow_ids)
+        sandbox = effective(BUILTIN_SANDBOX, sandbox_ids)
+        layer4 = [
+            r for r in user_rules.rules if r.id not in block_ids | allow_ids | sandbox_ids
+        ]
+        return blocklist, allowlist, sandbox, layer4
 
     def evaluate(self, segments: list[Segment], original: str) -> InterceptResult:
         """Evaluate all segments of a command through the rule engine.
@@ -47,14 +100,19 @@ class Decider:
         if not segments:
             return InterceptResult(action=Action.ALLOW, command=original)
 
-        # Check the full command against blocklist first (catches pipe chains)
+        # Check the full command against the blocklist first (catches pipe
+        # chains). Same-ID user overrides apply here too: only rules whose
+        # action is block take part — an allow/modify replacement must not
+        # block the full command before segment evaluation.
         full_segment = Segment(
             type=SegmentType.SIMPLE,
             tokens=[],
             raw=original,
             pos=0,
         )
-        for rule in BUILTIN_BLOCKLIST:
+        for rule in self._blocklist:
+            if rule.action != Action.BLOCK:
+                continue
             match_result = self.matcher.match_segment(full_segment, rule.match)
             if match_result:
                 return InterceptResult(
@@ -96,40 +154,69 @@ class Decider:
         """Evaluate a single command segment against all rule layers."""
         raw = segment.raw
 
-        # Layer 1: Critical blocklist — always evaluated first
-        for rule in BUILTIN_BLOCKLIST:
+        # Layer 1: Critical blocklist (builtins + same-ID user overrides)
+        for rule in self._blocklist:
             match_result = self.matcher.match_segment(segment, rule.match)
             if match_result:
-                return InterceptResult(
-                    action=Action.BLOCK,
-                    command=raw,
-                    rule_id=rule.id,
-                    reason=rule.block_message,
-                )
+                return self._rule_result(rule, raw)
 
         # Layer 2: Allowlist — if matched, skip further evaluation
-        for rule in BUILTIN_ALLOWLIST:
+        for rule in self._allowlist:
             match_result = self.matcher.match_segment(segment, rule.match)
             if match_result:
-                return InterceptResult(action=Action.ALLOW, command=raw)
+                return self._rule_result(rule, raw)
 
         # Layer 3: Auto-sandbox — wrap in unshare
-        for rule in BUILTIN_SANDBOX:
+        for rule in self._sandbox:
             match_result = self.matcher.match_segment(segment, rule.match)
             if match_result:
-                modified = f"unshare --user --pid --fork --kill-child=SIGKILL bash -c {_escape_for_shell(raw)}"
-                return InterceptResult(
-                    action=Action.MODIFY,
-                    command=raw,
-                    modified=modified,
-                    rule_id=rule.id,
-                    reason="Auto-sandbox: wrapped command in namespace isolation",
-                )
+                return self._rule_result(rule, raw)
 
-        # Layer 4: User-defined rules would go here (loaded from RuleSet)
-        # Not yet implemented — this tick only builds the core engine.
+        # Layer 4: User-defined rules (new ids) — priority order, first match wins
+        for rule in self._layer4:
+            match_result = self.matcher.match_segment(segment, rule.match)
+            if match_result:
+                return self._rule_result(rule, raw)
 
         return InterceptResult(action=Action.ALLOW, command=raw)
+
+    def _rule_result(self, rule: Rule, raw: str) -> InterceptResult:
+        """Build the InterceptResult for a matched rule (any layer).
+
+        Dispatch by the rule's action:
+        - block: BLOCK with the rule's id and block_message
+        - modify/sandbox: MODIFY wrapping the command in the unshare
+          namespace (the same prefix the built-in auto-sandbox layer uses)
+        - allow: ALLOW (rule id retained for traceability)
+        - anything else: fail-safe ALLOW with a warning reason (never block
+          on an unknown action value)
+        """
+        if rule.action == Action.BLOCK:
+            return InterceptResult(
+                action=Action.BLOCK,
+                command=raw,
+                rule_id=rule.id,
+                reason=rule.block_message,
+            )
+        if rule.action in (Action.MODIFY, Action.SANDBOX):
+            modified = f"{_UNSHARE_PREFIX}{_escape_for_shell(raw)}"
+            return InterceptResult(
+                action=Action.MODIFY,
+                command=raw,
+                modified=modified,
+                rule_id=rule.id,
+                reason="Auto-sandbox: wrapped command in namespace isolation",
+            )
+        if rule.action == Action.ALLOW:
+            return InterceptResult(action=Action.ALLOW, command=raw, rule_id=rule.id)
+        return InterceptResult(
+            action=Action.ALLOW,
+            command=raw,
+            reason=(
+                f"User rule {rule.id!r} has unknown action {rule.action!r} "
+                "— allowing (fail-safe)"
+            ),
+        )
 
 
 def _escape_for_shell(cmd: str) -> str:

