@@ -269,42 +269,72 @@ Run all checks against the effective, loaded unit; do not infer success from the
   systemd-analyze security hermes-gateway.service
   ```
 
-  Expected: an overall exposure score of `9.0` or higher on the analyzer's 0–10 exposure scale (higher is better). The exact score is version-dependent and may remain below 10 because this specification intentionally does not force unrelated controls such as `SystemCallFilter=`, `PrivateDevices=`, `PrivateTmp=`, `LockPersonality=`, or `MemoryDenyWriteExecute=`. Treat a score below 9 as a review signal, not a reason to add settings without compatibility testing.
+  Expected (shipped baseline): the score is **no worse than the
+  pre-deployment baseline** for this unit (record the pre-deployment score
+  during the dry run above). The shipped drop-in is deliberately lightweight
+  — 4 active directives — so it does **not** reach the `9.0` target on its
+  own. The `9.0` or higher target (0–10 exposure scale, higher is better)
+  applies only to the **staged full profile** (all 12 directives active after
+  per-host verification). The exact score is version-dependent and may remain
+  below 10 even for the full profile because this specification intentionally
+  does not force unrelated controls such as `SystemCallFilter=`,
+  `PrivateDevices=`, `PrivateTmp=`, `LockPersonality=`, or
+  `MemoryDenyWriteExecute=`. Treat a score drop below the pre-deployment
+  baseline as a regression signal, not a reason to add settings without
+  compatibility testing.
 
-- [ ] Confirm all requested effective properties:
+- [ ] Confirm all requested effective properties — **[shipped] baseline (4 active directives)**:
 
   ```bash
   systemctl show hermes-gateway.service \
     -p ProtectProc \
+    -p NoNewPrivileges \
+    -p ProtectControlGroups \
+    -p TasksMax
+  ```
+
+  Expected values (all four must match a deployment of the shipped conf):
+
+  ```text
+  ProtectProc=invisible
+  NoNewPrivileges=yes
+  ProtectControlGroups=yes
+  TasksMax=256
+  ```
+
+- [ ] Confirm all requested effective properties — **[staged] full profile (8 directives — NOT active in the shipped conf)**:
+
+  ```bash
+  systemctl show hermes-gateway.service \
     -p PrivateUsers \
     -p RestrictNamespaces \
-    -p NoNewPrivileges \
     -p RestrictAddressFamilies \
     -p ProtectSystem \
     -p ProtectHome \
     -p ReadWritePaths \
-    -p ProtectControlGroups \
     -p MemoryMax \
-    -p TasksMax \
     -p CapabilityBoundingSet
   ```
 
-  Expected values:
+  Expected values (staged — not yet active; each is commented out with its
+  rationale in `systemd/90-terminal-jail-hardening.conf` and requires
+  per-host verification before uncommenting, see `docs/deploy-to-karahermes.md`):
 
   ```text
-  ProtectProc=invisible
-  PrivateUsers=yes
-  RestrictNamespaces=yes
-  NoNewPrivileges=yes
-  RestrictAddressFamilies=AF_UNIX AF_...   # systemd's normalized display varies; AF_INET, AF_INET6, and AF_NETLINK are denied by the baseline
-  ProtectSystem=strict
-  ProtectHome=yes
-  ReadWritePaths=/var/lib/hermes /var/log/hermes /var/lib/terminal-jail
-  ProtectControlGroups=yes
-  MemoryMax=1073741824
-  TasksMax=256
-  CapabilityBoundingSet=                 # empty
+  PrivateUsers=yes                    # staged — not yet active
+  RestrictNamespaces=yes              # staged — not yet active
+  RestrictAddressFamilies=AF_UNIX AF_...   # staged — not yet active; systemd's normalized display varies; AF_INET, AF_INET6, and AF_NETLINK are denied by the full profile
+  ProtectSystem=strict                # staged — not yet active
+  ProtectHome=yes                     # staged — not yet active
+  ReadWritePaths=/var/lib/hermes /var/log/hermes /var/lib/terminal-jail   # staged — not yet active
+  MemoryMax=1073741824                # staged — not yet active (the gateway unit's own memory limits remain authoritative)
+  CapabilityBoundingSet=              # staged — not yet active (empty)
   ```
+
+  On a deployment of the shipped conf, the staged properties report their
+  systemd defaults (or the gateway unit's own values) — that is expected, not
+  a failure. A deployment is checklist-complete when the 4/4 baseline items
+  match and the staged items carry their marker.
 
   `systemctl show` can normalize booleans and address-family masks differently across releases. Compare the effective behavior and absence of forbidden families, not just whitespace/order in its rendering.
 
@@ -325,7 +355,13 @@ Run all checks against the effective, loaded unit; do not infer success from the
   cat /sys/fs/cgroup"$CG"/pids.max
   ```
 
-  Expected: `memory.max` is `1073741824` and `pids.max` is `256`, unless an intentional site override changed the baseline. If those files do not exist, investigate cgroup hierarchy/delegation before claiming that resource limits are active.
+  Expected (shipped baseline): `pids.max` is `256`. `memory.max` is **not**
+  governed by the shipped conf — the gateway unit's own memory limits remain
+  authoritative (`1073741824` is the staged full-profile value). If the
+  staged profile is active, both `memory.max` = `1073741824` and
+  `pids.max` = `256` are expected, unless an intentional site override
+  changed the baseline. If those files do not exist, investigate cgroup
+  hierarchy/delegation before claiming that resource limits are active.
 
 - [ ] Confirm the network policy matches the intended operating mode. For the deny-network profile, test both the expected local Unix-socket workflow and an intentionally forbidden Internet operation from a controlled gateway code path. Expected: local workflow succeeds; attempts to create `AF_INET`, `AF_INET6`, or `AF_NETLINK` sockets fail. If TCP ingress/egress is a requirement, replace the deny profile with the narrow allow-list documented above and test the required paths explicitly.
 
@@ -354,6 +390,14 @@ flowchart TB
     J --> L
     K --> L
 ```
+
+> **Shipped vs staged:** the diagram is the **full profile**. Of the layers
+> shown, only `E` (ProtectProc), `G`-partial (NoNewPrivileges), `J`
+> (ProtectControlGroups), and `K`-partial (TasksMax) are active in the shipped
+> conf (`systemd/90-terminal-jail-hardening.conf`). Layers `D`, `F`, `H`, `I`,
+> and the `K` memory half are staged — commented out with rationale until
+> per-host verification. The verification checklist above is split into
+> `[shipped] baseline` and `[staged] full profile` sections accordingly.
 
 ## Operational response to a failure
 

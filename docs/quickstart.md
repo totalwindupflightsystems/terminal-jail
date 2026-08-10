@@ -69,8 +69,10 @@ terminal-jail --seccomp echo "seccomp BPF active"    # denies mount/pivot_root/.
 ### 3d. Hermes plugin
 
 ```bash
-pip install -e plugin/   # or add plugin/ to HERMES_PLUGINS (see specs/plugin.md)
+pip install -e .   # from the repo root (installs the plugin/ package tree)
 ```
+
+(Or add `plugin/` to `HERMES_PLUGINS` — see `specs/plugin.md`.)
 
 The plugin hooks `pre_tool_call` (command visibility, byte-budget
 enforcement) and `transform_terminal_output` (jail-status annotation). It
@@ -133,10 +135,15 @@ execution. Also, only commands matching the 27 built-in rules are blocked —
 the interruptor is a pattern firewall, not a policy sandbox (see
 `specs/interruptor.md`).
 
-**The interruptor bridge is not available (warning on stderr)?**
-The CLI resolves `plugin/terminal_jail/interruptor_bridge.py` relative to
-itself. If you copied `standalone/` elsewhere, the plugin directory must be
-installed (`pip install -e plugin/`) so the bridge is importable.
+**The interruptor bridge is not available (warning or block on stderr)?**
+The CLI resolves `plugin/terminal_jail/interruptor_bridge.py` in this order:
+`TERMINAL_JAIL_BRIDGE` (explicit path), `../plugin/` next to the wrapper
+(repository checkout), the installed lib layout
+(`~/.local/lib/terminal-jail/plugin/` — shipped by `./install.sh`), then the
+Python module path (`pip install -e .` from the repo root makes the bridge
+importable). If the bridge is genuinely missing, enforce mode FAILS CLOSED
+(exits 126 with a `COMMAND BLOCKED` box) instead of running unguarded; use
+`TERMINAL_JAIL_INTERRUPTOR_MODE=warn` only if you explicitly accept the risk.
 
 **Why does `--user` show host PIDs in `/proc`?**
 User namespaces cannot mount a namespace-local `/proc` unprivileged. This is
