@@ -263,6 +263,77 @@ class TestTryApply:
         assert "OK:" in result.stdout or "TYPE_ERROR:" not in result.stdout
 
 
+# ── no_new_privs + filter install regression (TJ-DF-003) ─────────────────────
+
+
+class TestNoNewPrivsBeforeFilter:
+    """PR_SET_NO_NEW_PRIVS must be set before PR_SET_SECCOMP.
+
+    Regression for TJ-DF-003: without the latch, an unprivileged process
+    gets EPERM from prctl(PR_SET_SECCOMP) and try_apply() degrades to
+    running without the filter. These tests run in subprocesses because a
+    successful install latches no_new_privs for the process lifetime.
+    """
+
+    PLUGIN_DIR = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "plugin")
+    )
+
+    @staticmethod
+    def _status_probe(apply: bool) -> str:
+        call = "result = try_apply()" if apply else "result = None"
+        ok_expr = (
+            "result.applied and nn == '1' and sc == '2'"
+            if apply
+            else "nn == '0' and sc == '0'"
+        )
+        applied_repr = "result.applied" if apply else "None"
+        return (
+            "import sys, re\n"
+            f"sys.path.insert(0, {TestNoNewPrivsBeforeFilter.PLUGIN_DIR!r})\n"
+            "from terminal_jail.seccomp import try_apply\n"
+            f"{call}\n"
+            "st = open('/proc/self/status').read()\n"
+            "nn = re.search(r'NoNewPrivs:\\s+(\\d)', st).group(1)\n"
+            "sc = re.search(r'Seccomp:\\s+(\\d)', st).group(1)\n"
+            f"ok = {ok_expr}\n"
+            f"print(f'applied={{{applied_repr}}} NoNewPrivs={{nn}} Seccomp={{sc}}')\n"
+            "sys.exit(0 if ok else 1)\n"
+        )
+
+    def test_filter_install_sets_no_new_privs_and_seccomp(self) -> None:
+        """try_apply() must latch no_new_privs and install the filter."""
+        result = subprocess.run(
+            [sys.executable, "-c", self._status_probe(apply=True)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, (
+            f"probe failed rc={result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "applied=True NoNewPrivs=1 Seccomp=2" in result.stdout
+
+    def test_negative_control_no_filter_without_try_apply(self) -> None:
+        """Without try_apply() the process must show Seccomp: 0 / NoNewPrivs: 0.
+
+        Proves the positive test is not vacuously passing on a host where
+        /proc/self/status always reports 2/1.
+        """
+        result = subprocess.run(
+            [sys.executable, "-c", self._status_probe(apply=False)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, (
+            f"negative control failed rc={result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "applied=None NoNewPrivs=0 Seccomp=0" in result.stdout
+
+
 # ── Standalone CLI integration tests ──────────────────────────────────────────
 
 

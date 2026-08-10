@@ -119,6 +119,7 @@ _EPERM: Final[int] = 1
 
 # prctl constants (linux/prctl.h + linux/seccomp.h)
 _PR_SET_SECCOMP: Final[int] = 22
+_PR_SET_NO_NEW_PRIVS: Final[int] = 38
 _SECCOMP_MODE_FILTER: Final[int] = 2
 
 # AUDIT_ARCH_* values from linux/audit.h (also see _ARCH_TABLE below).
@@ -413,12 +414,36 @@ def apply_filter(
     fprog_ref = ctypes.byref(fprog)
 
     # Build the ifunc for prctl: long prctl(int option, unsigned long arg2, ...)
+    # Full variadic arity so ctypes accepts the 5-argument calls below.
     prctl = libc.prctl
     prctl.restype = ctypes.c_long
-    prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_void_p]
+    prctl.argtypes = [
+        ctypes.c_int,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    ]
+
+    # PR_SET_NO_NEW_PRIVS must be set before PR_SET_SECCOMP: an unprivileged
+    # process cannot install a filter otherwise (EPERM). It is a one-way
+    # latch — once set it can never be cleared, and the payload inherits it
+    # across exec, which is intended.
+    rv = prctl(_PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
+    if rv != 0:
+        err = ctypes.get_errno()
+        message = os.strerror(err) if err else "unknown error"
+        raise SeccompPermissionError(
+            f"prctl(PR_SET_NO_NEW_PRIVS) failed: {message} (errno={err}) — "
+            "cannot install seccomp filter without no_new_privs"
+        )
 
     rv = prctl(
-        _PR_SET_SECCOMP, _SECCOMP_MODE_FILTER, ctypes.cast(fprog_ref, ctypes.c_void_p)
+        _PR_SET_SECCOMP,
+        _SECCOMP_MODE_FILTER,
+        ctypes.cast(fprog_ref, ctypes.c_void_p),
+        0,
+        0,
     )
     if rv != 0:
         err = ctypes.get_errno()
