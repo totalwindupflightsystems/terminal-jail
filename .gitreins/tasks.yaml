@@ -57,8 +57,9 @@ tasks:
   - 'Full suite green: .venv/bin/python -m pytest -q passes, ruff check plugin/ standalone/
     clean, gitreins guard 4/4 PASS'
   - Commit includes Co-authored-by trailer and addresses TJ-GAP-021
-  status: pending
+  status: complete
   created_at: '2026-08-10T00:43:30.234668+00:00'
+  completed_at: '2026-08-10T00:45:37.162102+00:00'
 - id: tj-gap-023
   title: install.sh release path gated behind explicit opt-in (TJ-GAP-023)
   criteria:
@@ -74,5 +75,6 @@ tasks:
   - 'Full suite green: .venv/bin/python -m pytest -q passes, ruff clean, gitreins
     guard 4/4 PASS'
   - Commit includes Co-authored-by trailer and addresses TJ-GAP-023
-  status: pending
+  status: complete
   created_at: '2026-08-10T00:43:30.353029+00:00'
+  completed_at: '2026-08-10T00:49:26.925197+00:00'
