@@ -110,3 +110,18 @@ tasks:
   status: complete
   created_at: '2026-08-10T10:23:56.631616+00:00'
   completed_at: '2026-08-10T10:28:41.761928+00:00'
+- id: TJ-DF-003
+  title: P1 seccomp filter unprivileged install (PR_SET_NO_NEW_PRIVS)
+  criteria:
+  - apply_filter() calls prctl(PR_SET_NO_NEW_PRIVS, 1) before prctl(PR_SET_SECCOMP)
+  - 'unprivileged install verified live: TERMINAL_JAIL_SECCOMP=1 loader probe reports
+    applied=True, /proc/self/status NoNewPrivs=1 Seccomp=2, no running-without-seccomp
+    warning'
+  - regression tests in plugin/test_seccomp.py (positive latch probe + negative control)
+    and full suite passes 256/6
+  - no_new_privs failure raises SeccompPermissionError; existing EPERM/EACCES mapping
+    for filter install unchanged
+  - scope limited to plugin/terminal_jail/seccomp.py and plugin/test_seccomp.py
+  status: complete
+  created_at: '2026-08-10T12:51:33.900231+00:00'
+  completed_at: '2026-08-10T12:51:37.589705+00:00'
