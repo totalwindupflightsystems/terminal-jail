@@ -153,3 +153,29 @@ tasks:
   status: complete
   created_at: '2026-08-10T15:19:54.770211+00:00'
   completed_at: '2026-08-10T15:22:13.933383+00:00'
+- id: tj-df-005
+  title: Fix README/quickstart/specs built-in rules documentation (TJ-DF-005)
+  criteria:
+  - Every rule listed in README Built-in Rules section exists in the engine (blocklist.py/sandbox.py/allowlist.py)
+    with the stated action
+  - Engine rule counts documented as 11 blocklist + 8 sandbox + 10 allow (grep -c
+    rule_id= per module)
+  - README/docs/quickstart.md/specs/integration.md contain zero stale '27 built-in
+    rules' or '27 total' claims
+  - chmod 000 / and sudo/su/mount/apt-as-sandbox fictions removed from README tables
+  status: complete
+  created_at: '2026-08-10T18:28:31.074207+00:00'
+  completed_at: '2026-08-10T18:31:39.678296+00:00'
+- id: tj-df-006
+  title: Fix pip editable install to expose terminal_jail as top-level package (TJ-DF-006)
+  criteria:
+  - 'Fresh venv: python3 -m venv /tmp/x && /tmp/x/bin/pip install -q -e /home/kara/terminal-jail
+    && /tmp/x/bin/python -c ''import terminal_jail'' succeeds'
+  - /tmp/x/bin/python -c 'import terminal_jail.seccomp' and 'import terminal_jail.interruptor_bridge'
+    succeed from the installed env
+  - Fast CI-runnable smoke test asserts the packaging contract (tomllib config check)
+    and fails if config is reverted
+  - 'Full suite green (pytest -q: 274 passed, 4 skipped) and gitreins guard 4/4'
+  status: complete
+  created_at: '2026-08-10T18:28:31.184843+00:00'
+  completed_at: '2026-08-10T18:33:15.957537+00:00'
