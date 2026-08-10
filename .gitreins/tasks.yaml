@@ -94,3 +94,19 @@ tasks:
   status: complete
   created_at: '2026-08-10T06:08:13.918255+00:00'
   completed_at: '2026-08-10T06:09:47.881435+00:00'
+- id: TJ-DF-002
+  title: Fix seccomp loader path resolution in installed layout
+  criteria:
+  - 'seccomp-loader._setup_path resolves plugin dir in BOTH repo layout (standalone/../plugin)
+    and installed layout (LIB_DIR/plugin): loader run from an installed-layout copy
+    imports terminal_jail without ModuleNotFoundError'
+  - installed-layout regression test added (models ./install.sh local-mode layout
+    in a temp dir, executes the installed seccomp-loader.py, asserts no ModuleNotFoundError
+    and command runs) and passing
+  - 'full suite green: .venv/bin/python -m pytest -q passes with all new tests and
+    no regressions'
+  - 'diff scoped: seccomp-loader.py + tests only (install.sh only if layout change
+    required); commit message references TJ-DF-002'
+  status: complete
+  created_at: '2026-08-10T10:23:56.631616+00:00'
+  completed_at: '2026-08-10T10:28:41.761928+00:00'
