@@ -8,7 +8,7 @@ command execution without a core change. The ``pre_tool_call`` hook can only
 BLOCK or ALLOW tool calls — it cannot modify the command string.
 
 Until Hermes core adds a pre-execution command-transform hook (see task
-HOOK-GAP-01), this plugin provides:
+HOOK-GAP-03), this plugin provides:
 - Observability via ``transform_terminal_output`` (logs wrapped commands post-exec)
 - A pre_tool_call observer for tracking terminal tool usage
 - Metrics export (``get_metrics`` / ``scripts/metrics-export.py``)
@@ -81,6 +81,6 @@ def register(ctx) -> None:
     logger.info(
         "terminal-jail v1.1.0 loaded. "
         "NOTE: pre-execution command wrapping requires Hermes core "
-        "pre-execution hooks (see task HOOK-GAP-01). "
+        "pre-execution hooks (see task HOOK-GAP-03). "
         "Observability hooks registered."
     )
