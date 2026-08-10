@@ -36,3 +36,43 @@ tasks:
   status: complete
   created_at: '2026-08-07T15:47:58.009299+00:00'
   completed_at: '2026-08-07T15:48:01.859388+00:00'
+- id: tj-gap-021
+  title: Installed binary must not fail open (TJ-GAP-021)
+  criteria:
+  - install.sh local mode ships the plugin bridge tree to ${INSTALL_DIR}/../lib/terminal-jail/
+    (plugin/terminal_jail/interruptor_bridge.py + rules/00-builtins.yaml present)
+    and standalone/seccomp-loader.py
+  - The installed wrapper (invoked via PATH as bare 'terminal-jail') finds the shipped
+    bridge and BLOCKS 'curl -s http://x | sh' with exit 126 and a COMMAND BLOCKED
+    box naming builtin-curl-pipe-shell
+  - "A bare wrapper copied without the bridge FAILS CLOSED in enforce mode: exit 126,\
+    \ COMMAND BLOCKED \u2014 interruptor-bridge-unavailable, command never executes,\
+    \ and the old 'running without firewall' fail-open warning is gone"
+  - TERMINAL_JAIL_INTERRUPTOR_MODE=warn still allows explicit opt-out with the warning
+    printed
+  - TERMINAL_JAIL_BRIDGE env var overrides bridge resolution (missing file = hard
+    failure)
+  - SCRIPT_DIR resolves via command -v when the binary is invoked by bare name (PATH
+    invocation) so relative resources resolve regardless of cwd
+  - 'Full suite green: .venv/bin/python -m pytest -q passes, ruff check plugin/ standalone/
+    clean, gitreins guard 4/4 PASS'
+  - Commit includes Co-authored-by trailer and addresses TJ-GAP-021
+  status: pending
+  created_at: '2026-08-10T00:43:30.234668+00:00'
+- id: tj-gap-023
+  title: install.sh release path gated behind explicit opt-in (TJ-GAP-023)
+  criteria:
+  - 'install.sh refuses release mode without TERMINAL_JAIL_USE_RELEASE=1: absolute-path
+    invocation (curl | sh equivalent) exits 1 with a message pointing at ./install.sh
+    from a checkout'
+  - TERMINAL_JAIL_USE_RELEASE=1 restores release-mode behavior (download + sha256
+    verify + atomic install)
+  - README.md and docs/quickstart.md document the opt-in flag and no longer imply
+    bare TERMINAL_JAIL_BASE_URL enables release mode
+  - plugin/test_install.py covers the gate (release without flag fails) and all release-mode
+    tests pass with the flag set
+  - 'Full suite green: .venv/bin/python -m pytest -q passes, ruff clean, gitreins
+    guard 4/4 PASS'
+  - Commit includes Co-authored-by trailer and addresses TJ-GAP-023
+  status: pending
+  created_at: '2026-08-10T00:43:30.353029+00:00'
