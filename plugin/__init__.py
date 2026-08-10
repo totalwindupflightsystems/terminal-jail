@@ -83,7 +83,7 @@ def register(ctx) -> None:
     logger.info(
         "terminal-jail v1.1.0 loaded. "
         "NOTE: pre-execution command wrapping requires Hermes core "
-        "pre-execution hooks (see task HOOK-GAP-01). "
+        "pre-execution hooks (see task HOOK-GAP-03). "
         "Observability hooks registered."
     )
 

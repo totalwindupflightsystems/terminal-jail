@@ -9,7 +9,7 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a 
 | Layer | Role | Mechanism |
 |---|---|---|
 | **systemd drop-in** | LIGHTWEIGHT — process-visibility, privilege, cgroup bounds (4 active directives: `ProtectProc=invisible`, `NoNewPrivileges=true`, `ProtectControlGroups=true`, `TasksMax=256`) | Does NOT create a PID namespace. The full profile (`PrivateUsers`, `RestrictNamespaces`, network/fs hardening) is commented out pending per-host verification |
-| **Hermes Plugin** | Observability only | `pre_tool_call` (command visibility), `transform_terminal_output` (output annotation), byte-budget enforcement, metrics export |
+| **Hermes Plugin** | Observability only | `pre_tool_call` (command visibility), `transform_terminal_output` (output annotation stub), command-length logging, metrics export |
 | **Standalone CLI** | Portable PID namespace wrapper | `unshare --pid --fork --mount-proc --kill-child=SIGKILL` for manual use outside Hermes or without systemd |
 
 ## How It Works
@@ -33,7 +33,7 @@ The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, ever
 | Component | Path | Purpose |
 |---|---|---|
 | systemd Drop-in | `systemd/90-terminal-jail-hardening.conf` | LIGHTWEIGHT hardening — 4 active directives (process visibility, no-new-privileges, cgroup protection, task bound). NOT a PID namespace boundary; the full isolation profile is staged/commented. |
-| Hermes Plugin | `plugin/terminal_jail/` | Observability: `pre_tool_call` and `transform_terminal_output` hooks. Metrics, logging, byte-budget enforcement. Does NOT wrap commands. |
+| Hermes Plugin | `plugin/terminal_jail/` | Observability: `pre_tool_call` and `transform_terminal_output` hooks. Metrics, logging (command length). Does NOT wrap commands. |
 | Standalone CLI | `standalone/terminal-jail` | Portable `unshare` wrapper for use outside Hermes or without systemd |
 | Deploy Shim | `standalone/terminal-jail-sh` | SHELL replacement for the Hermes gateway: wraps every shell invocation with `setpriv --no-new-privs` + `--user --seccomp` + the interruptor. Deploy-specific — paths configurable via `TERMINAL_JAIL_HOME` / `TERMINAL_JAIL_BRIDGE` / `TERMINAL_JAIL_CLI` (defaults target `/usr/local/lib/terminal-jail`). See `docs/deploy-to-karahermes.md` |
 | Interruptor Engine | `plugin/terminal_jail/interruptor/` | Bash command firewall — parser, matcher, decider, 29 built-in rules, JSON bridge for CLI integration |
@@ -148,10 +148,10 @@ Configuration via environment variables:
 |---|---|---|
 | `HERMES_TERMINAL_JAIL_ENABLED` | `true` | Enable/disable plugin (`true`/`false`/`1`/`0`) |
 | `HERMES_TERMINAL_JAIL_COMMAND` | `unshare` | Path to `unshare` binary |
-| `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` | `131072` | Max command length for logging |
+| `HERMES_TERMINAL_JAIL_MAX_COMMAND_BYTES` | `131072` | Reserved — not yet read by the plugin |
 | `HERMES_TERMINAL_JAIL_LOG_LEVEL` | `WARNING` | Python logging level |
 | `HERMES_TERMINAL_JAIL_USER_NS` | `false` | Enable user namespace isolation (`true`/`false`/`1`/`0`) |
-| `TERMINAL_JAIL_SECCOMP` ⚠️ | `0` | Enable seccomp BPF filter (`1`/`true`/`yes`/`on`). **Note:** does not use `HERMES_TERMINAL_JAIL_` prefix — legacy naming from pre-plugin seccomp module. |
+| `TERMINAL_JAIL_SECCOMP` ⚠️ | `0` | Enable seccomp BPF filter (`1`/`true`/`yes`/`on`) — **only honored when the CLI is also invoked with `--seccomp`; the env var alone does not activate the filter.** **Note:** does not use `HERMES_TERMINAL_JAIL_` prefix — legacy naming from pre-plugin seccomp module. |
 
 ### systemd Hardening (LIGHTWEIGHT — 4 active directives)
 

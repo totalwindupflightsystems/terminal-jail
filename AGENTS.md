@@ -5,7 +5,7 @@ These rules are given to agentic coding agents operating in this repo.
 ---
 
 ## Repository Shape
-- Hermes plugin: `plugin/__init__.py` — observability hooks (metrics, logging, byte-budget); does NOT wrap commands — PID namespace isolation comes from the standalone CLI and systemd layer
+- Hermes plugin: `plugin/__init__.py` — observability hooks (metrics, logging); does NOT wrap commands — PID namespace isolation comes from the standalone CLI and systemd layer
 - Standalone CLI: `standalone/terminal-jail` — universal bash wrapper
 - systemd snippets: `systemd/` — gateway hardening examples
 - Product specs: `specs/`
