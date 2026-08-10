@@ -125,3 +125,31 @@ tasks:
   status: complete
   created_at: '2026-08-10T12:51:33.900231+00:00'
   completed_at: '2026-08-10T12:51:37.589705+00:00'
+- id: tj-df-004
+  title: Wire user-defined rules into the Decider (TJ-DF-004)
+  criteria:
+  - 'RuleLoader.load_all() is wired into Decider: user rules load from config system/user
+    rules.d dirs and evaluate after builtins; decider.py Layer 4 is no longer a comment
+    stub'
+  - 'Same-ID override works: a user rule whose id matches a builtin replaces it (T-I38)
+    - user allow rule id=builtin-rm-rf-root makes ''rm -rf /'' return allow while
+    other builtins (curl|sh) stay blocked'
+  - 'New-id user block rule fires: a 99-dogfood.yaml rule blocking ''git push --force''
+    makes intercept() return action=block with rule_id=user-block-force-push; bridge
+    subprocess with TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR env returns the same
+    block (CLI-path equivalent)'
+  - 'Priority ordering (T-I39): higher-priority user rule wins when multiple user
+    rules match the same command'
+  - 'No false positives: benign commands (git status, echo hello, ls -la) stay allow
+    with user rules loaded; builtin precedence holds (curl|sh and rm -rf / still blocked)'
+  - 'Missing rules directory acts as pass-through (spec section 14): no exception,
+    builtins still active'
+  - 'Full suite green: pytest 270 passed / 4 skipped (was 256/6, two Layer-4 skip
+    stubs converted to real tests), ruff check plugin/ standalone/ clean, gitreins
+    guard 4/4 PASS'
+  - Commit c425379 addresses TJ-DF-004, changes only plugin/terminal_jail/interruptor/decider.py
+    + plugin/test_interruptor.py + plugin/test_interruptor_integration.py, and includes
+    the Co-authored-by trailer; no push, no board edits
+  status: complete
+  created_at: '2026-08-10T15:19:54.770211+00:00'
+  completed_at: '2026-08-10T15:22:13.933383+00:00'
