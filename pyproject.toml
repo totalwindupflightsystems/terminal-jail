@@ -31,8 +31,8 @@ Homepage = "https://github.com/totalwindupflightsystems/terminal-jail"
 Repository = "https://github.com/totalwindupflightsystems/terminal-jail"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["plugin*"]
+where = ["plugin"]
+include = ["terminal_jail*"]
 
 [tool.setuptools.package-data]
 "terminal_jail" = ["rules/*.yaml"]
