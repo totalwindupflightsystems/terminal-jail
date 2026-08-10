@@ -137,7 +137,7 @@ Install util-linux (`sudo apt install util-linux` or your distro's package).
 **A command I expected to be blocked ran anyway?**
 Check the mode: `TERMINAL_JAIL_INTERRUPTOR_MODE` (default `enforce`). In
 `warn` mode the firewall prints `WARN: would have blocked` but allows
-execution. Also, only commands matching the 27 built-in rules are blocked —
+execution. Also, only commands matching the 29 built-in rules are blocked —
 the interruptor is a pattern firewall, not a policy sandbox (see
 `specs/interruptor.md`).
 
@@ -168,7 +168,7 @@ sudo systemctl daemon-reload && sudo systemctl restart hermes-gateway
 The file itself contains the full rollback procedure.
 
 **Where are the rules defined?**
-27 built-in rules in the engine; user rules load from
+29 built-in rules in the engine (11 blocklist + 8 auto-sandbox + 10 allow); user rules load from
 `/etc/terminal-jail/rules.d/` and `~/.config/terminal-jail/rules.d/`
 (lexical order, user overrides system). See `specs/interruptor.md`.
 
