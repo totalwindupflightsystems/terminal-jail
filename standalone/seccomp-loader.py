@@ -28,13 +28,31 @@ import sys
 
 
 def _setup_path() -> None:
-    """Add the plugin directory to sys.path so we can import terminal_jail."""
-    # The plugin lives at plugin/terminal_jail/ relative to the repo root.
-    # This script lives at standalone/; the repo root is one level up.
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    plugin_dir = os.path.join(repo_root, "plugin")
-    if plugin_dir not in sys.path:
-        sys.path.insert(0, plugin_dir)
+    """Add the plugin directory to sys.path so we can import terminal_jail.
+
+    The plugin package lives at ``plugin/terminal_jail/`` relative to the
+    repo root in a checkout, and at ``<lib>/terminal-jail/plugin/terminal_jail/``
+    in the installed layout (install.sh local mode ships the loader one level
+    above the plugin tree).  Walk up from this loader's own directory until a
+    directory containing ``plugin/terminal_jail`` (or a bare ``terminal_jail``
+    package) is found, so both layouts resolve (TJ-DF-002).
+    """
+    loader_dir = os.path.dirname(os.path.abspath(__file__))
+    current = loader_dir
+    while True:
+        plugin_dir = os.path.join(current, "plugin")
+        if os.path.isdir(os.path.join(plugin_dir, "terminal_jail")):
+            if plugin_dir not in sys.path:
+                sys.path.insert(0, plugin_dir)
+            return
+        if os.path.isdir(os.path.join(current, "terminal_jail")):
+            if current not in sys.path:
+                sys.path.insert(0, current)
+            return
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
 
 
 def _main() -> None:

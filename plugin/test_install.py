@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -545,3 +546,88 @@ def test_bare_wrapper_warn_mode_passes(install_script: Path, tmp_path: Path) -> 
     )
     stderr = run.stderr.decode("utf-8", "replace")
     assert "running without firewall" in stderr
+
+
+# ── TJ-DF-002: seccomp loader resolves plugin dir in installed layout ────────
+
+
+def _run_installed_loader(loader: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
+    """Run the seccomp loader with TERMINAL_JAIL_SECCOMP=1 (as the wrapper
+    does for --seccomp) and a clean sys.path so only the loader's own
+    _setup_path() can make terminal_jail importable."""
+    env = {
+        **os.environ,
+        "TERMINAL_JAIL_SECCOMP": "1",
+        "PYTHONPATH": "",
+    }
+    return subprocess.run(
+        [sys.executable, str(loader), *args],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        env=env,
+    )
+
+
+@pytest.mark.standalone_cli
+def test_installed_seccomp_loader_imports_plugin_and_runs_command(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """TJ-DF-002: the loader must resolve the plugin tree in the EXACT layout
+    install.sh ships (loader at <lib>/terminal-jail/, plugin package at
+    <lib>/terminal-jail/plugin/terminal_jail/) — no ModuleNotFoundError, and
+    the wrapped command must execute."""
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        },
+    )
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+
+    loader = tmp_path / "lib" / "terminal-jail" / "seccomp-loader.py"
+    assert loader.exists(), f"installed loader not found: {loader}"
+    assert (
+        tmp_path / "lib" / "terminal-jail" / "plugin" / "terminal_jail" / "seccomp.py"
+    ).exists()
+
+    run = _run_installed_loader(loader, "echo", "tj-df-002-ok")
+    stdout = run.stdout.decode("utf-8", "replace")
+    stderr = run.stderr.decode("utf-8", "replace")
+    combined = stdout + stderr
+    assert run.returncode == 0, f"rc={run.returncode} stderr={stderr}"
+    assert "ModuleNotFoundError" not in combined
+    assert "No module named 'terminal_jail'" not in combined
+    assert "tj-df-002-ok" in stdout, f"command output missing: stdout={stdout!r}"
+
+
+@pytest.mark.standalone_cli
+def test_repo_layout_seccomp_loader_imports_plugin_and_runs_command(
+    tmp_path: Path,
+) -> None:
+    """TJ-DF-002: the loader must keep resolving the plugin tree in the REPO
+    layout (loader at standalone/, plugin package at plugin/terminal_jail/)."""
+    loader = PROJECT_ROOT / "standalone" / "seccomp-loader.py"
+    assert loader.exists()
+
+    run = _run_installed_loader(loader, "echo", "tj-df-002-repo-ok")
+    stdout = run.stdout.decode("utf-8", "replace")
+    stderr = run.stderr.decode("utf-8", "replace")
+    combined = stdout + stderr
+    assert run.returncode == 0, f"rc={run.returncode} stderr={stderr}"
+    assert "ModuleNotFoundError" not in combined
+    assert "No module named 'terminal_jail'" not in combined
+    assert "tj-df-002-repo-ok" in stdout, f"command output missing: stdout={stdout!r}"
