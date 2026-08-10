@@ -110,6 +110,7 @@ def test_non_linux_os(cli_path: Path, tmp_path: Path) -> None:
     test_bin = tmp_path / "testbin"
     test_bin.mkdir(exist_ok=True)
     (test_bin / "bash").symlink_to("/usr/bin/bash")
+    (test_bin / "python3").symlink_to("/usr/bin/python3")
 
     fake_uname = test_bin / "uname"
     fake_uname.write_text("#!/bin/bash\necho Darwin\n")
@@ -127,6 +128,9 @@ def test_non_linux_os(cli_path: Path, tmp_path: Path) -> None:
 def test_missing_unshare(cli_path: Path, tmp_path: Path) -> None:
     """PATH lacks unshare — script exits 2 with error message."""
     path = _make_test_bin(tmp_path, include_unshare=False)
+    # python3 is required by the interruptor bridge (fail-closed without it);
+    # include it so this test exercises the unshare preflight, not the bridge.
+    (tmp_path / "testbin" / "python3").symlink_to("/usr/bin/python3")
     result = _run_cli(cli_path, "echo", "hello", extra_env={"PATH": path})
     assert result.returncode == 2
     assert "unshare is required" in result.stderr.decode("utf-8")

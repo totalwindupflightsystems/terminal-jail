@@ -4,24 +4,23 @@
 set -eu
 
 # --- defaults ----------------------------------------------------------------
-# Capture whether the caller explicitly chose a release base URL BEFORE the
-# default is assigned — an explicit TERMINAL_JAIL_BASE_URL means release mode
-# even when the script runs from a checkout (test fixtures exercise the
-# release path from the repo; curl | sh runs always use release mode).
-BASE_URL_EXPLICIT=0
-[ -n "${TERMINAL_JAIL_BASE_URL:-}" ] && BASE_URL_EXPLICIT=1
+# Release mode is EXPLICITLY OPTED IN via TERMINAL_JAIL_USE_RELEASE=1 — no
+# release assets are published yet, so the default curl | sh path must not
+# silently 404 (see TJ-GAP-023). Local mode (./install.sh from a checkout) is
+# the supported install path; it ships the wrapper, the plugin bridge tree,
+# and the seccomp loader together.
+TERMINAL_JAIL_USE_RELEASE="${TERMINAL_JAIL_USE_RELEASE:-0}"
 TERMINAL_JAIL_VERSION="${TERMINAL_JAIL_VERSION:-1.1.0}"
 TERMINAL_JAIL_INSTALL_DIR="${TERMINAL_JAIL_INSTALL_DIR:-$HOME/.local/bin}"
 TERMINAL_JAIL_BASE_URL="${TERMINAL_JAIL_BASE_URL:-https://github.com/totalwindupflightsystems/terminal-jail/releases/download/v${TERMINAL_JAIL_VERSION}}"
 
 # --- source vs release mode --------------------------------------------------
 # When run from a repository checkout — invoked relatively (./install.sh or
-# install.sh) with standalone/terminal-jail present next to this script — and
-# no explicit TERMINAL_JAIL_BASE_URL override, install the local wrapper
-# instead of downloading release assets. This keeps the documented install
-# path working before (and without) published release assets. Absolute-path
-# invocations (sh /path/to/install.sh) and an explicit base URL always select
-# release mode — the release-mode tests depend on this.
+# install.sh) with standalone/terminal-jail present next to this script —
+# install the local wrapper instead of downloading release assets. This keeps
+# the documented install path working before (and without) published release
+# assets. Any other invocation (curl | sh, absolute path) requires an explicit
+# TERMINAL_JAIL_USE_RELEASE=1 opt-in — release mode never happens implicitly.
 SCRIPT_DIR=""
 LOCAL_WRAPPER=""
 case "${0:-}" in
@@ -29,7 +28,7 @@ case "${0:-}" in
         if [ -n "$0" ] && [ -f "$0" ]; then
             SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd 2>/dev/null || true)"
         fi
-        if [ "$BASE_URL_EXPLICIT" -eq 0 ] && [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/standalone/terminal-jail" ]; then
+        if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/standalone/terminal-jail" ]; then
             LOCAL_WRAPPER="$SCRIPT_DIR/standalone/terminal-jail"
         fi
         ;;
@@ -48,6 +47,19 @@ fi
 
 ARCH="$(uname -m)"
 echo "terminal-jail installer: detected architecture ${ARCH}"
+
+# --- release-mode gate -------------------------------------------------------
+# No release assets are published yet. Without a local checkout wrapper and
+# without an explicit TERMINAL_JAIL_USE_RELEASE=1 opt-in, refuse instead of
+# downloading from a dead URL (curl | sh would otherwise 404 silently).
+if [ -z "$LOCAL_WRAPPER" ] && [ "$TERMINAL_JAIL_USE_RELEASE" != "1" ]; then
+    echo "terminal-jail installer: no local checkout detected and release mode is not enabled." >&2
+    echo "  Release assets are not published yet (the default download URL returns 404)." >&2
+    echo "  Supported install: run ./install.sh from a repository checkout." >&2
+    echo "  To opt into release mode anyway, set TERMINAL_JAIL_USE_RELEASE=1" >&2
+    echo "  (with TERMINAL_JAIL_BASE_URL if you host assets yourself)." >&2
+    exit 1
+fi
 
 # --- downloader / checksum verifier (release mode only) ----------------------
 has_curl=0
@@ -124,6 +136,23 @@ echo "terminal-jail installer: installing v${TERMINAL_JAIL_VERSION}..."
 if [ -n "$LOCAL_WRAPPER" ]; then
     echo "terminal-jail installer: repository checkout detected — installing local wrapper (${LOCAL_WRAPPER})"
     cp "$LOCAL_WRAPPER" "$tmp_payload"
+
+    # Ship the runtime support tree next to the binary so the installed CLI
+    # finds the interruptor bridge and seccomp loader (fail-closed: a binary
+    # without its bridge BLOCKS in enforce mode — see TJ-GAP-021).
+    LIB_DIR="$(CDPATH= cd -- "${TERMINAL_JAIL_INSTALL_DIR}/.." && pwd 2>/dev/null || printf '%s' "${TERMINAL_JAIL_INSTALL_DIR}/..")/lib/terminal-jail"
+    if [ -d "$SCRIPT_DIR/plugin/terminal_jail" ]; then
+        mkdir -p "$LIB_DIR/plugin"
+        cp -R "$SCRIPT_DIR/plugin/terminal_jail" "$LIB_DIR/plugin/"
+        echo "terminal-jail installer: installed plugin bridge tree to ${LIB_DIR}/plugin/"
+    else
+        echo "terminal-jail installer: WARNING — plugin tree not found next to installer; installed binary will fail closed (bridge missing)" >&2
+    fi
+    if [ -f "$SCRIPT_DIR/standalone/seccomp-loader.py" ]; then
+        mkdir -p "$LIB_DIR"
+        cp "$SCRIPT_DIR/standalone/seccomp-loader.py" "$LIB_DIR/"
+        echo "terminal-jail installer: installed seccomp loader to ${LIB_DIR}/seccomp-loader.py"
+    fi
 else
     echo "terminal-jail installer: downloading v${TERMINAL_JAIL_VERSION}..."
     download "${TERMINAL_JAIL_BASE_URL}/terminal-jail" "$tmp_payload"

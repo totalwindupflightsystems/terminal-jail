@@ -5,9 +5,32 @@ VERSION="${TERMINAL_JAIL_VERSION:-1.1.0}"
 # Resolve the script's directory using bash parameter expansion (no external
 # commands needed — safe in stripped-PATH environments).
 SCRIPT_DIR="${0%/*}"
-[[ "$SCRIPT_DIR" == "$0" ]] && SCRIPT_DIR="."  # $0 had no slash → cwd
+if [[ "$SCRIPT_DIR" == "$0" ]]; then
+    # $0 had no slash — invoked via PATH. Resolve the real location so
+    # relative resources (bridge, seccomp loader) are found regardless of cwd.
+    resolved="$(command -v "$0" 2>/dev/null || true)"
+    if [ -n "$resolved" ]; then
+        SCRIPT_DIR="${resolved%/*}"
+    else
+        SCRIPT_DIR="."
+    fi
+fi
 SCRIPT_DIR="$(cd "$SCRIPT_DIR" && pwd)"
-SECCOMP_LOADER="${SCRIPT_DIR}/seccomp-loader.py"
+# Installed layout (install.sh local mode): plugin tree + seccomp loader land in
+# ${INSTALL_DIR}/../lib/terminal-jail — i.e. ~/.local/lib/terminal-jail for the
+# default ~/.local/bin install.
+INSTALLED_LIB_DIR="${SCRIPT_DIR}/../lib/terminal-jail"
+SECCOMP_LOADER="${TERMINAL_JAIL_SECCOMP_LOADER:-}"
+if [ -z "$SECCOMP_LOADER" ]; then
+    for candidate in \
+        "${SCRIPT_DIR}/seccomp-loader.py" \
+        "${INSTALLED_LIB_DIR}/seccomp-loader.py"; do
+        if [ -f "$candidate" ]; then
+            SECCOMP_LOADER="$candidate"
+            break
+        fi
+    done
+fi
 USE_SECCOMP=0
 USE_USER_NS=0
 USE_INTERRUPTOR="${USE_INTERRUPTOR:-1}"  # on by default, override with USE_INTERRUPTOR=0
@@ -44,11 +67,28 @@ version() {
 
 # --- interruptor bridge -------------------------------------------------------
 
-# Find the interruptor bridge script relative to this script's directory.
-# Search order: next to script → plugin/ → py packages.
+# Find the interruptor bridge script. Search order:
+#   1. TERMINAL_JAIL_BRIDGE (explicit override — missing file = hard failure)
+#   2. ../plugin/ next to this script (repository checkout)
+#   3. installed lib layout (${SCRIPT_DIR}/../lib/terminal-jail — install.sh)
+#   4. python module path (pip-installed plugin: `pip install -e .`)
 _find_bridge() {
+    local candidate
+    if [ -n "${TERMINAL_JAIL_BRIDGE:-}" ]; then
+        if [ -f "$TERMINAL_JAIL_BRIDGE" ]; then
+            echo "$TERMINAL_JAIL_BRIDGE"
+            return 0
+        fi
+        return 1  # explicit override set but missing — do NOT fall through
+    fi
     # Same directory as this script (standalone/)
-    local candidate="${SCRIPT_DIR}/../plugin/terminal_jail/interruptor_bridge.py"
+    candidate="${SCRIPT_DIR}/../plugin/terminal_jail/interruptor_bridge.py"
+    if [ -f "$candidate" ]; then
+        echo "$candidate"
+        return 0
+    fi
+    # Installed layout (install.sh ships the plugin tree here)
+    candidate="${INSTALLED_LIB_DIR}/plugin/terminal_jail/interruptor_bridge.py"
     if [ -f "$candidate" ]; then
         echo "$candidate"
         return 0
@@ -134,8 +174,27 @@ INTERRUPTOR_MODE="${TERMINAL_JAIL_INTERRUPTOR_MODE:-enforce}"
 
 if [ "$USE_INTERRUPTOR" -eq 1 ] && [ "$INTERRUPTOR_MODE" != "disabled" ]; then
     bridge_result=$(_interruptor_evaluate "$CMD_STR" 2>/dev/null) || {
-        # Bridge unavailable → fail-open: allow with warning
-        echo "terminal-jail: WARNING — interruptor bridge not available; running without firewall" >&2
+        if [ "$INTERRUPTOR_MODE" = "warn" ]; then
+            # Warn mode: user explicitly accepted unguarded execution.
+            echo "terminal-jail: WARNING — interruptor bridge not available; running without firewall (warn mode)" >&2
+        else
+            # Enforce mode: FAIL CLOSED. A security tool that silently stops
+            # protecting after the documented install is worse than none.
+            {
+                echo "+--------------------------------------------------------------+"
+                echo "|  COMMAND BLOCKED — interruptor-bridge-unavailable            |"
+                echo "+--------------------------------------------------------------+"
+                echo "|  The command firewall is not available: the bridge script     |"
+                echo "|  was not found (install.sh ships it; TERMINAL_JAIL_BRIDGE     |"
+                echo "|  overrides the search).                                       |"
+                echo "|                                                               |"
+                echo "|  Fix: run ./install.sh from a checkout, or set                |"
+                echo "|  TERMINAL_JAIL_BRIDGE to interruptor_bridge.py.               |"
+                echo "|  Accept the risk explicitly: TERMINAL_JAIL_INTERRUPTOR_MODE=warn |"
+                echo "+--------------------------------------------------------------+"
+            } >&2
+            exit 126
+        fi
     }
 
     if [ -n "${bridge_result:-}" ]; then
