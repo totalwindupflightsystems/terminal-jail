@@ -54,7 +54,16 @@ BUILTIN_BLOCKLIST: list[Rule] = [
         block_message="Recursive root directory removal (rm -rf /) is blocked.",
         match={
             "type": "pattern",
-            "pattern": r"rm\s+(-{1,2})?\s*-?rf\s+/",
+            # Root-scoped recursive-delete rule (TJ-DF-001): the flag set
+            # is matched order-independently via two lookaheads (any
+            # recursive flag: -r/-R/--recursive, possibly combined like
+            # -rf/-fr; any force flag: -f/--force), and the target must be
+            # exactly "/" or "/*" (root glob). This catches the canonical
+            # GNU forms `rm -rf --no-preserve-root /`, `rm -r -f /`,
+            # `rm --recursive --force /`, and `rm -rf/`. `(?<!\S)` is the
+            # token-start boundary (plain \b can never sit between a space
+            # and a dash); re.IGNORECASE covers -R.
+            "pattern": r"\brm\s+(?=[^|;&]*(?<!\S)(?:-[a-z]*r[a-z]*|--recursive)\b)(?=[^|;&]*(?<!\S)(?:-[a-z]*f[a-z]*|--force)\b)[^|;&]*\s*/(?:\*)?(?:\s|$)",
         },
     ),
     Rule(

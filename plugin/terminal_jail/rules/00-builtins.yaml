@@ -32,7 +32,13 @@ rules:
     block_message: "Recursive root directory removal (rm -rf /) is blocked."
     match:
       type: pattern
-      pattern: "rm\\s+(-{1,2})?\\s*-?rf\\s+/"
+      # Root-scoped recursive-delete rule (TJ-DF-001): order-independent
+      # flag set via two lookaheads (recursive: -r/-R/--recursive, combined
+      # short flags like -rf/-fr OK; force: -f/--force), target must be
+      # exactly "/" or "/*". Catches rm -rf --no-preserve-root /, rm -r -f /,
+      # rm --recursive --force /, rm -rf/. (?<!\S) = token-start boundary
+      # (plain \b never sits between a space and a dash); IGNORECASE covers -R.
+      pattern: "\\brm\\s+(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*f[a-z]*|--force)\\b)[^|;&]*\\s*/(?:\\*)?(?:\\s|$)"
 
   - id: "builtin-dd-root"
     description: "Raw device write via dd"

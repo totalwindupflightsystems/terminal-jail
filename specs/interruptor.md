@@ -107,7 +107,7 @@ These ship with the interruptor and CANNOT be removed (only overridden to `warn`
 |----|---------|--------|
 | `builtin-kill-all` | `kill\s+-9\s+-1` | Mass process kill |
 | `builtin-fork-bomb` | `:\(\)\s*\{\s*:\|\:&\s*\}\s*;\s*:` | Fork bomb pattern |
-| `builtin-rm-rf-root` | `rm\s+-rf\s+/` | Recursive root removal |
+| `builtin-rm-rf-root` | `\brm\s+(?=[^|;&]*(?<!\S)(?:-[a-z]*r[a-z]*|--recursive)\b)(?=[^|;&]*(?<!\S)(?:-[a-z]*f[a-z]*|--force)\b)[^|;&]*\s*/(?:\*)?(?:\s|$)` | Recursive root removal (root-scoped; order-independent flag set — TJ-DF-001) |
 | `builtin-dd-root` | `dd\s+.*of=/dev/` | Raw device write |
 | `builtin-mkfs` | `mkfs\..*` | Filesystem creation |
 | `builtin-fdisk` | `fdisk|parted|gdisk` | Partition manipulation |
