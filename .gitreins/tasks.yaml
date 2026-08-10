@@ -78,3 +78,19 @@ tasks:
   status: complete
   created_at: '2026-08-10T00:43:30.353029+00:00'
   completed_at: '2026-08-10T00:49:26.925197+00:00'
+- id: tj-df-001
+  title: Fix rm -rf root blocklist bypass (order-independent flags + root-only target)
+  criteria:
+  - "Engine blocks all 4 P0 bypass forms plus canonical and root glob: rm -rf /, rm\
+    \ -rf --no-preserve-root /, rm -r -f /, rm --recursive --force /, rm -rf/, rm\
+    \ -rf /* \u2014 action=block rule builtin-rm-rf-root"
+  - 'Benign commands stay allowed: rm -rf /tmp/foo, rm -rf ./build, rm -r /var, rm
+    -f /var, rm -rf /var, rm file'
+  - Quoted argv form 'rm' '-rf' '/' blocked via _normalize_quoted path
+  - 'Both live copies updated and in sync: plugin/terminal_jail/interruptor/blocklist.py
+    and plugin/terminal_jail/rules/00-builtins.yaml'
+  - Full suite passes (252 passed, 6 env skips) and gitreins guard 4/4 PASS
+  - 'Commit bda5077 includes Co-authored-by: Alexis Okuwa trailer and addresses TJ-DF-001'
+  status: complete
+  created_at: '2026-08-10T06:08:13.918255+00:00'
+  completed_at: '2026-08-10T06:09:47.881435+00:00'
