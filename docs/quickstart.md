@@ -69,7 +69,10 @@ terminal-jail --no-interruptor echo "bypass"                   # same, per-invoc
 
 ```bash
 terminal-jail --user echo "runs as nobody (65534)"   # user namespace
-terminal-jail --seccomp echo "seccomp BPF active"    # denies mount/pivot_root/...
+terminal-jail --user --seccomp echo "seccomp BPF active"   # denies mount/pivot_root/...
+# NOTE: on hosts denying unprivileged PID namespaces (unshare: Operation not
+# permitted), the bare `--seccomp` form fails — use the --user variant above
+# (see FAQ §4) or deploy the systemd drop-in.
 ```
 
 ### 3d. Hermes plugin

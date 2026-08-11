@@ -69,8 +69,8 @@ def _on_transform_terminal_output(
 ) -> str | None:
     """Transform terminal output — primarily observability.
 
-    Since we can't inject the jail prefix pre-execution, we annotate the
-    output to indicate whether this command was jailed.
+    Stub — returns the output unchanged. Output annotation is not
+    implemented (observability-only plugin; see specs/plugin.md §10.1).
     """
     return None  # Don't modify output
 

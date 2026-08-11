@@ -138,7 +138,7 @@ Set via `TERMINAL_JAIL_INTERRUPTOR_MODE` env var or `--no-interruptor` flag on t
 The plugin registers two hooks for observability:
 
 - `pre_tool_call` — visibility into terminal commands (can block/allow, cannot modify)
-- `transform_terminal_output` — output annotation (appends jail status)
+- `transform_terminal_output` — output annotation (stub — returns output unchanged)
 
 **Important:** The plugin is observability-only — Hermes core has no pre-execution command-transform hook, so the plugin cannot wrap commands. Former wrapping functions (`transform_command`/`transform_exec_command`) were removed in v1.1.x as dead code (TJ-GAP-010). See `specs/integration.md` for the full architectural rationale (HOOK-GAP-03).
 
