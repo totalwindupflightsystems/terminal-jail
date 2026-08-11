@@ -210,3 +210,11 @@ tasks:
   status: complete
   created_at: '2026-08-10T20:44:56.372138+00:00'
   completed_at: '2026-08-10T20:50:19.360630+00:00'
+- id: tj-gap-025
+  title: Remove byte-budget enforcement doc claims (TJ-GAP-025)
+  criteria:
+  - grep -c byte.budget.enforcement docs/quickstart.md specs/integration.md equals
+    0
+  status: complete
+  created_at: '2026-08-11T08:34:34.327761+00:00'
+  completed_at: '2026-08-11T08:35:00.762292+00:00'
