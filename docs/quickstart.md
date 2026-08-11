@@ -80,8 +80,8 @@ pip install -e .   # from the repo root (installs the plugin/ package tree)
 
 (Or add `plugin/` to `HERMES_PLUGINS` — see `specs/plugin.md`.)
 
-The plugin hooks `pre_tool_call` (command visibility, byte-budget
-enforcement) and `transform_terminal_output` (jail-status annotation). It
+The plugin hooks `pre_tool_call` (command visibility) and
+`transform_terminal_output` (jail-status annotation). It
 does **not** wrap or modify commands — Hermes core has no pre-execution
 command-transform hook. Verify with the plugin test suite:
 
