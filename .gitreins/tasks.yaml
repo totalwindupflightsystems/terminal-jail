@@ -218,3 +218,33 @@ tasks:
   status: complete
   created_at: '2026-08-11T08:34:34.327761+00:00'
   completed_at: '2026-08-11T08:35:00.762292+00:00'
+- id: tj-gap-026
+  title: quickstart seccomp example needs --user fallback (TJ-GAP-026)
+  criteria:
+  - docs/quickstart.md section 3c seccomp example uses --user --seccomp or carries
+    an inline host-limitation note (grep -n --user --seccomp docs/quickstart.md returns
+    at least 1 hit)
+  - no un-annotated bare --seccomp example remains in docs/quickstart.md (every terminal-jail
+    --seccomp line within section 3c either has --user or an EPERM note)
+  status: complete
+  created_at: '2026-08-11T16:05:09.082392+00:00'
+  completed_at: '2026-08-11T16:07:01.768305+00:00'
+- id: tj-gap-027
+  title: transform_terminal_output docs claim vs no-op stub (TJ-GAP-027)
+  criteria:
+  - grep -c 'appends jail status' README.md returns 0
+  - plugin/__init__.py transform_terminal_output docstring no longer claims it annotates
+    output (grep -c 'annotate the output to indicate whether this command was jailed'
+    plugin/__init__.py returns 0)
+  status: complete
+  created_at: '2026-08-11T16:05:09.191633+00:00'
+  completed_at: '2026-08-11T16:07:26.092952+00:00'
+- id: tj-gap-028
+  title: stale HTML artifacts bloat docs/ (TJ-GAP-028)
+  criteria:
+  - git ls-files 'docs/*.html' returns empty
+  - grep -rn 'terminal-jail-report.html|how-it-works.html|prd.html|sitrep.html|terminal-demo.html'
+    README.md docs/ specs/ --include='*.md' returns 0 matches
+  status: complete
+  created_at: '2026-08-11T16:05:09.309822+00:00'
+  completed_at: '2026-08-11T16:07:48.302579+00:00'
