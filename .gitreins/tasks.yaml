@@ -266,3 +266,34 @@ tasks:
   status: complete
   created_at: '2026-08-12T02:23:08.884151+00:00'
   completed_at: '2026-08-12T02:24:11.704496+00:00'
+- id: TJ-GAP-029
+  title: 'docs: byte-budget enforcement claims removed from quickstart/threat-model/pentest-plan'
+  criteria:
+  - grep -c 'enforce byte' docs/quickstart.md outputs 0
+  - grep -n 'byte-budget enforcement' docs/threat-model.md shows every row annotated
+    reserved/not-implemented
+  - grep -n 'PT-PLUGIN-002' docs/pentest-plan.md shows a NOT IMPLEMENTED marker
+  status: complete
+  created_at: '2026-08-12T21:28:20.430179+00:00'
+  completed_at: '2026-08-12T21:28:57.705459+00:00'
+- id: TJ-GAP-030
+  title: 'docs: quickstart 3a verify step --user fallback for unshare-blocked hosts'
+  criteria:
+  - docs/quickstart.md has a Host limitation blockquote within 12 lines after the
+    echo in jail verify line
+  - the fallback note contains the literal string --user
+  - the fallback note references FAQ section 4
+  status: complete
+  created_at: '2026-08-12T21:28:20.530442+00:00'
+  completed_at: '2026-08-12T21:29:14.118887+00:00'
+- id: TJ-GAP-031
+  title: pyproject dev deps + README bootstrap so fresh clone runs suite with one
+    documented command
+  criteria:
+  - pyproject.toml declares a dev dependency group containing pytest
+  - README.md Development section documents the single bootstrap command 'uv sync
+    --dev && uv run pytest plugin -q'
+  - fresh clone + the documented command runs the full plugin suite green
+  status: complete
+  created_at: '2026-08-12T21:28:20.643300+00:00'
+  completed_at: '2026-08-12T21:29:42.385504+00:00'
