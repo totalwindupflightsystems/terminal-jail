@@ -248,3 +248,21 @@ tasks:
   status: complete
   created_at: '2026-08-11T16:05:09.309822+00:00'
   completed_at: '2026-08-11T16:07:48.302579+00:00'
+- id: e2e-001-gap-06
+  title: 'Fix builtin-kill-all bypass: block every kill syntax targeting pid -1 (E2E-001-GAP-06)'
+  criteria:
+  - intercept('kill -- -1') returns action=block with rule_id=builtin-kill-all
+  - intercept('kill -9 -- -1') returns action=block with rule_id=builtin-kill-all
+  - intercept('kill -TERM -1') returns action=block with rule_id=builtin-kill-all
+  - intercept('kill -s TERM -1') returns action=block with rule_id=builtin-kill-all
+  - intercept('kill -n 9 -1') returns action=block with rule_id=builtin-kill-all
+  - intercept('kill 123 -1') returns action=block with rule_id=builtin-kill-all
+  - intercept('kill -9 123 -1') returns action=block with rule_id=builtin-kill-all
+  - intercept('kill -1 123') does not block (benign SIGHUP to single pid)
+  - intercept('kill -9 123') does not block
+  - plugin/terminal_jail/rules/00-builtins.yaml builtin-kill-all pattern equals the
+    Python blocklist.py pattern for the same rule
+  - .venv/bin/python -m pytest -q passes with at least 280 passed
+  status: complete
+  created_at: '2026-08-12T02:23:08.884151+00:00'
+  completed_at: '2026-08-12T02:24:11.704496+00:00'
