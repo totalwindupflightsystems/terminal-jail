@@ -17,7 +17,20 @@ BUILTIN_BLOCKLIST: list[Rule] = [
         block_message="Mass process kill (kill -9 -1) is blocked.",
         match={
             "type": "pattern",
-            "pattern": r"kill\s+-9\s+-1",
+            # Mass-kill invariant: in `kill` syntax, signal specs come
+            # first, then pid operands. `-1` is a MASS-KILL PID when it
+            # is NOT the first operand (kill 123 -1, kill -9 -1,
+            # kill -1 -1) or when preceded by `--` (kill -- -1);
+            # `-1` in first-operand position is a SIGNAL (kill -1 123
+            # = SIGHUP, benign). The pattern requires at least one
+            # operand before the pid `-1` (signal spec and/or pid),
+            # excludes `-1` as the argument of -s/-n/-l (not a pid),
+            # and ends at a token/segment boundary so compound forms
+            # (kill -- -1; echo x, kill -9 -1 && echo hi) still match.
+            # `(?<!\S)` is the token-start boundary (plain \b can never
+            # sit between a space and a dash); re.IGNORECASE covers
+            # -TERM/-SIGKILL.
+            "pattern": r"(?<![A-Za-z0-9])kill\s+(?:-s\s+\S+\s+|-n\s+\S+\s+|--\s+|-(?!l)\S+\s+|\d+\s+)+(?<!-s\s)(?<!-n\s)(?<!\S)-1(?:\s|;|\||&|\)|`|$)",
         },
     ),
     Rule(

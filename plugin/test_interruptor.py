@@ -36,6 +36,16 @@ class TestBlocklist:
             ("rm -rf /", "builtin-rm-rf-root"),
             # T-I04: kill -9 -1
             ("kill -9 -1", "builtin-kill-all"),
+            # T-I04 bypass vectors (tick #192 battery): pid -1 is a
+            # mass-kill when it is NOT the first operand (signal specs
+            # come first in kill syntax) or when preceded by `--`.
+            ("kill -9 -- -1", "builtin-kill-all"),
+            ("kill -- -1", "builtin-kill-all"),
+            ("kill -TERM -1", "builtin-kill-all"),
+            ("kill -s TERM -1", "builtin-kill-all"),
+            ("kill -n 9 -1", "builtin-kill-all"),
+            ("kill 123 -1", "builtin-kill-all"),
+            ("kill -9 123 -1", "builtin-kill-all"),
             # T-I05: sudo
             ("sudo rm /tmp/foo", "builtin-sudo"),
             # T-I06: mkfs
@@ -91,6 +101,13 @@ class TestBlocklist:
             # `rm -rf /var` is allowed (the old pattern's /var match was an
             # over-match artifact of the buggy `-?rf\s+/` regex).
             "rm -rf /var",
+            # T-I04 benign controls (tick #192 battery): `-1` in
+            # FIRST-operand position is a signal (SIGHUP), not a pid;
+            # single-process kills and piped single-pid kills stay allowed.
+            "kill -1 123",
+            "kill 123",
+            "kill -9 123",
+            "ps aux | grep foo | kill -9 456",
         ],
     )
     def test_safe_commands(self, command: str) -> None:
