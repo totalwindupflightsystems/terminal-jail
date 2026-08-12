@@ -21,7 +21,7 @@ Terminal-jail consists of three independently deployable layers:
 | Layer | Function | Status | Enforcement |
 |-------|----------|--------|-------------|
 | **systemd drop-in** | PID namespace isolation, privilege restriction, /proc filtering, network restriction, resource limits | Primary containment boundary | Kernel-enforced |
-| **Hermes plugin** | Terminal command observability, metrics, byte-budget enforcement | Observability only (v1.0.0) | Python hooks |
+| **Hermes plugin** | Terminal command observability, metrics (byte-budget enforcement reserved — not implemented) | Observability only (v1.0.0) | Python hooks |
 | **Standalone CLI** | `unshare` PID namespace wrapping for manual/automated use | Portable fallback | User-invoked |
 
 ### 2.2 Trust Boundaries
@@ -214,7 +214,7 @@ Terminal-jail consists of three independently deployable layers:
 | **Attack scenario** | Plugin disabled, uninstalled, or hook fails to fire |
 | **systemd mitigation** | Still active — the systemd layer is independent |
 | **CLI mitigation** | Still available for explicit manual invocation |
-| **Residual risk** | Loss of observability: no metrics on command count, no byte-budget enforcement, no anomaly detection logs. If the hook gap is resolved and the plugin gains wrapping capability, plugin bypass becomes High severity. |
+| **Residual risk** | Loss of observability: no metrics on command count, no anomaly detection logs (byte-budget enforcement is not implemented in v1.1.0). If the hook gap is resolved and the plugin gains wrapping capability, plugin bypass becomes High severity. |
 
 ### 5.8 CLI Non-Use
 

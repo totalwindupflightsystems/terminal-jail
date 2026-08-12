@@ -20,7 +20,7 @@ specific property, and no single layer is a complete security boundary (see
 | Contain a single command in a PID namespace, manually | **Standalone CLI** (`standalone/terminal-jail`) | `terminal-jail <command> [args...]` |
 | Block dangerous patterns before they run (firewall) | **Interruptor** (built into the CLI, on by default) | `terminal-jail rm -rf /` → blocked, exit 126 |
 | Add privilege dropping + syscall filtering | **CLI flags** | `terminal-jail --user --seccomp <command>` |
-| Observe + log Hermes terminal commands, enforce byte budgets | **Hermes plugin** (`plugin/terminal_jail/`) | See §4 |
+| Observe + log Hermes terminal commands (byte budget reserved — not implemented) | **Hermes plugin** (`plugin/terminal_jail/`) | See §4 |
 | Harden the Hermes gateway service itself | **systemd drop-in** (`systemd/90-terminal-jail-hardening.conf`) | See §5 — lightweight (4 directives), NOT a PID namespace boundary |
 | Replace the Hermes gateway shell with a jailed shell | **Deploy shim** (`standalone/terminal-jail-sh` + `docs/deploy-to-karahermes.md`) | Host-specific; hardcoded paths must be adjusted |
 
@@ -53,6 +53,12 @@ Verify:
 ~/.local/bin/terminal-jail echo "in jail"          # runs in a PID namespace
 ~/.local/bin/terminal-jail rm -rf /                # → COMMAND BLOCKED, exit 126
 ```
+
+> **Host limitation:** the `echo "in jail"` example requires an unprivileged
+> PID namespace (`unshare --pid`). On hosts that deny it (e.g. this one —
+> `unshare: unshare failed: Operation not permitted`, EPERM), use the `--user`
+> fallback instead: `~/.local/bin/terminal-jail --user echo "in jail"` (runs
+> as nobody=65534; `/proc` shows host PIDs). See §3c and FAQ §4.
 
 If `~/.local/bin` is not on your PATH, run the export the installer printed,
 or use the full path above.

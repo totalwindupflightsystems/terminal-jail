@@ -30,6 +30,9 @@ classifiers = [
 Homepage = "https://github.com/totalwindupflightsystems/terminal-jail"
 Repository = "https://github.com/totalwindupflightsystems/terminal-jail"
 
+[dependency-groups]
+dev = ["pytest>=8"]
+
 [tool.setuptools.packages.find]
 where = ["plugin"]
 include = ["terminal_jail*"]

@@ -509,6 +509,13 @@ def test_bare_wrapper_fails_closed_without_bridge(
             **os.environ,
             "HOME": str(home),
             "PATH": f"{bare}:{os.environ.get('PATH', '')}",
+            # Deterministic bridge-absence: an explicit TERMINAL_JAIL_BRIDGE
+            # pointing at a missing file is a hard failure in _find_bridge().
+            # Without this, the wrapper's python-module fallback finds the
+            # bridge whenever terminal-jail is pip-installed in the runner's
+            # python (e.g. `uv sync --dev && uv run pytest`), leaking the
+            # ambient environment into the broken-install simulation.
+            "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
         },
     )
     stdout = run.stdout.decode("utf-8", "replace")
@@ -542,6 +549,8 @@ def test_bare_wrapper_warn_mode_passes(install_script: Path, tmp_path: Path) -> 
             "HOME": str(home),
             "PATH": f"{bare}:{os.environ.get('PATH', '')}",
             "TERMINAL_JAIL_INTERRUPTOR_MODE": "warn",
+            # Same deterministic bridge-absence as the enforce-mode test above.
+            "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
         },
     )
     stderr = run.stderr.decode("utf-8", "replace")

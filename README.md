@@ -216,6 +216,21 @@ Every layer degrades independently:
 
 `unshare --mount-proc` requires privileges unavailable in unprivileged user namespaces on some distributions. On Ubuntu 26.04 (kernel 7.0.0-27), the CLI and plugin wrapping functions will fail. This is a host kernel policy limitation, not a code defect. The systemd layer provides process-visibility and privilege hardening (`ProtectProc=invisible`, `NoNewPrivileges=true`) independently of `unshare`, but it does not create a PID namespace (the shipped drop-in's `PrivateUsers`/`RestrictNamespaces` directives are commented out pending verification).
 
+## Development
+
+Run the test suite from a fresh checkout with one command:
+
+```bash
+uv sync --dev && uv run pytest plugin -q
+```
+
+`uv sync --dev` creates `.venv/` with the runtime dependency (`PyYAML`) plus
+the `dev` dependency group (`pytest`); `uv run pytest plugin -q` then runs
+the suite (285 passed, 4 skipped on this host — the 4 skips are
+environment-gated: SIGHUP reload, seccomp requiring CAP_SYS_ADMIN, and
+namespace integration tests). `pyproject.toml` sets `pythonpath = ["."]`, so
+`plugin/` imports resolve without extra configuration.
+
 ## License
 
 MIT
