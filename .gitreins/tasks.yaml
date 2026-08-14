@@ -297,3 +297,16 @@ tasks:
   status: complete
   created_at: '2026-08-12T21:28:20.643300+00:00'
   completed_at: '2026-08-12T21:29:42.385504+00:00'
+- id: tj-gap-032
+  title: Sync shipped 00-builtins.yaml mirror with engine BUILTIN_* constants (TJ-GAP-032)
+  criteria:
+  - grep -c 'id:' plugin/terminal_jail/rules/00-builtins.yaml outputs 29 (11 blocklist)
+  - plugin/terminal_jail/rules/00-builtins.yaml header no longer says 27 rules
+  - plugin/test_packaging.py contains a test asserting YAML rule IDs == engine builtin
+    IDs (test_shipped_rules_yaml_mirrors_engine_builtin_ids)
+  - .venv/bin/python -m pytest -q passes (286 passed, 4 skipped)
+  - gitreins guard passes 4/4
+  - Commit addresses TJ-GAP-032 and includes Co-authored-by trailer
+  status: complete
+  created_at: '2026-08-14T12:09:28.745053+00:00'
+  completed_at: '2026-08-14T12:10:25.346099+00:00'
