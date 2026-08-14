@@ -93,11 +93,9 @@ def test_shipped_rules_yaml_mirrors_engine_builtin_ids() -> None:
     in sync (same rule IDs, same per-layer counts).
     """
     import yaml
-
     from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST
     from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
     from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
-
     rules_yaml = (
         PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "00-builtins.yaml"
     )
