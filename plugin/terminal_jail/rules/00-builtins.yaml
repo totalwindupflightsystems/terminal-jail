@@ -1,7 +1,8 @@
 # terminal-jail default built-in rules
 # Installed to /etc/terminal-jail/rules.d/00-builtins.yaml
 # Priority 1000 = critical blocklist, 700 = auto-sandbox, 500 = always-allow
-# These reflect the same 27 rules hardcoded in the Python engine.
+# These reflect the same 29 rules hardcoded in the Python engine
+# (11 blocklist / 8 sandbox / 10 allow).
 
 rules:
   # =============================================================================
@@ -25,6 +26,15 @@ rules:
       # token-start boundary (plain \b never sits between a space and a
       # dash); IGNORECASE covers -TERM/-SIGKILL.
       pattern: "(?<![A-Za-z0-9])kill\\s+(?:-s\\s+\\S+\\s+|-n\\s+\\S+\\s+|--\\s+|-(?!l)\\S+\\s+|\\d+\\s+)+(?<!-s\\s)(?<!-n\\s)(?<!\\S)-1(?:\\s|;|\\||&|\\)|`|$)"
+
+  - id: "builtin-killpg-pid1"
+    description: "Process-group kill targeting PID 1 or own process group (killpg API)"
+    priority: 1000
+    action: block
+    block_message: "Process-group kill targeting PID 1 or own process group (killpg(0/1, ...)) is blocked — this is the MagicMock incident vector."
+    match:
+      type: pattern
+      pattern: "(os\\.killpg|killpg)\\s*\\(\\s*[01]\\s*,|os\\.kill\\s*\\(\\s*[01]\\s*,|process\\.kill\\s*\\(\\s*-?[01]\\s*,|kill\\(-?[01],|kill\\s*\\(\\s*[01]\\s*,\\s*(9|SIGKILL)"
 
   - id: "builtin-fork-bomb"
     description: "Fork bomb pattern"
