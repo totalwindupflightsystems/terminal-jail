@@ -50,6 +50,18 @@ def _make_test_bin(tmp_path: Path, *, include_unshare: bool = False) -> str:
     return str(test_bin)
 
 
+def _host_denied_namespaces(stderr: str) -> bool:
+    """True when the host refused namespace creation: either the raw EPERM
+    leak from unshare itself, or the wrapper's mapped degradation message
+    (TJ-GAP-034 — the CLI now exits 2 with a clean message instead of
+    leaking the raw error)."""
+    return (
+        "Permission denied" in stderr
+        or "Operation not permitted" in stderr
+        or "namespace creation failed" in stderr
+    )
+
+
 # ── Flag parsing ──────────────────────────────────────────────────────────
 
 
@@ -147,7 +159,7 @@ def test_simple_command(cli_path: Path) -> None:
         assert "hello-world-42" in result.stdout.decode("utf-8")
     else:
         stderr = result.stderr.decode("utf-8", errors="replace")
-        assert "Permission denied" in stderr or "Operation not permitted" in stderr
+        assert _host_denied_namespaces(stderr), stderr
 
 
 @pytest.mark.standalone_cli
@@ -171,7 +183,7 @@ def test_command_with_special_chars(cli_path: Path) -> None:
 def test_exit_code_zero(cli_path: Path) -> None:
     result = _run_cli(cli_path, "true")
     stderr = result.stderr.decode("utf-8", errors="replace")
-    if "Permission denied" not in stderr and "Operation not permitted" not in stderr:
+    if not _host_denied_namespaces(stderr):
         assert result.returncode == 0
 
 
@@ -179,7 +191,7 @@ def test_exit_code_zero(cli_path: Path) -> None:
 def test_exit_code_nonzero(cli_path: Path) -> None:
     result = _run_cli(cli_path, "bash", "-c", "exit 42")
     stderr = result.stderr.decode("utf-8", errors="replace")
-    if result.returncode not in (0, 1) and "Permission denied" not in stderr:
+    if result.returncode not in (0, 1) and not _host_denied_namespaces(stderr):
         assert result.returncode == 42
 
 
@@ -215,8 +227,4 @@ def test_combined_user_seccomp(cli_path: Path) -> None:
         assert "combined-test" in result.stdout.decode("utf-8")
     else:
         stderr = result.stderr.decode("utf-8", errors="replace")
-        assert (
-            "Permission denied" in stderr
-            or "Operation not permitted" in stderr
-            or result.returncode in (159, -31)
-        )
+        assert _host_denied_namespaces(stderr) or result.returncode in (159, -31)

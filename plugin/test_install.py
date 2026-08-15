@@ -440,6 +440,38 @@ def test_local_install_ships_lib_tree(install_script: Path, tmp_path: Path) -> N
 
 
 @pytest.mark.standalone_cli
+def test_local_install_ships_default_rules_to_user_rules_dir(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """TJ-GAP-033: local-mode install must ship the default rules file to the
+    user rules dir (~/.config/terminal-jail/rules.d/) so the engine actually
+    loads it (the plugin-tree copy is not read by RuleLoader)."""
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        },
+    )
+
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    shipped = home / ".config" / "terminal-jail" / "rules.d" / "00-builtins.yaml"
+    assert shipped.exists(), f"default rules not installed to user rules dir: {shipped}"
+    assert "installed default rules" in result.stdout.decode("utf-8", "replace")
+
+
+@pytest.mark.standalone_cli
 def test_installed_binary_blocks_with_shipped_bridge(
     install_script: Path, tmp_path: Path
 ) -> None:
@@ -577,6 +609,49 @@ def _run_installed_loader(loader: Path, *args: str) -> subprocess.CompletedProce
         timeout=20,
         env=env,
     )
+
+
+@pytest.mark.standalone_cli
+def test_bare_wrapper_unshare_failure_exits_2(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """TJ-GAP-034: namespace-creation failure must exit 2 with a message
+    (README "Graceful Degradation" contract), not leak raw unshare rc=1.
+    Simulated with a fake unshare in PATH that fails — warn mode + missing
+    bridge so the wrapper reaches the launch section."""
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    fakebin = tmp_path / "fakebin"
+    fakebin.mkdir()
+    wrapper = PROJECT_ROOT / "standalone" / "terminal-jail"
+    (bare / "terminal-jail").write_bytes(wrapper.read_bytes())
+    (bare / "terminal-jail").chmod(0o755)
+    fake_unshare = fakebin / "unshare"
+    fake_unshare.write_text("#!/bin/sh\nexit 1\n")
+    fake_unshare.chmod(0o755)
+    home = tmp_path / "home"
+    home.mkdir()
+
+    run = subprocess.run(
+        ["bash", "-c", "cd / && terminal-jail 'echo hi'"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "PATH": f"{bare}:{fakebin}:{os.environ.get('PATH', '')}",
+            # Deterministic bridge-absence (see test_bare_wrapper_* above).
+            "TERMINAL_JAIL_BRIDGE": str(tmp_path / "no-bridge-here"),
+            "TERMINAL_JAIL_INTERRUPTOR_MODE": "warn",
+        },
+    )
+    stdout = run.stdout.decode("utf-8", "replace")
+    stderr = run.stderr.decode("utf-8", "replace")
+    assert run.returncode == 2, f"rc={run.returncode} stderr={stderr}"
+    assert "namespace creation failed" in stderr
+    assert "hi" not in stdout  # command never executed
 
 
 @pytest.mark.standalone_cli

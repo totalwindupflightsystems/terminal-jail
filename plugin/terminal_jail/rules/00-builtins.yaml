@@ -1,5 +1,7 @@
 # terminal-jail default built-in rules
-# Installed to /etc/terminal-jail/rules.d/00-builtins.yaml
+# Shipped default rules file — installed by ./install.sh to
+# ~/.config/terminal-jail/rules.d/00-builtins.yaml (user rules dir the engine
+# loads); root-managed deployments may place it in /etc/terminal-jail/rules.d/.
 # Priority 1000 = critical blocklist, 700 = auto-sandbox, 500 = always-allow
 # These reflect the same 29 rules hardcoded in the Python engine
 # (11 blocklist / 8 sandbox / 10 allow).

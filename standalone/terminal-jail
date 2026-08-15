@@ -283,6 +283,21 @@ else
     UNSHARE_FLAGS="$UNSHARE_FLAGS --mount-proc"
 fi
 
+# --- namespace preflight -------------------------------------------------------
+# Verify namespace creation actually works before exec'ing: with exec, a
+# failing unshare would replace this shell and leak a raw unshare error with
+# rc=1. Probing first maps the failure to the documented degradation contract
+# (README "Graceful Degradation": exit code 2 + a message). The probe uses the
+# same flags as the real launch, so its result is representative; the throwaway
+# namespace is destroyed when the probe command exits.
+if unshare $UNSHARE_FLAGS true >/dev/null 2>&1; then
+    :
+else
+    probe_rc=$?
+    echo "terminal-jail: namespace creation failed (unshare exit ${probe_rc}); command not run — on unprivileged hosts try --user" >&2
+    exit 2
+fi
+
 if [ "$USE_SECCOMP" -eq 1 ] && [ "$MODIFIED" -eq 0 ]; then
     if [ ! -f "$SECCOMP_LOADER" ]; then
         echo "terminal-jail: seccomp loader not found at ${SECCOMP_LOADER}" >&2

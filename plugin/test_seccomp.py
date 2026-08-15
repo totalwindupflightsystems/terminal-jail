@@ -392,9 +392,10 @@ class TestStandaloneCliSeccomp:
             text=True,
             check=False,
         )
-        # 0 = unshare worked, 1 = unshare blocked (host limitation)
-        # 2 = usage error (should NOT happen)
-        assert result.returncode in (0, 1)
+        # 0 = unshare worked, 1 = legacy raw unshare failure,
+        # 2 = namespace creation failed (TJ-GAP-034 degradation contract) —
+        #     or a usage error (should NOT happen; stderr check below)
+        assert result.returncode in (0, 1, 2)
         assert "unrecognized" not in result.stderr.lower()
 
 

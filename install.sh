@@ -153,6 +153,17 @@ if [ -n "$LOCAL_WRAPPER" ]; then
         cp "$SCRIPT_DIR/standalone/seccomp-loader.py" "$LIB_DIR/"
         echo "terminal-jail installer: installed seccomp loader to ${LIB_DIR}/seccomp-loader.py"
     fi
+    # Ship the default rules file to the user rules directory so user rules
+    # actually load (the engine reads ~/.config/terminal-jail/rules.d — see
+    # README Rule Loader row; /etc/terminal-jail/rules.d stays the system
+    # override path for root-managed deployments).
+    if [ -f "$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml" ]; then
+        mkdir -p "$HOME/.config/terminal-jail/rules.d"
+        cp "$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml" "$HOME/.config/terminal-jail/rules.d/"
+        echo "terminal-jail installer: installed default rules to ${HOME}/.config/terminal-jail/rules.d/00-builtins.yaml"
+    else
+        echo "terminal-jail installer: WARNING — default rules file not found next to installer; user rules directory left empty" >&2
+    fi
 else
     echo "terminal-jail installer: downloading v${TERMINAL_JAIL_VERSION}..."
     download "${TERMINAL_JAIL_BASE_URL}/terminal-jail" "$tmp_payload"
