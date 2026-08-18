@@ -51,7 +51,7 @@ shell re-parsing.
 
 Options:
   --user         Add user namespace isolation (process runs as nobody=65534).
-                 Incompatible with --mount-proc; /proc shows host PIDs.
+                 Incompatible with --mount-proc; the host PID view is exposed.
   --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
                  (mount, pivot_root, kexec_load, etc.) inside the jail.
                  Controlled by TERMINAL_JAIL_SECCOMP env var (default off).
