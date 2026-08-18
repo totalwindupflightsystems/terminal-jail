@@ -226,7 +226,7 @@ uv sync --dev && uv run pytest plugin -q
 
 `uv sync --dev` creates `.venv/` with the runtime dependency (`PyYAML`) plus
 the `dev` dependency group (`pytest`); `uv run pytest plugin -q` then runs
-the suite (285 passed, 4 skipped on this host — the 4 skips are
+the suite (288 passed, 4 skipped on this host — the 4 skips are
 environment-gated: SIGHUP reload, seccomp requiring CAP_SYS_ADMIN, and
 namespace integration tests). `pyproject.toml` sets `pythonpath = ["."]`, so
 `plugin/` imports resolve without extra configuration.
