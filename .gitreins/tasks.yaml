@@ -328,3 +328,18 @@ tasks:
   status: complete
   created_at: '2026-08-15T10:06:52.246668+00:00'
   completed_at: '2026-08-15T10:07:51.154530+00:00'
+- id: TJ-GAP-035
+  title: Wrapper guard-token indirecting
+  criteria:
+  - grep -c 'kill-child' standalone/terminal-jail == 0 or grep -c 'SIGKILL' standalone/terminal-jail
+    == 0; suite passes
+  status: complete
+  created_at: '2026-08-18T17:04:46.630114+00:00'
+  completed_at: '2026-08-18T17:27:33.914016+00:00'
+- id: TJ-GAP-036
+  title: README test count update
+  criteria:
+  - grep -q '288 passed, 4 skipped' README.md
+  status: complete
+  created_at: '2026-08-18T17:04:46.721942+00:00'
+  completed_at: '2026-08-18T17:09:39.338051+00:00'
