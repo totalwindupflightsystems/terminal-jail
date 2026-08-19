@@ -136,8 +136,9 @@ shell invocation with `setpriv --no-new-privs` + the CLI's
 The host kernel or container policy denies namespace creation. The CLI
 passes `unshare`'s error through unchanged. Workarounds: use `--user`
 (requires user-namespace support), or deploy the systemd drop-in (which does
-not need `unshare`). Known limitation on Ubuntu 26.04 (kernel 7.0.0-27):
-`--mount-proc` fails in unprivileged user namespaces — see README "Host
+not need `unshare`). In bare (non `--user`) mode the CLI internally mounts
+a private /proc, which fails in unprivileged user namespaces on some
+distributions (e.g. Ubuntu 26.04, kernel 7.0.0-27) — see README "Host
 Limitations".
 
 **`terminal-jail: unshare is required`?**

@@ -51,10 +51,12 @@ shell re-parsing.
 
 Options:
   --user         Add user namespace isolation (process runs as nobody=65534).
-                 Incompatible with --mount-proc; the host PID view is exposed.
+                 The host PID view is exposed (no private /proc mount).
   --seccomp      Apply a seccomp BPF filter that denies dangerous syscalls
                  (mount, pivot_root, kexec_load, etc.) inside the jail.
-                 Controlled by TERMINAL_JAIL_SECCOMP env var (default off).
+                 Filter is active only when this flag is passed; the
+                 TERMINAL_JAIL_SECCOMP env var is an internal handoff
+                 to the seccomp loader and does not activate the filter.
   --interruptor  Enable the Bash command firewall (default). Evaluates
                  commands against a rule engine before execution.
   --no-interruptor  Disable the Bash command firewall.
