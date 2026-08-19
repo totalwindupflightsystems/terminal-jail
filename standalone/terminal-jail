@@ -290,6 +290,10 @@ if [ "$USE_USER_NS" -eq 1 ]; then
     # Do NOT add --mount-proc — it requires CAP_SYS_ADMIN and is incompatible
     # with unprivileged user namespaces.
     UNSHARE_FLAGS="--user $UNSHARE_FLAGS"
+    # Scrub host identity env: inside the user namespace the process runs as
+    # nobody (65534) but inherited USER/LOGNAME/HOME would leak the caller's
+    # identity — git/ssh/dotfile tooling misreads or writes the caller's home.
+    export USER=nobody LOGNAME=nobody HOME=/nonexistent
 else
     UNSHARE_FLAGS="$UNSHARE_FLAGS --mount-proc"
 fi

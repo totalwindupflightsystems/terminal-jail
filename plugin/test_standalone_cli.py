@@ -228,3 +228,40 @@ def test_combined_user_seccomp(cli_path: Path) -> None:
     else:
         stderr = result.stderr.decode("utf-8", errors="replace")
         assert _host_denied_namespaces(stderr) or result.returncode in (159, -31)
+
+
+# ── Identity env scrubbing (--user jail, TJ-DF-014) ────────────────────────
+
+
+@pytest.mark.standalone_cli
+def test_user_jail_scrubs_identity_env(cli_path: Path) -> None:
+    """--user jail must not leak the caller's USER/LOGNAME/HOME into the
+    nobody (65534) namespace: git/ssh/dotfile tooling would misread or write
+    the caller's home as nobody."""
+    result = _run_cli(cli_path, "--user", "env")
+    if result.returncode == 0:
+        stdout = result.stdout.decode("utf-8")
+        assert "USER=nobody" in stdout
+        assert "LOGNAME=nobody" in stdout
+        assert "HOME=/nonexistent" in stdout
+    else:
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        assert _host_denied_namespaces(stderr), stderr
+
+
+@pytest.mark.standalone_cli
+def test_bare_mode_keeps_identity_env(cli_path: Path) -> None:
+    """Bare mode (no --user) must NOT scrub: identity env passes through
+    untouched — the scrub is --user-only."""
+    result = _run_cli(
+        cli_path,
+        "env",
+        extra_env={"USER": "tester", "HOME": "/home/tester"},
+    )
+    if result.returncode == 0:
+        stdout = result.stdout.decode("utf-8")
+        assert "USER=tester" in stdout
+        assert "HOME=/home/tester" in stdout
+    else:
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        assert _host_denied_namespaces(stderr), stderr

@@ -24,6 +24,8 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a 
 # permitted, EPERM), fall back to --user (runs as nobody=65534, /proc shows
 # host PIDs):
 ./standalone/terminal-jail --user echo "I'm in a PID namespace"
+# --user also scrubs inherited identity env (USER=nobody, LOGNAME=nobody,
+# HOME=/nonexistent) so jailed tools can't read/write the caller's home.
 ```
 
 The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, every descendant is immediately killed — even processes that double-fork or change session leaders.
