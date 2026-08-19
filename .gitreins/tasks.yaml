@@ -343,3 +343,29 @@ tasks:
   status: complete
   created_at: '2026-08-18T17:04:46.721942+00:00'
   completed_at: '2026-08-18T17:09:39.338051+00:00'
+- id: TJ-GAP-037
+  title: Plugin wrapping claims stale (post v1.1.x)
+  criteria:
+  - grep -i 'wrap|isolation' plugin/plugin.yaml returns no command-wrapping claim
+  - grep -n 'plugin wrapping' README.md returns 0 matches
+  status: complete
+  created_at: '2026-08-19T05:39:57.617658+00:00'
+  completed_at: '2026-08-19T05:43:31.220644+00:00'
+- id: TJ-GAP-038
+  title: --help seccomp text contradicts README
+  criteria:
+  - ./standalone/terminal-jail --help seccomp text no longer claims TERMINAL_JAIL_SECCOMP
+    env var controls activation
+  - --help seccomp text agrees verbatim with README env-var table row
+  status: complete
+  created_at: '2026-08-19T05:39:57.863054+00:00'
+  completed_at: '2026-08-19T05:43:57.459864+00:00'
+- id: TJ-GAP-039
+  title: --mount-proc ghost flag
+  criteria:
+  - grep -rn 'mount-proc' docs/ README.md shows no reference presented as a usable
+    option
+  - --help --user text explains the /proc trade-off without naming a nonexistent flag
+  status: complete
+  created_at: '2026-08-19T05:39:58.200805+00:00'
+  completed_at: '2026-08-19T05:44:40.195195+00:00'
