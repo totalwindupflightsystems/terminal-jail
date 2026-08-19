@@ -396,3 +396,20 @@ tasks:
   status: complete
   created_at: '2026-08-19T22:18:04.620099+00:00'
   completed_at: '2026-08-19T22:19:06.638457+00:00'
+- id: TJ-DF-014
+  title: P3 --user jail inherits host identity env (TJ-DF-014)
+  criteria:
+  - "standalone/terminal-jail: when --user is active (USE_USER_NS=1) the wrapper exports\
+    \ scrubbed identity env before exec \u2014 running ./standalone/terminal-jail\
+    \ --user env shows USER=nobody, LOGNAME=nobody, HOME=/nonexistent"
+  - "Bare mode (no --user) leaves caller identity env untouched \u2014 USER/LOGNAME/HOME\
+    \ pass through unchanged"
+  - plugin/test_standalone_cli.py gains tests asserting the scrub (--user env shows
+    scrubbed values; bare env keeps caller values), following the existing _host_denied_namespaces
+    host-capability guard pattern
+  - 'Full suite green: .venv/bin/python -m pytest -q passes with 4 skipped (no new
+    skips); uvx ruff check plugin/ clean; gitreins guard 4/4 PASS'
+  - README.md documents the --user identity-env scrub in the --user section
+  status: complete
+  created_at: '2026-08-19T22:58:30.048026+00:00'
+  completed_at: '2026-08-19T23:00:20.669359+00:00'
