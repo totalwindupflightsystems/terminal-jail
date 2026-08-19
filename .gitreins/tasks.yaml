@@ -369,3 +369,30 @@ tasks:
   status: complete
   created_at: '2026-08-19T05:39:58.200805+00:00'
   completed_at: '2026-08-19T05:44:40.195195+00:00'
+- id: TJ-DF-011
+  title: P0 chmod recursive world-writable bypass
+  criteria:
+  - 'Bridge blocks all 5 variants: chmod -R 777 /, chmod --recursive 777 /, chmod
+    a+rwx /, chmod 7777 /, chmod -R 777 /etc under rule builtin-chmod-777-root'
+  - 00-builtins.yaml chmod pattern stays byte-identical to blocklist.py
+  - Regression tests cover the 5 variants plus allow controls
+  status: complete
+  created_at: '2026-08-19T22:18:04.420403+00:00'
+  completed_at: '2026-08-19T22:34:25.250290+00:00'
+- id: TJ-DF-012
+  title: P1 same-ID warn override silent
+  criteria:
+  - CLI with same-ID warn override prints a WARN line on stderr and exits 0
+  - Action.WARN handled explicitly in decider._rule_result with reason would-have-blocked
+  - Regression test covers rule-level warn path
+  status: complete
+  created_at: '2026-08-19T22:18:04.520436+00:00'
+  completed_at: '2026-08-19T22:35:58.397946+00:00'
+- id: TJ-DF-013
+  title: P2 stale knowledge artifacts
+  criteria:
+  - skills/terminal-jail-usage/SKILL.md no longer lists TJ-DF-001..008 as open
+  - docs/dogfood/diagnostics.md decider line reflects wired user rules
+  status: complete
+  created_at: '2026-08-19T22:18:04.620099+00:00'
+  completed_at: '2026-08-19T22:19:06.638457+00:00'
