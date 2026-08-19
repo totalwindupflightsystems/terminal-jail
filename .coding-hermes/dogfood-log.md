@@ -36,3 +36,45 @@ Verdicts here are based on actually USING the tool, not on test colors.
   docs/dogfood/diagnostics.md, skills/terminal-jail-usage/SKILL.md,
   board tasks TJ-DF-001..009.
 - **Foreman wake:** not needed (cooldown 7200s < 14400s; scheduler healthy).
+
+---
+
+## 2026-08-19 — terminal-jail
+
+- **Verdict:** 🟡 PROMISING-BUT-ROUGH (improved — all 8 prior P0/P1 gaps
+  verified FIXED live; 2 new security findings, 1 docs, 1 hygiene)
+- **Promise (re-checked):** "Defense-in-depth terminal command containment
+  for Hermes Agent: standalone CLI (PID namespace via unshare) + interruptor
+  bash command firewall (29 rules, allow/block/modify, user-extensible via
+  YAML rules) + observability plugin + lightweight systemd hardening."
+- **Time-to-first-success:** < 1 min (install.sh → `--version` →
+  `--user echo`; `--user --seccomp` filter verified active via
+  /proc/self/status Seccomp: 2).
+- **Prior-gap re-verification (all FIXED, live):** TJ-DF-001 rm -rf
+  bypasses (7 variants) blocked; TJ-DF-002/003 installed-layout seccomp
+  works unprivileged (mount → EPERM errno 1, Seccomp: 2); TJ-DF-004 user
+  YAML rules enforced end-to-end (touch → rc=126); TJ-DF-005/010
+  docs/packaging aligned (PyYAML declared, `import terminal_jail` works
+  after pip install -e .); fail-closed, warn-mode surfacing,
+  exit/stdin passthrough, --kill-child, auto-sandbox modify all hold.
+- **Top 3 findings (new):**
+  1. TJ-DF-011 (P0) — `chmod -R 777 /` (and --recursive/a+rwx/7777/-R
+     /etc) ALLOWED: chmod rule pattern can't cross flag tokens — same bug
+     class TJ-DF-001 fixed for rm but never applied to chmod; recursive
+     world-writable is worse than the blocked plain form.
+  2. TJ-DF-012 (P1) — same-ID user rule `action: warn` override is
+     SILENT: `rm -rf /` executes with zero warning (Action.WARN unhandled
+     in decider, reason dropped); env-mode warn works but rule-level warn
+     doesn't.
+  3. TJ-DF-013 (P2) — knowledge artifacts stale: usage skill still listed
+     TJ-DF-001..008 as open; diagnostics said "user rules: NOT
+     IMPLEMENTED" (both refreshed in this run); TJ-DF-014 (P3) — `--user`
+     jail leaks $USER/$HOME env.
+- **Friction count:** 5 (gateway hardline on probe data strings; install.sh
+  invocation form; block-box 60-char truncation; env leak; warn-override
+  silence).
+- **Artifacts:** docs/dogfood/2026-08-19-integration.md, diagnostics.md
+  refreshed (sections 1/4/5), skills/terminal-jail-usage/SKILL.md refreshed
+  (v1.1.0), board tasks TJ-DF-011..014, dogfood-log entry.
+- **Foreman wake:** YES — PUT CooldownS=900 (was 21600 ≥ 14400, board has
+  real work again).

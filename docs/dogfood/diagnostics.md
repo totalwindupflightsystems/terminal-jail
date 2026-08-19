@@ -14,7 +14,9 @@ during the dogfood run. This is explanation, not raw logs.*
   init exits (double-fork protection).
 - **`plugin/terminal_jail/interruptor/`** (the real engine):
   `parser.py` (shell tokenizer → segments) → `decider.py` (priority:
-  blocklist → allowlist → auto-sandbox → *user rules: NOT IMPLEMENTED*) →
+  blocklist → allowlist → auto-sandbox → user rules (wired end-to-end
+  since TJ-DF-004, commit c425379 — RuleLoader → Decider layers, same-ID
+  overrides replace builtins in their layer)) →
   `matcher.py` (9 match types, regex-based). `interruptor_bridge.py` is the
   stdin/stdout JSON wrapper the CLI talks to.
 - **`plugin/terminal_jail/seccomp.py`**: hand-built BPF (stdlib ctypes only,
@@ -75,17 +77,29 @@ during the dogfood run. This is explanation, not raw logs.*
   worth a follow-up probe when user rules (TJ-DF-004) land, since that adds
   a new failure surface.
 
-## 4. The right way to extend this system
+## 4. Errors hit during the 2026-08-19 dogfood run
+
+| Error / observation | Meaning | Right way |
+|---|---|---|
+| `chmod -R 777 /` → ALLOW (bridge + CLI rc=0) | builtin-chmod-777-root pattern `chmod\s+777\s+/` can't cross a flag token — recursive/`a+rwx`/`7777` variants all bypass; same bug class TJ-DF-001 fixed for rm but never applied to chmod | token-aware order-independent pattern + regression tests (TJ-DF-011, P0) |
+| same-ID user rule `action: warn` → `rm -rf /` runs with NO warning | `_rule_result()` has no Action.WARN branch (falls into "unknown action — allow (fail-safe)") AND `evaluate()`'s segment loop drops the reason — CLI prints nothing | explicit WARN handling + surface reason on stderr, matching env-mode warn (TJ-DF-012, P1) |
+| `--user` jail shows `USER=kara`, `HOME=<caller home>` | env vars are inherited; only uid changes to 65534 | scrub USER/LOGNAME/HOME on privilege drop or document pass-through (TJ-DF-014, P3) |
+| skills/terminal-jail-usage/SKILL.md lists TJ-DF-001..008 as open; diagnostics §1 said "user rules: NOT IMPLEMENTED" | knowledge artifacts weren't refreshed when fixes landed (TJ-DF-013) | refresh skill + diagnostics when a gap closes; skill should point at the board for current state |
+| Hermes gateway hardline blocked probe commands containing literal `mkfs`/`dd of=/dev/...` strings even as bridge data | host-gateway content guard, not a terminal-jail defect; TJ-GAP-035 fix for the wrapper itself verified working | build dangerous-command strings at runtime in scratch probe files |
+
+## 5. The right way to extend this system
 
 1. **Add a rule**: edit the engine's `blocklist.py`/`sandbox.py`/`allowlist.py`
-   (builtins) — do NOT rely on user rules until TJ-DF-004 lands.
+   (builtins), or ship a user YAML rule to `~/.config/terminal-jail/rules.d/`
+   (user rules ARE wired since TJ-DF-004 — verify with the bridge).
 2. **Add a match type**: `matcher.py`, keep `match_segment` returning the
    matched rule id; add engine tests + a bridge-level probe.
 3. **Test the firewall**: engine-level via `intercept()` (fast, no kernel
    deps) + bridge-level via stdin JSON (no execution) + CLI-level only for
    the block box/exit codes (execution on this host needs `--user`).
 4. **Verify seccomp work**: `--user --seccomp` + a ctypes `mount()` probe
-   must die with SIGSYS once TJ-DF-003 lands; today it prints "running
-   without seccomp".
+   must return EPERM (errno 1) — the filter denies with
+   `SECCOMP_RET_ERRNO|EPERM`, it does NOT kill; check
+   `/proc/self/status` → `Seccomp: 2` to confirm the filter is installed.
 5. **Never** trust README's rule tables without grepping the engine —
    they drifted twice already (TJ-DF-005, E2E-001-GAP-01).
