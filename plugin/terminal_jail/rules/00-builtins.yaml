@@ -96,7 +96,14 @@ rules:
     block_message: "Setting world-writable permissions on root (/) is blocked."
     match:
       type: pattern
-      pattern: "chmod\\s+777\\s+/"
+      # World-writable mode on a /-rooted path (TJ-DF-011): mode token
+      # (777, 7777, or a+rwx) matched order-independently via a lookahead,
+      # recursive flag (-R/--recursive) via an OPTIONAL second lookahead —
+      # plain `chmod 777 /` must still block. Target keeps the old \\s+/
+      # semantics: ANY /-rooted path (e.g. /var/www) blocks, intentional
+      # and tested. (?<!\\S) = token-start boundary (plain \\b never sits
+      # between a space and a dash); IGNORECASE covers -R.
+      pattern: "\\bchmod\\s+(?=[^|;&]*(?<!\\S)(?:7777|777|a\\+rwx)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)?[^|;&]*\\s+/"
 
   - id: "builtin-echo-to-system"
     description: "Redirect output to system paths"

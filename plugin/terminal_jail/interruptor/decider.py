@@ -125,6 +125,8 @@ class Decider:
         # Then check each segment individually
         modified_segments: list[str] = []
         any_modified = False
+        any_warn_reason = ""
+        warn_rule_id: str | None = None
 
         for segment in segments:
             result = self._evaluate_segment(segment)
@@ -135,9 +137,20 @@ class Decider:
                 modified_segments.append(result.modified or segment.raw)
             elif result.action == Action.ALLOW:
                 modified_segments.append(segment.raw)
+                # Preserve a would-have-blocked warn reason (TJ-DF-012): a
+                # same-ID user rule with action=warn replaces a builtin and
+                # evaluates to ALLOW with a warn reason. Without this the
+                # reason was dropped here, so the CLI printed nothing and
+                # the override ran silently.
+                if result.reason and not any_warn_reason:
+                    any_warn_reason = result.reason
+                    warn_rule_id = result.rule_id
             else:
                 # WARN / LOG — allow through
                 modified_segments.append(segment.raw)
+                if getattr(result, "reason", "") and not any_warn_reason:
+                    any_warn_reason = result.reason
+                    warn_rule_id = result.rule_id
 
         if any_modified:
             modified_cmd = " ".join(modified_segments)
@@ -146,6 +159,14 @@ class Decider:
                 command=original,
                 modified=modified_cmd,
                 reason="Command modified by auto-sandbox",
+            )
+
+        if any_warn_reason:
+            return InterceptResult(
+                action=Action.ALLOW,
+                command=original,
+                rule_id=warn_rule_id,
+                reason=any_warn_reason,
             )
 
         return InterceptResult(action=Action.ALLOW, command=original)
@@ -187,6 +208,13 @@ class Decider:
         - block: BLOCK with the rule's id and block_message
         - modify/sandbox: MODIFY wrapping the command in the unshare
           namespace (the same prefix the built-in auto-sandbox layer uses)
+        - warn: ALLOW carrying a would-have-blocked reason (TJ-DF-012) —
+          the command runs, but the wrapper surfaces the warning on stderr.
+          Same-ID user rules may override a builtin to warn (blocklist.py
+          contract: builtins "cannot be removed — only overridden to warn
+          level by user rules"); previously this fell into the unknown-
+          action branch with a misleading "unknown action 'warn'" reason
+          and the reason was dropped, so the override ran silently.
         - allow: ALLOW (rule id retained for traceability)
         - anything else: fail-safe ALLOW with a warning reason (never block
           on an unknown action value)
@@ -206,6 +234,13 @@ class Decider:
                 modified=modified,
                 rule_id=rule.id,
                 reason="Auto-sandbox: wrapped command in namespace isolation",
+            )
+        if rule.action == Action.WARN:
+            return InterceptResult(
+                action=Action.ALLOW,
+                command=raw,
+                rule_id=rule.id,
+                reason=f"would have blocked: {rule.block_message}",
             )
         if rule.action == Action.ALLOW:
             return InterceptResult(action=Action.ALLOW, command=raw, rule_id=rule.id)

@@ -106,6 +106,54 @@ def test_interruptor_warn_mode_surfaces_block_warning(cli_path: Path) -> None:
 
 
 @pytest.mark.standalone_cli
+def test_cli_surfaces_user_rule_warn_override(cli_path: Path, tmp_path: Path) -> None:
+    """TJ-DF-012 (P1): a same-ID user rule with action=warn surfaces a WARN line.
+
+    The wrapper must print the would-have-blocked reason on stderr and
+    let the command run (rc != 126) — previously the override evaluated
+    to a silent allow with NO warning (live, 2026-08-19 dogfood: `rm -rf /`
+    executed with zero output under an action=warn override of
+    builtin-rm-rf-root). Uses `fdisk -l` (read-only listing) as the
+    vector; the warn override downgrades builtin-fdisk.
+    """
+    rules_dir = tmp_path / "user-rules.d"
+    rules_dir.mkdir()
+    (rules_dir / "99-warn.yaml").write_text(
+        "rules:\n"
+        "  - id: builtin-fdisk\n"
+        "    description: User override — warn on fdisk (dogfood)\n"
+        "    priority: 100\n"
+        "    action: warn\n"
+        "    block_message: Partition manipulation (fdisk, parted, gdisk) is blocked.\n"
+        "    match:\n"
+        "      type: pattern\n"
+        "      pattern: 'fdisk'\n"
+    )
+    system_dir = tmp_path / "system-rules.d"
+    system_dir.mkdir()
+    result = _run_cli(
+        cli_path,
+        "fdisk",
+        "-l",
+        extra_env={
+            "TERMINAL_JAIL_INTERRUPTOR_MODE": "warn",
+            "TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR": str(rules_dir),
+            "TERMINAL_JAIL_INTERRUPTOR_RULES_DIR": str(system_dir),
+        },
+    )
+    stderr = result.stderr.decode("utf-8", errors="replace")
+    assert "would have blocked" in stderr, (
+        f"warn override should print the would-have-blocked reason, "
+        f"got: {stderr!r}"
+    )
+    assert "WARNING" in stderr, f"expected a WARNING line, got: {stderr!r}"
+    assert "COMMAND BLOCKED" not in stderr, "warn override must not emit block box"
+    assert result.returncode != 126, (
+        f"warn override must not exit 126 (enforce-mode block); rc={result.returncode}"
+    )
+
+
+@pytest.mark.standalone_cli
 def test_interruptor_disabled_mode_bypasses(cli_path: Path) -> None:
     """Disabled mode bypasses the interruptor entirely."""
     result = _run_cli(

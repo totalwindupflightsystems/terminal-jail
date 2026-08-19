@@ -127,7 +127,16 @@ BUILTIN_BLOCKLIST: list[Rule] = [
         block_message="Setting world-writable permissions on root (/) is blocked.",
         match={
             "type": "pattern",
-            "pattern": r"chmod\s+777\s+/",
+            # World-writable mode on a /-rooted path (TJ-DF-011): the mode
+            # token (777, 7777, or a+rwx) is matched order-independently via
+            # a lookahead, and the recursive flag (-R/--recursive) via an
+            # OPTIONAL second lookahead — plain `chmod 777 /` must still
+            # block. The target keeps the old `\s+/` semantics: ANY path
+            # starting with / (e.g. /var/www) blocks, which is intentional
+            # and tested. `(?<!\S)` is the token-start boundary (plain \b
+            # can never sit between a space and a dash); re.IGNORECASE
+            # covers -R.
+            "pattern": r"\bchmod\s+(?=[^|;&]*(?<!\S)(?:7777|777|a\+rwx)\b)(?=[^|;&]*(?<!\S)(?:-[a-z]*r[a-z]*|--recursive)\b)?[^|;&]*\s+/",
         },
     ),
     Rule(
