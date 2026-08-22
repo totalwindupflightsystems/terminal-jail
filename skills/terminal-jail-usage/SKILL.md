@@ -5,7 +5,8 @@ description: >-
   run commands, common pitfalls, and the right-way patterns. Load this skill
   before integrating with or extending terminal-jail. Written from the
   2026-08-10 dogfood run, refreshed 2026-08-19 (all TJ-DF-001..010 fixes
-  verified live; new findings TJ-DF-011..014).
+  verified live; new findings TJ-DF-011..014), refreshed 2026-08-22
+  (TJ-DF-011/012/014 closed — pitfalls below updated to fixed reality).
 version: 1.1.0
 category: software-development
 ---
@@ -51,7 +52,8 @@ $TJ --no-interruptor --user fdisk /dev/sda       # per-invocation firewall off
 **Always use `--user` on hosts that deny unprivileged PID namespaces**
 (plain `unshare --pid` → EPERM — this host, documented). `--user` trades
 /proc isolation for UID isolation (host PIDs visible). NOTE: `--user`
-drops the uid to nobody but does NOT scrub `$USER`/`$HOME` env (TJ-DF-014).
+scrubs identity env (USER=nobody, LOGNAME=nobody, HOME=/nonexistent —
+TJ-DF-014 fixed, verified live 2026-08-19).
 
 ## Firewall probing (no execution — the safe way to test rules)
 
@@ -84,26 +86,28 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
 ```
 
 - Same-ID rules REPLACE builtins in their layer (builtin-rm-rf-root can be
-  overridden). **Pitfall:** an `action: warn` same-ID override currently
-  allows SILENTLY with no warning (TJ-DF-012, open) — don't use warn
-  overrides for visibility until that lands; env `TERMINAL_JAIL_INTERRUPTOR_MODE=warn`
-  DOES surface warnings correctly.
+  overridden). An `action: warn` same-ID override now ALLOWS with a
+  would-have-blocked reason surfaced on stderr by the CLI (TJ-DF-012
+  fixed — previously silent); `TERMINAL_JAIL_INTERRUPTOR_MODE=warn` env
+  also surfaces warnings correctly.
 - Rules load from `/etc/terminal-jail/rules.d/` (system) and
   `~/.config/terminal-jail/rules.d/` (user); install.sh ships
   `00-builtins.yaml` to the user dir (TJ-GAP-033).
 
-## Common pitfalls (current as of 2026-08-19)
+## Common pitfalls (current as of 2026-08-22)
 
-1. **`chmod -R 777 /` is ALLOWED** (TJ-DF-011, P0, OPEN): the
-   world-writable-root rule pattern `chmod\s+777\s+/` can't cross flag
-   tokens — `chmod -R 777 /`, `chmod --recursive 777 /`, `chmod a+rwx /`,
-   `chmod 7777 /` all pass. The rm -rf family IS fixed (all variants
-   blocked) — don't assume chmod got the same treatment.
-2. **Same-ID `action: warn` override = silent allow** (TJ-DF-012, P1, OPEN):
-   no warning, no reason. Use `TERMINAL_JAIL_INTERRUPTOR_MODE=warn` env for
-   visible warnings instead.
-3. **`--user` leaks `$USER`/`$HOME`** (TJ-DF-014, P3, OPEN): process runs
-   as nobody but env says otherwise. Don't rely on $HOME inside the jail.
+1. **`chmod -R 777 /` is now BLOCKED** (TJ-DF-011 fixed, verified live
+   2026-08-22): the world-writable-root rule is token-aware/order-
+   independent — `chmod -R 777 /`, `chmod --recursive 777 /`,
+   `chmod a+rwx /`, `chmod 7777 /`, `chmod -R 777 /etc` ALL block with
+   `builtin-chmod-777-root`; benign `chmod 755 /` still allows.
+2. **Same-ID `action: warn` override surfaces a warning** (TJ-DF-012
+   fixed): command runs (allow) but the CLI prints a WARN line with the
+   would-have-blocked reason on stderr. Use it for downgraded-rule
+   visibility; `TERMINAL_JAIL_INTERRUPTOR_MODE=warn` env works too.
+3. **`--user` scrubs `$USER`/`$HOME`** (TJ-DF-014 fixed): process runs
+   as nobody with USER=nobody, LOGNAME=nobody, HOME=/nonexistent — don't
+   expect caller identity inside the jail (by design).
 4. **seccomp works now** (TJ-DF-002/003 fixed, verified): filter installs
    unprivileged; denies via `SECCOMP_RET_ERRNO|EPERM` (NOT SIGSYS — a
    denied syscall returns EPERM, it doesn't kill). Verify with
@@ -143,7 +147,9 @@ $TJ --user touch /tmp/x   # → COMMAND BLOCKED, rc=126
 - Board: `.coding-hermes/board/tasks.jsonl` (JSONL v2.1 — append rows in
   that schema; there is no tasks.md anymore).
 - Dogfood runs: 2026-08-10 (TJ-DF-001..010 — all complete, verified),
-  2026-08-19 (TJ-DF-011..014 — 011/012 security, 013 docs, 014 hygiene).
+  2026-08-19 (TJ-DF-011..014 — 011/012 security, 013 docs, 014 hygiene;
+  all complete). Refreshed 2026-08-22 (TJ-GAP-040) — pitfalls reflect
+  fixed reality; verify against the board before trusting lists.
   E2E-001 is the recurring full-battery tick; NEVER-DONE the audit tick.
 - Commits must carry `Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>`
   and pass `gitreins guard` (see AGENTS.md).
