@@ -413,3 +413,11 @@ tasks:
   status: complete
   created_at: '2026-08-19T22:58:30.048026+00:00'
   completed_at: '2026-08-19T23:00:20.669359+00:00'
+- id: TJ-GAP-040
+  title: Refresh skills/terminal-jail-usage/SKILL.md stale OPEN claims (TJ-DF-011/012/014)
+  criteria:
+  - SKILL.md no longer lists TJ-DF-011/012/014 as OPEN and every remaining pitfall
+    claim matches bridge/CLI behavior (verified live)
+  status: complete
+  created_at: '2026-08-22T06:00:47.123891+00:00'
+  completed_at: '2026-08-22T06:01:19.278559+00:00'
