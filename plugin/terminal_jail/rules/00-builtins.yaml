@@ -60,7 +60,9 @@ rules:
       # exactly "/" or "/*". Catches rm -rf --no-preserve-root /, rm -r -f /,
       # rm --recursive --force /, rm -rf/. (?<!\S) = token-start boundary
       # (plain \b never sits between a space and a dash); IGNORECASE covers -R.
-      pattern: "\\brm\\s+(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*f[a-z]*|--force)\\b)[^|;&]*\\s*/(?:\\*)?(?:\\s|$)"
+      # TJ-GAP-042: target boundary extended to quotes/parens/backtick so
+      # quoted/embedded forms (python3 -c "...", bash -c '...') also match.
+      pattern: "\\brm\\s+(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*f[a-z]*|--force)\\b)[^|;&]*\\s*/(?:\\*)?(?:\\s|$|[\"')`])"
 
   - id: "builtin-dd-root"
     description: "Raw device write via dd"
@@ -131,6 +133,20 @@ rules:
     match:
       type: pattern
       pattern: "\\bsudo\\s"
+
+  - id: "builtin-code-injection"
+    description: "Code-injection vectors in interpreter arguments (os.system, os.popen, shutil.rmtree, subprocess, eval, exec, __import__)"
+    priority: 1000
+    action: block
+    block_message: "Code-injection vectors (os.system/os.popen/shutil.rmtree/subprocess/eval/exec/__import__) are blocked — quoted interpreter code is scanned, not just shell syntax."
+    match:
+      type: pattern
+      # TJ-GAP-042: destructive code inside QUOTED interpreter arguments
+      # (python3 -c '...os.system("rm -rf /")...', eval(...)) previously
+      # passed as ALLOW — same design as builtin-killpg-pid1 (block on
+      # presence anywhere in the raw command string). Spec T-I33
+      # ("heuristic detection") was parser-only; now a real block rule.
+      pattern: "\\b(os\\.system|os\\.popen|shutil\\.rmtree|subprocess\\.(?:call|run|Popen|check_call|check_output))\\s*\\(|\\b(eval|exec|__import__)\\s*\\("
 
   # =============================================================================
   # Auto-Sandbox (priority 700) — wrap in unshare namespace, never block

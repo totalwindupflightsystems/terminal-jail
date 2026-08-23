@@ -82,6 +82,26 @@ class TestBlocklist:
             ("process.kill(0, signal.SIGTERM)", "builtin-killpg-pid1"),
             ("kill(-1, 9)", "builtin-killpg-pid1"),
             ("kill(0, 15)", "builtin-killpg-pid1"),
+            # TJ-GAP-042 (battery-proven 2026-08-22, kara-lair): destructive
+            # code inside QUOTED interpreter arguments previously passed as
+            # ALLOW — the rm-rf-root target boundary required whitespace/
+            # end-of-string, so the quote after `/` broke the match, and no
+            # code-injection rule existed. Spec T-I33 is now a real rule.
+            # os.system("rm -rf /") is claimed by builtin-rm-rf-root (earlier
+            # in the list, same priority — boundary extension catches it);
+            # the pure-code vectors below land on builtin-code-injection.
+            ("python3 -c 'import os; os.system(\"rm -rf /\")'", "builtin-rm-rf-root"),
+            ("python3 -c \"import os; os.system('rm -rf /')\"", "builtin-rm-rf-root"),
+            ("python3 -c 'import shutil; shutil.rmtree(\"/\")'", "builtin-code-injection"),
+            ("python3 -c \"eval(open('/etc/passwd').read())\"", "builtin-code-injection"),
+            ("python3 -c 'import os; os.popen(\"reboot\")'", "builtin-code-injection"),
+            ("python3 -c 'import subprocess; subprocess.run([\"rm\", \"-rf\", \"/\"])'", "builtin-code-injection"),
+            ("python3 -c 'import subprocess; subprocess.Popen(\"/bin/sh\")'", "builtin-code-injection"),
+            ("python -c 'exec(\"import os; os.system(\\\"id\\\")\")'", "builtin-code-injection"),
+            # quoted/embedded rm -rf / now trips the boundary extension
+            ("bash -c 'rm -rf /'", "builtin-rm-rf-root"),
+            ("echo \"rm -rf /\"", "builtin-rm-rf-root"),
+            ("python3 -c 'print(\"rm -rf /\")'", "builtin-rm-rf-root"),
         ],
     )
     def test_blocked(self, command: str, rule_id: str) -> None:

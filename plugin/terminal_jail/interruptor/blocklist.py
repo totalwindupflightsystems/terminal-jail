@@ -75,8 +75,13 @@ BUILTIN_BLOCKLIST: list[Rule] = [
             # GNU forms `rm -rf --no-preserve-root /`, `rm -r -f /`,
             # `rm --recursive --force /`, and `rm -rf/`. `(?<!\S)` is the
             # token-start boundary (plain \b can never sit between a space
-            # and a dash); re.IGNORECASE covers -R.
-            "pattern": r"\brm\s+(?=[^|;&]*(?<!\S)(?:-[a-z]*r[a-z]*|--recursive)\b)(?=[^|;&]*(?<!\S)(?:-[a-z]*f[a-z]*|--force)\b)[^|;&]*\s*/(?:\*)?(?:\s|$)",
+            # and a dash); re.IGNORECASE covers -R. TJ-GAP-042: the target
+            # boundary is extended to quotes/parens/backtick so destructive
+            # commands EMBEDDED in quoted interpreter args (python3 -c
+            # "...", bash -c '...', echo "rm -rf /") also trip the rule —
+            # previously only whitespace/end-of-string qualified, so the
+            # quoted forms passed as ALLOW (battery-proven 2026-08-22).
+            "pattern": r"\brm\s+(?=[^|;&]*(?<!\S)(?:-[a-z]*r[a-z]*|--recursive)\b)(?=[^|;&]*(?<!\S)(?:-[a-z]*f[a-z]*|--force)\b)[^|;&]*\s*/(?:\*)?(?:\s|$|[\"')`])",
         },
     ),
     Rule(
@@ -170,6 +175,27 @@ BUILTIN_BLOCKLIST: list[Rule] = [
         match={
             "type": "pattern",
             "pattern": r"\bsudo\s",
+        },
+    ),
+    Rule(
+        rule_id="builtin-code-injection",
+        description="Code-injection vectors in interpreter arguments (os.system, os.popen, shutil.rmtree, subprocess, eval, exec, __import__)",
+        priority=1000,
+        action="block",
+        block_message="Code-injection vectors (os.system/os.popen/shutil.rmtree/subprocess/eval/exec/__import__) are blocked — quoted interpreter code is scanned, not just shell syntax.",
+        match={
+            "type": "pattern",
+            # TJ-GAP-042: the rm-rf-root rule previously only matched a
+            # root target followed by whitespace/end-of-string, so
+            # destructive code inside QUOTED interpreter arguments
+            # (python3 -c '...os.system("rm -rf /")...',
+            # python3 -c "...eval(open('/etc/passwd').read())...")
+            # passed as ALLOW. This rule scans the RAW command string for
+            # the Python/Ruby exec API surface — same design as
+            # builtin-killpg-pid1 (block on presence anywhere). Spec T-I33
+            # ("heuristic detection") was parser-only; this makes it a
+            # real block rule. Battery-proven gap 2026-08-22 (kara-lair).
+            "pattern": r"\b(os\.system|os\.popen|shutil\.rmtree|subprocess\.(?:call|run|Popen|check_call|check_output))\s*\(|\b(eval|exec|__import__)\s*\(",
         },
     ),
 ]
