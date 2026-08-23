@@ -432,3 +432,13 @@ tasks:
   status: complete
   created_at: '2026-08-22T12:24:01.212552+00:00'
   completed_at: '2026-08-22T12:24:33.895516+00:00'
+- id: tj-gap-042
+  title: Block code-injection in quoted interpreter args (TJ-GAP-042)
+  criteria:
+  - builtin-code-injection rule blocks os.system/os.popen/shutil.rmtree/subprocess.(call|run|Popen|check_call|check_output)/eval/exec/__import__
+    anywhere in the raw command; rm-rf-root boundary extended to quotes/parens/backtick;
+    YAML mirror 00-builtins.yaml in sync (30 rules); suite 314 passed/4 skipped; 7/7
+    live probe vectors blocked with correct rule id, 5/5 benign allowed
+  status: complete
+  created_at: '2026-08-23T10:34:42.374038+00:00'
+  completed_at: '2026-08-23T10:34:45.018774+00:00'
