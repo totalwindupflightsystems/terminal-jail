@@ -442,3 +442,21 @@ tasks:
   status: complete
   created_at: '2026-08-23T10:34:42.374038+00:00'
   completed_at: '2026-08-23T10:34:45.018774+00:00'
+- id: TJ-GAP-042
+  title: Battery PID-NS layer FULL vs DEGRADED labeling + honest bare-mode tests
+  criteria:
+  - python3 scripts/pidns-capability-probe.py exits 0 and prints DEGRADED on this
+    host (FULL when bare mode works, UNKNOWN otherwise)
+  - plugin/test_standalone_cli.py has test_bare_mode_pid_namespace_containment asserting
+    the PID ns inode inside bare-mode jail differs from the host when capable, and
+    skipping with HOST-DEGRADED-PIDNS marker when the host refuses namespace creation
+  - Bare-mode host-conditional tests skip with HOST-DEGRADED-PIDNS marker instead
+    of silently passing when host refuses namespace creation (9 markers in a standalone_cli
+    run on this host)
+  - README.md headline no longer implies automatic --user fallback and Graceful Degradation
+    documents FULL vs DEGRADED battery labeling
+  - .venv/bin/python -m pytest -q passes with zero failures on this host and standalone/terminal-jail
+    bare mode still exits 2 with the degradation message (fail-closed contract preserved)
+  status: complete
+  created_at: '2026-08-26T17:59:26.994471+00:00'
+  completed_at: '2026-08-26T17:59:30.526743+00:00'
