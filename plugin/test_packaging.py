@@ -22,6 +22,7 @@ test; this module is the fast guard that runs on every CI pass.
 
 from __future__ import annotations
 
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -29,6 +30,7 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT = PROJECT_ROOT / "pyproject.toml"
+PROBE_SCRIPT = PROJECT_ROOT / "scripts" / "pidns-capability-probe.py"
 
 
 @pytest.fixture(scope="module")
@@ -129,4 +131,31 @@ def test_shipped_rules_yaml_mirrors_engine_builtin_ids() -> None:
     )
     assert len(allow_ids) == len(BUILTIN_ALLOWLIST), (
         f"allowlist count {len(allow_ids)} != engine {len(BUILTIN_ALLOWLIST)}"
+    )
+
+
+def test_pidns_capability_probe_is_host_agnostic() -> None:
+    """The battery's capability classifier must run on ANY host (TJ-GAP-042).
+
+    It is a classifier, not a gate: exit 0 always, and the verdict is exactly
+    one of FULL / DEGRADED / UNKNOWN. A capable host (CI runner) prints FULL,
+    a host that refuses unprivileged PID namespaces prints DEGRADED, and any
+    unexpected state must still be reported as UNKNOWN rather than crashing.
+    """
+    assert PROBE_SCRIPT.is_file(), f"probe script missing: {PROBE_SCRIPT}"
+    result = subprocess.run(
+        ["python3", str(PROBE_SCRIPT)],
+        cwd=str(PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"probe must always exit 0; rc={result.returncode}, "
+        f"stderr={result.stderr.strip()!r}"
+    )
+    verdict = result.stdout.strip()
+    assert verdict in ("FULL", "DEGRADED") or verdict.startswith("UNKNOWN"), (
+        f"probe printed unexpected verdict: {verdict!r}"
     )

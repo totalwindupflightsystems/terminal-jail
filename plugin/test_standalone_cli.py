@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import os
 import stat
 import subprocess
@@ -60,6 +61,22 @@ def _host_denied_namespaces(stderr: str) -> bool:
         or "Operation not permitted" in stderr
         or "namespace creation failed" in stderr
     )
+
+
+@functools.lru_cache(maxsize=1)
+def _host_denies_bare_mode(cli_path: Path) -> bool:
+    """True when this host refuses bare-mode PID namespace creation.
+
+    Probes once per test process: bare mode either works (rc==0) or fires
+    the fail-closed degradation path (rc==2 + degradation message,
+    TJ-GAP-034). The result drives honest skips on degraded hosts — a
+    bare-mode test that cannot run must SKIP with the HOST-DEGRADED-PIDNS
+    marker, never silently pass (TJ-GAP-042)."""
+    result = _run_cli(cli_path, "true")
+    if result.returncode == 0:
+        return False
+    stderr = result.stderr.decode("utf-8", errors="replace")
+    return result.returncode == 2 and _host_denied_namespaces(stderr)
 
 
 # ── Flag parsing ──────────────────────────────────────────────────────────
@@ -158,8 +175,14 @@ def test_simple_command(cli_path: Path) -> None:
     if result.returncode == 0:
         assert "hello-world-42" in result.stdout.decode("utf-8")
     else:
-        stderr = result.stderr.decode("utf-8", errors="replace")
-        assert _host_denied_namespaces(stderr), stderr
+        assert _host_denies_bare_mode(cli_path), (
+            "HOST-DEGRADED-PIDNS: bare-mode command failed without the "
+            "host-degradation path"
+        )
+        pytest.skip(
+            "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
+            "bare-mode containment not verified"
+        )
 
 
 @pytest.mark.standalone_cli
@@ -167,6 +190,15 @@ def test_command_with_args(cli_path: Path) -> None:
     result = _run_cli(cli_path, "printf", "%s:%s:%s", "a", "b", "c")
     if result.returncode == 0:
         assert "a:b:c" in result.stdout.decode("utf-8")
+    else:
+        assert _host_denies_bare_mode(cli_path), (
+            "HOST-DEGRADED-PIDNS: bare command failed without the "
+            "host-degradation path"
+        )
+        pytest.skip(
+            "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
+            "bare-mode containment not verified"
+        )
 
 
 @pytest.mark.standalone_cli
@@ -174,6 +206,15 @@ def test_command_with_special_chars(cli_path: Path) -> None:
     result = _run_cli(cli_path, "echo", "path/to/file with spaces")
     if result.returncode == 0:
         assert "path/to/file with spaces" in result.stdout.decode("utf-8")
+    else:
+        assert _host_denies_bare_mode(cli_path), (
+            "HOST-DEGRADED-PIDNS: bare command failed without the "
+            "host-degradation path"
+        )
+        pytest.skip(
+            "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
+            "bare-mode containment not verified"
+        )
 
 
 # ── Exit code propagation ──────────────────────────────────────────────────
@@ -182,17 +223,23 @@ def test_command_with_special_chars(cli_path: Path) -> None:
 @pytest.mark.standalone_cli
 def test_exit_code_zero(cli_path: Path) -> None:
     result = _run_cli(cli_path, "true")
-    stderr = result.stderr.decode("utf-8", errors="replace")
-    if not _host_denied_namespaces(stderr):
-        assert result.returncode == 0
+    if _host_denies_bare_mode(cli_path):
+        pytest.skip(
+            "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
+            "bare-mode containment not verified"
+        )
+    assert result.returncode == 0
 
 
 @pytest.mark.standalone_cli
 def test_exit_code_nonzero(cli_path: Path) -> None:
     result = _run_cli(cli_path, "bash", "-c", "exit 42")
-    stderr = result.stderr.decode("utf-8", errors="replace")
-    if result.returncode not in (0, 1) and not _host_denied_namespaces(stderr):
-        assert result.returncode == 42
+    if _host_denies_bare_mode(cli_path):
+        pytest.skip(
+            "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
+            "bare-mode containment not verified"
+        )
+    assert result.returncode == 42
 
 
 # ── Stdin/stderr passthrough ───────────────────────────────────────────────
@@ -211,6 +258,15 @@ def test_stdin_passthrough(cli_path: Path) -> None:
     )
     if proc.returncode == 0:
         assert b"hello-from-stdin" in proc.stdout
+    else:
+        assert _host_denies_bare_mode(cli_path), (
+            "HOST-DEGRADED-PIDNS: bare command failed without the "
+            "host-degradation path"
+        )
+        pytest.skip(
+            "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
+            "bare-mode containment not verified"
+        )
 
 
 @pytest.mark.standalone_cli
@@ -218,6 +274,15 @@ def test_stderr_passthrough(cli_path: Path) -> None:
     result = _run_cli(cli_path, "bash", "-c", "echo 'to-stderr' >&2")
     if result.returncode == 0:
         assert b"to-stderr" in result.stderr
+    else:
+        assert _host_denies_bare_mode(cli_path), (
+            "HOST-DEGRADED-PIDNS: bare command failed without the "
+            "host-degradation path"
+        )
+        pytest.skip(
+            "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
+            "bare-mode containment not verified"
+        )
 
 
 @pytest.mark.standalone_cli
@@ -263,5 +328,45 @@ def test_bare_mode_keeps_identity_env(cli_path: Path) -> None:
         assert "USER=tester" in stdout
         assert "HOME=/home/tester" in stdout
     else:
+        assert _host_denies_bare_mode(cli_path), (
+            "HOST-DEGRADED-PIDNS: bare command failed without the "
+            "host-degradation path"
+        )
+        pytest.skip(
+            "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
+            "bare-mode containment not verified"
+        )
+
+
+@pytest.mark.standalone_cli
+def test_bare_mode_pid_namespace_containment(cli_path: Path) -> None:
+    """The REAL containment assertion: bare mode must land the command in a
+    NEW PID namespace (TJ-GAP-042).
+
+    Runs ``readlink /proc/self/ns/pid`` inside the jail and compares the
+    inode against the caller's own PID namespace inode. Equal inodes mean
+    bare mode gave NO isolation — a hard failure, not a skip. On hosts
+    that refuse PID namespace creation the jail exits 2 with the
+    degradation message and the test skips (host limitation, not a
+    regression)."""
+    outside = Path("/proc/self/ns/pid").resolve()
+    result = _run_cli(cli_path, "readlink", "/proc/self/ns/pid")
+    if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace")
-        assert _host_denied_namespaces(stderr), stderr
+        if _host_denied_namespaces(stderr):
+            pytest.skip(
+                "HOST-DEGRADED-PIDNS: host refused PID namespace creation — "
+                "bare-mode containment not verified"
+            )
+        pytest.fail(
+            f"bare readlink failed without the host-degradation path: "
+            f"rc={result.returncode}, stderr={stderr!r}"
+        )
+    inside = result.stdout.decode("utf-8", errors="replace").strip()
+    assert inside.startswith("pid:[") and inside.endswith("]"), (
+        f"unexpected readlink output: {inside!r}"
+    )
+    assert inside != str(outside), (
+        f"bare mode did not create a new PID namespace: inside={inside}, "
+        f"outside={outside}"
+    )

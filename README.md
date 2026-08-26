@@ -21,8 +21,9 @@ Defense-in-depth terminal command containment for Hermes Agent. Three layers: a 
 ./standalone/terminal-jail echo "I'm in a PID namespace"
 # → unshare --pid --fork --mount-proc --kill-child=SIGKILL bash -c 'echo "I'"'"'m in a PID namespace"'
 # On hosts that deny unprivileged PID namespaces (unshare: Operation not
-# permitted, EPERM), fall back to --user (runs as nobody=65534, /proc shows
-# host PIDs):
+# permitted, EPERM), bare mode exits 2 with a message naming the fallback
+# (see Graceful Degradation); use the --user fallback instead (runs as
+# nobody=65534, /proc shows host PIDs):
 ./standalone/terminal-jail --user echo "I'm in a PID namespace"
 # --user also scrubs inherited identity env (USER=nobody, LOGNAME=nobody,
 # HOME=/nonexistent) so jailed tools can't read/write the caller's home.
@@ -205,7 +206,8 @@ Every layer degrades independently:
 
 - **systemd drop-in**: optional — gateway runs without it. Provides process-visibility/privilege/cgroup hardening only; it is NOT a PID namespace boundary (the stronger directives are staged).
 - **Plugin**: observes and logs. Returns command unchanged if disabled. Does not block execution.
-- **CLI**: exits with code 2 and a message if `unshare` not found, not on Linux, or namespace creation fails.
+- **CLI**: exits with code 2 and a message if `unshare` not found, not on Linux, or namespace creation fails. There is **no automatic fallback** — on hosts that deny unprivileged PID namespaces you must add `--user` yourself (see the example block above). Bare mode stays fail-closed: it never silently downgrades isolation.
+- **E2E battery (PID-NS layer)**: every run is labeled **FULL** or **DEGRADED** by `scripts/pidns-capability-probe.py` (classifies any host by probing bare mode: `FULL` when the namespace works, `DEGRADED` when the host refuses creation, `UNKNOWN` otherwise — the probe always exits 0). When the host is DEGRADED, bare-mode tests **skip** with a `HOST-DEGRADED-PIDNS` marker instead of silently passing, so the battery never reports "ALL GREEN" without actually verifying PID-namespace containment; on FULL hosts the containment test asserts the jailed command lands in a new PID namespace inode.
 
 ## Requirements
 
