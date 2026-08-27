@@ -476,3 +476,12 @@ tasks:
   status: complete
   created_at: '2026-08-27T00:08:04.106736+00:00'
   completed_at: '2026-08-27T00:08:34.490284+00:00'
+- id: TJ-GAP-044
+  title: Update E2E-001 recurring battery row counters on completion
+  criteria:
+  - E2E-001 row in .coding-hermes/board/tasks.jsonl shows attempts >= 45
+  - 'E2E-001 row foreman_note contains ''Run 45'' and ''tick #260'''
+  - E2E-001 row updated_at starts with 2026-08-27
+  status: complete
+  created_at: '2026-08-27T18:08:57.495960+00:00'
+  completed_at: '2026-08-27T18:09:55.772152+00:00'
