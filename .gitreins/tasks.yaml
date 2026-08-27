@@ -460,3 +460,19 @@ tasks:
   status: complete
   created_at: '2026-08-26T17:59:26.994471+00:00'
   completed_at: '2026-08-26T17:59:30.526743+00:00'
+- id: TJ-GAP-043
+  title: systemd drop-in inert on host but docs verify-path silently passes
+  criteria:
+  - "docs/quickstart.md \xA73e install/verify flow begins with a unit-existence check\
+    \ (systemctl is-enabled hermes-gateway.service) before any drop-in commands"
+  - "On a host without hermes-gateway.service, the documented verify step errors loudly\
+    \ (unit not found \u2014 drop-in not applied) and never silently prints ProtectProc=default\
+    \ as if hardening were active"
+  - The loud failure message points the reader at docs/deploy-to-karahermes.md
+  - grep -c 'systemctl is-enabled hermes-gateway.service' docs/quickstart.md >= 1
+  - Existing 4-directive note and 3f section preserved
+  - gitreins guard 4/4 PASS; full suite green (.venv/bin/python -m pytest -q)
+  - 'Commit includes Co-authored-by: Alexis Okuwa trailer and addresses TJ-GAP-043'
+  status: complete
+  created_at: '2026-08-27T00:08:04.106736+00:00'
+  completed_at: '2026-08-27T00:08:34.490284+00:00'
