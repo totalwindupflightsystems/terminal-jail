@@ -100,6 +100,19 @@ python3 -m pytest plugin/test_plugin.py -q
 
 ### 3e. systemd drop-in (gateway hardening)
 
+**Host check first.** The drop-in hardens the *gateway's* systemd unit — if
+this host has no `hermes-gateway.service`, copying the file does nothing and
+the naive verify below prints misleading default values. Check before
+installing:
+
+```bash
+systemctl is-enabled hermes-gateway.service
+# "enabled" (or "static" / "indirect") → continue below
+# "not-found" → STOP: no gateway unit on this host — the drop-in is not
+#   applied. Deploy the gateway unit first (docs/deploy-to-karahermes.md),
+#   or skip this section.
+```
+
 ```bash
 sudo cp systemd/90-terminal-jail-hardening.conf \
   /etc/systemd/system/hermes-gateway.service.d/
@@ -116,10 +129,18 @@ sudo systemd-analyze security hermes-gateway.service   # see the score
 commented out pending per-host verification — follow
 [docs/deploy-to-karahermes.md](deploy-to-karahermes.md) to stage them.
 
-Verify the drop-in is loaded:
+Verify the drop-in is loaded (fail-loud: `systemctl show` prints default
+values like `ProtectProc=default` for a nonexistent unit, so the unit must be
+checked first):
 
 ```bash
+systemctl is-enabled hermes-gateway.service >/dev/null 2>&1 || {
+  echo "ERROR: hermes-gateway.service not found — drop-in not applied."
+  echo "See docs/deploy-to-karahermes.md to deploy the gateway unit first."
+  exit 1
+}
 systemctl show hermes-gateway.service -p ProtectProc -p NoNewPrivileges
+# Expect: ProtectProc=invisible  /  NoNewPrivileges=yes
 ```
 
 ### 3f. Full gateway containment (advanced)
