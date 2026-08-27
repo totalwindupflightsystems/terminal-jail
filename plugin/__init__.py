@@ -8,7 +8,7 @@ command execution without a core change. The ``pre_tool_call`` hook can only
 BLOCK or ALLOW tool calls — it cannot modify the command string.
 
 This plugin provides:
-- Observability via ``transform_terminal_output`` (annotates output post-exec)
+- Observability via ``transform_terminal_output`` (stub — returns output unchanged)
 - A pre_tool_call observer for tracking terminal tool usage
 - Metrics export (``get_metrics`` / ``scripts/metrics-export.py``)
 
