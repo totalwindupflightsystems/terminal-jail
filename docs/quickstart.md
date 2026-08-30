@@ -87,7 +87,35 @@ terminal-jail --user --seccomp echo "seccomp BPF active"   # denies mount/pivot_
 pip install -e .   # from the repo root (installs the plugin/ package tree)
 ```
 
-(Or add `plugin/` to `HERMES_PLUGINS` — see `specs/plugin.md`.)
+**Enable via `HERMES_PLUGINS`.** The value must be an **absolute path** to
+the plugin directory — relative paths are not resolved. Copy-paste this and
+substitute your checkout path:
+
+```bash
+export HERMES_PLUGINS="/absolute/path/to/terminal-jail/plugin"
+```
+
+Multiple plugins are comma-separated. To append when `HERMES_PLUGINS` is
+already set:
+
+```bash
+export HERMES_PLUGINS="$HERMES_PLUGINS,/absolute/path/to/other/plugin"
+```
+
+The variable must be in the Hermes gateway process environment: export it in
+the shell that launches Hermes, or set it in the gateway's service env file.
+
+**Confirm the plugin loaded at runtime** — one command that launches Hermes
+with the plugin and greps its startup log for the registration line emitted
+by `register()`:
+
+```bash
+HERMES_PLUGINS="/absolute/path/to/terminal-jail/plugin" hermes <launch-cmd> 2>&1 | grep "Observability hooks registered"
+```
+
+A silent exit (`grep` returns 1, no match) means the plugin did **not** load —
+re-check that the path is absolute and that `HERMES_PLUGINS` reaches the
+Hermes process environment.
 
 The plugin hooks `pre_tool_call` (command visibility) and
 `transform_terminal_output` (stub — returns output unchanged). It

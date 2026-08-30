@@ -264,6 +264,15 @@ All configuration is read at each hook invocation. Do not cache environment-deri
 
 No other environment variables are supported. Do not read an `.env` file, a configuration file, or the current working directory.
 
+The variables above are the only ones the plugin reads itself. `HERMES_PLUGINS`
+is consumed by Hermes core to decide whether the plugin loads at all. Value
+format: an **absolute path** to the plugin directory — relative paths are not
+resolved — with multiple plugins comma-separated (`/abs/path/one,/abs/path/two`).
+The variable must be present in the Hermes gateway process environment (export
+it in the shell that launches Hermes, or set it in the service env file). For
+a copy-pasteable enable command and the one-command runtime load check, see
+`docs/quickstart.md` §3d.
+
 ### 6.1 Boolean parsing
 
 Implement a private helper with this exact signature:
