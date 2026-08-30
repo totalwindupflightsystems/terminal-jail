@@ -171,11 +171,38 @@ For actual PID namespace containment of terminal commands, use the standalone
 CLI (`./standalone/terminal-jail <command>`) or a verified full-profile
 deployment. See `docs/quickstart.md` for the decision tree.
 
+**Host check first.** The drop-in hardens the *gateway's* systemd unit — if
+this host has no `hermes-gateway.service`, copying the file does nothing and
+the naive verify below prints misleading default values. Check before
+installing:
+
+```bash
+systemctl is-enabled hermes-gateway.service
+# "enabled" (or "static" / "indirect") → continue below
+# "not-found" → STOP: no gateway unit on this host — the drop-in is not
+#   applied. Deploy the gateway unit first (docs/deploy-to-karahermes.md),
+#   or skip this section.
+```
+
 ```bash
 sudo cp systemd/90-terminal-jail-hardening.conf \
   /etc/systemd/system/hermes-gateway.service.d/
 sudo systemctl daemon-reload
 sudo systemctl restart hermes-gateway
+```
+
+Verify the drop-in is loaded (fail-loud: `systemctl show` prints default
+values like `ProtectProc=default` for a nonexistent unit, so the unit must be
+checked first):
+
+```bash
+systemctl is-enabled hermes-gateway.service >/dev/null 2>&1 || {
+  echo "ERROR: hermes-gateway.service not found — drop-in not applied."
+  echo "See docs/deploy-to-karahermes.md to deploy the gateway unit first."
+  exit 1
+}
+systemctl show hermes-gateway.service -p ProtectProc -p NoNewPrivileges
+# Expect: ProtectProc=invisible  /  NoNewPrivileges=yes
 ```
 
 ## Install
