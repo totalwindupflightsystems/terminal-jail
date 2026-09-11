@@ -472,6 +472,52 @@ def test_local_install_ships_default_rules_to_user_rules_dir(
 
 
 @pytest.mark.standalone_cli
+def test_local_install_backs_up_customized_user_rules(
+    install_script: Path, tmp_path: Path
+) -> None:
+    """DF-TERMINAL-JAIL-3: the user rules file is deliberate user-editable
+    config (same-id override), so a re-install over a customized copy must
+    preserve the old content in a sibling .bak-<utc> file and say so —
+    never silently clobber it."""
+    install_dir = tmp_path / "bin"
+    install_dir.mkdir()
+    home = tmp_path / "home"
+    home.mkdir()
+
+    rules_dir = home / ".config" / "terminal-jail" / "rules.d"
+    rules_dir.mkdir(parents=True)
+    installed = rules_dir / "00-builtins.yaml"
+    customized = "# user edit\nrules: []\n"
+    installed.write_text(customized, encoding="utf-8")
+
+    result = subprocess.run(
+        ["sh", "install.sh"],
+        capture_output=True,
+        text=False,
+        check=False,
+        timeout=20,
+        cwd=str(PROJECT_ROOT),
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "TERMINAL_JAIL_INSTALL_DIR": str(install_dir),
+        },
+    )
+
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    output = (result.stdout + result.stderr).decode("utf-8", "replace")
+
+    # (c) the shipped default replaced the customized file...
+    assert "builtin-rm-rf-root" in installed.read_text(encoding="utf-8")
+    # (d) ...and exactly the customized content survives in a sibling backup.
+    backups = sorted(rules_dir.glob("00-builtins.yaml.bak-*"))
+    assert len(backups) == 1, f"expected 1 backup, found {[b.name for b in backups]}"
+    assert backups[0].read_text(encoding="utf-8") == customized
+    # (e) the installer names the backup path.
+    assert str(backups[0]) in output, output
+
+
+@pytest.mark.standalone_cli
 def test_installed_binary_blocks_with_shipped_bridge(
     install_script: Path, tmp_path: Path
 ) -> None:

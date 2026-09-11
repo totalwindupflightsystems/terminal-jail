@@ -158,9 +158,22 @@ if [ -n "$LOCAL_WRAPPER" ]; then
     # README Rule Loader row; /etc/terminal-jail/rules.d stays the system
     # override path for root-managed deployments).
     if [ -f "$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml" ]; then
-        mkdir -p "$HOME/.config/terminal-jail/rules.d"
-        cp "$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml" "$HOME/.config/terminal-jail/rules.d/"
-        echo "terminal-jail installer: installed default rules to ${HOME}/.config/terminal-jail/rules.d/00-builtins.yaml"
+        user_rules_dir="$HOME/.config/terminal-jail/rules.d"
+        shipped_rules="$SCRIPT_DIR/plugin/terminal_jail/rules/00-builtins.yaml"
+        installed_rules="${user_rules_dir}/00-builtins.yaml"
+        mkdir -p "$user_rules_dir"
+        # These rules are user-editable config (the engine loads rules.d with
+        # SAME-ID OVERRIDE — see interruptor/decider.py), so an unconditional
+        # copy silently destroys user edits on re-install. Back up first when
+        # the installed file differs from the shipped default. Non-interactive:
+        # never prompt, never read stdin.
+        if [ -f "$installed_rules" ] && ! cmp -s "$shipped_rules" "$installed_rules"; then
+            rules_backup="${installed_rules}.bak-$(date -u +%Y%m%dT%H%M%SZ)"
+            cp "$installed_rules" "$rules_backup"
+            echo "terminal-jail installer: WARNING — existing user rules differed; backed up to ${rules_backup} before installing defaults"
+        fi
+        cp "$shipped_rules" "$installed_rules"
+        echo "terminal-jail installer: installed default rules to ${installed_rules}"
     else
         echo "terminal-jail installer: WARNING — default rules file not found next to installer; user rules directory left empty" >&2
     fi
