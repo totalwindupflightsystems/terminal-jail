@@ -509,3 +509,19 @@ tasks:
   status: complete
   created_at: '2026-09-11T01:29:54.610230+00:00'
   completed_at: '2026-09-11T01:42:05.333185+00:00'
+- id: TJ-GAP-051
+  title: '[P1] YAML mirror loaded as user rules weakens 12 engine verdicts'
+  criteria:
+  - On kara-lair (host with ~/.config/terminal-jail/rules.d/00-builtins.yaml present
+    from the documented install path), bare .venv/bin/python -m pytest -q passes with
+    0 failed (previously 12 failed / 295 passed / 13 skipped from user-rules override)
+  - "plugin/test_packaging.py mirror test compares rule PATTERNS (or RuleLoader behavior\
+    \ parity), not just ids/counts \u2014 reverting any YAML pattern to its pre-fix\
+    \ weaker form fails the test"
+  - scripts/yaml-mirror-parity-probe.py covers pattern equality across all shipped
+    rules and exits non-zero on pattern drift
+  - plugin/terminal_jail/rules/00-builtins.yaml header comment count matches the real
+    rule/blocklist id counts
+  status: complete
+  created_at: '2026-09-11T11:12:11.966718+00:00'
+  completed_at: '2026-09-11T11:28:05.207898+00:00'
