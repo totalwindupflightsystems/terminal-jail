@@ -247,6 +247,47 @@ Every layer degrades independently:
 
 `unshare --mount-proc` requires privileges unavailable in unprivileged user namespaces on some distributions. On Ubuntu 26.04 (kernel 7.0.0-27), the CLI's bare mode (which appends --mount-proc internally) will fail on some commands. This is a host kernel policy limitation, not a code defect. The systemd layer provides process-visibility and privilege hardening (`ProtectProc=invisible`, `NoNewPrivileges=true`) independently of `unshare`, but it does not create a PID namespace (the shipped drop-in's `PrivateUsers`/`RestrictNamespaces` directives are commented out pending verification).
 
+## Repository layout
+
+```
+plugin/            Hermes plugin — observability hooks + the Interruptor engine (plugin/terminal_jail/interruptor/)
+standalone/        Bash wrapper (terminal-jail), gateway shell shim (terminal-jail-sh), seccomp-loader.py
+systemd/           Gateway hardening drop-in snippet
+scripts/           Ops/verification helpers (pidns capability probe, benchmarks, metrics export, watchdogs)
+specs/             Product specs (cli, plugin, integration, interruptor, systemd)
+docs/              User/ops documentation (quickstart, threat model, ADRs, deploy, audits)
+skills/            Repo-local agent skill (skills/terminal-jail-usage/SKILL.md)
+.github/           CI workflow + issue templates
+.vfs/              Hilo code-graph cache — .vfs/graph/edges.jsonl is TRACKED on purpose
+.gitreins/         GitReins harness records (tasks.yaml, history/)
+.coding-hermes/    Fleet task board (canonical JSONL stores under board/)
+.memory-bank/      Long-term project memory
+<root files>       LICENSE, README, AGENTS, CHANGELOG, CODEOWNERS, CONTRIBUTING, CODE_OF_CONDUCT,
+                   GOVERNANCE, SECURITY, SUPPORT, TRADEMARK_POLICY, install.sh, pyproject.toml,
+                   .gitleaks.toml, .gitignore
+```
+
+**Intentional exceptions** — these paths look like generated or local state but are
+tracked deliberately. Do not move or delete them:
+
+| Path | Why it is tracked |
+|---|---|
+| `.vfs/` | Hilo code-graph cache. `edges.jsonl` and `manifest.yaml` are committed so the graph survives a clone; the binary cache (`graph.db`) is gitignored. |
+| `.gitreins/` | GitReins harness records — task definitions plus per-run history. |
+| `.coding-hermes/` | The fleet task board (canonical JSONL stores under `board/`). |
+| `.memory-bank/` | Long-term project memory (see `AGENTS.md`). |
+| `skills/terminal-jail-usage/` | Repo-local agent skill doc. |
+
+**Retired: `e2e-output/`** (removed 2026-09-10 by CLN-1). It held two stale one-off
+E2E battery dumps — `report.md` (tick #167, 2026-08-08) and `tasks.md` (tick #36,
+2026-08-01). Neither was referenced by any test, CI workflow, `install.sh`, or doc:
+`git grep -n "e2e-output"` matched only the board's own audit history and the GitReins
+CLN-1 task record itself, and
+`grep -rn "e2e-output" plugin/ .github/workflows/ci.yml install.sh docs/ README.md scripts/ systemd/ specs/`
+returned zero matches. The per-tick reports stopped being written there after tick
+#167 — battery results now live in the board's `events.jsonl`. Both files were removed
+with `git rm`; git history retains their content.
+
 ## Development
 
 Run the test suite from a fresh checkout with one command:
