@@ -525,3 +525,22 @@ tasks:
   status: complete
   created_at: '2026-09-11T11:12:11.966718+00:00'
   completed_at: '2026-09-11T11:28:05.207898+00:00'
+- id: DF-TERMINAL-JAIL-3
+  title: install.sh must not silently clobber customized user rules
+  criteria:
+  - install.sh backs up a differing ~/.config/terminal-jail/rules.d/00-builtins.yaml
+    to a sibling 00-builtins.yaml.bak-<UTC stamp> before installing the shipped defaults,
+    and prints the backup path
+  - 'plugin/test_install.py contains test_local_install_backs_up_customized_user_rules:
+    seeds customized content, runs install.sh with temp HOME + TERMINAL_JAIL_INSTALL_DIR,
+    asserts rc=0, installed file is the shipped default, and the backup holds the
+    customized content'
+  - .venv/bin/python -m pytest -q exits 0 with 0 failed on this host (expected 308
+    passed / 13 skipped / 0 failed)
+  - uvx ruff check plugin/ reports 0 findings
+  - install.sh stays non-interactive (no read/prompt) and sh -n install.sh passes
+  - commit addresses DF-TERMINAL-JAIL-3, touches only install.sh + plugin/test_install.py,
+    and carries exactly one Co-authored-by trailer
+  status: complete
+  created_at: '2026-09-11T17:37:59.062117+00:00'
+  completed_at: '2026-09-11T17:41:19.900991+00:00'
