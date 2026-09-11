@@ -53,13 +53,22 @@ echo '{"command": "echo hello"}' | python3 plugin/terminal_jail/interruptor_brid
 # → {"action":"allow","command":"echo hello",...}
 
 echo '{"command": "rm -rf /"}' | python3 plugin/terminal_jail/interruptor_bridge.py
-# → {"action":"block","command":"rm -rf /","rule_id":"I-BLOCK-001",...}
+# → {"action":"block","command":"rm -rf /","rule_id":"builtin-rm-rf-root",...}
 
 # Via standalone CLI with interruptor
 USE_INTERRUPTOR=1 ./standalone/terminal-jail echo "hello"
 TERMINAL_JAIL_INTERRUPTOR_MODE=warn ./standalone/terminal-jail rm -rf /
 TERMINAL_JAIL_INTERRUPTOR_MODE=disabled ./standalone/terminal-jail --no-interruptor echo "test"
 ```
+
+**Malformed input fails OPEN.** The bridge is a single-command JSON endpoint. Invalid JSON,
+empty stdin, or a non-string `command` field make it answer
+`{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] … — fail-open: allowing command"}`
+and exit 0 — no rule can be applied, so the command proceeds unguarded. This is the same
+fail-open contract the plugin follows (`specs/plugin.md`): a firewall that cannot parse its
+input must not wedge the caller. Fail-*closed* applies only to a **missing bridge**, where
+enforce mode exits 126 with a `COMMAND BLOCKED` box. If you need malformed input to be denied,
+validate the payload yourself and treat any `reason` beginning `[bridge-error]` as a denial.
 
 ### Architecture
 

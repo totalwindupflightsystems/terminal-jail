@@ -66,7 +66,7 @@ or use the full path above.
 ### 3b. Interruptor modes
 
 ```bash
-TERMINAL_JAIL_INTERRUPTOR_MODE=warn terminal-jail rm -rf /    # warns, allows
+TERMINAL_JAIL_INTERRUPTOR_MODE=warn terminal-jail rm -rf /    # warns, allows (firewall layer only)
 TERMINAL_JAIL_INTERRUPTOR_MODE=disabled terminal-jail rm -rf / # bypasses firewall
 terminal-jail --no-interruptor echo "bypass"                   # same, per-invocation
 ```
@@ -196,9 +196,20 @@ Install util-linux (`sudo apt install util-linux` or your distro's package).
 **A command I expected to be blocked ran anyway?**
 Check the mode: `TERMINAL_JAIL_INTERRUPTOR_MODE` (default `enforce`). In
 `warn` mode the firewall prints `WARN: would have blocked` but allows
-execution. Also, only commands matching the 30 built-in rules are blocked —
-the interruptor is a pattern firewall, not a policy sandbox (see
-`specs/interruptor.md`).
+execution. `warn` relaxes only the **firewall** layer — the namespace layer
+still runs, so on hosts that deny `unshare` (see the EPERM item above) a
+warned command can still exit 2 unless you also pass `--user`. Also, only
+commands matching the 30 built-in rules are blocked — the interruptor is a
+pattern firewall, not a policy sandbox (see `specs/interruptor.md`).
+
+**What happens if the bridge receives malformed input (bad JSON, empty stdin)?**
+It fails **open**: the bridge answers
+`{"action":"allow","command":"","rule_id":null,"reason":"[bridge-error] invalid JSON on stdin — fail-open: allowing command"}`
+and exits 0, so the command proceeds unguarded. A *missing* bridge is
+different — enforce mode fails **closed** (exit 126, `COMMAND BLOCKED`).
+Validate the payload yourself and treat any `reason` starting with
+`[bridge-error]` as a denial if you need malformed input to block (README
+"Malformed input fails OPEN").
 
 **The interruptor bridge is not available (warning or block on stderr)?**
 The CLI resolves `plugin/terminal_jail/interruptor_bridge.py` in this order:
