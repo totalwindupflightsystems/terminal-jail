@@ -485,3 +485,27 @@ tasks:
   status: complete
   created_at: '2026-08-27T18:08:57.495960+00:00'
   completed_at: '2026-08-27T18:09:55.772152+00:00'
+- id: CLN-1
+  title: 'Repo hygiene: clean up project folder structure'
+  criteria:
+  - 'A tracked-file inventory was made comparing root files/dirs against the documented
+    layout (README.md, AGENTS.md, docs/); each stray or misplaced artifact (candidate:
+    e2e-output/) is either removed, moved with git mv, or explicitly documented as
+    an intentional exception in repo docs'
+  - Commit message or docs record grep evidence that every removed/moved path is not
+    referenced by tests (plugin/test_*.py), CI (.github/workflows/ci.yml), install.sh,
+    or docs before the removal/move
+  - 'Full test suite shows zero failures CAUSED by the change: the 12 failures in
+    the bare .venv/bin/python -m pytest -q run on this host are pre-existing user-rules
+    contamination (host ~/.config/terminal-jail/rules.d/00-builtins.yaml overrides
+    hardcoded builtins; documented QA finding 2026-09-03), proven by an identical
+    12-failure set at pristine pre-change HEAD; with the user-rules dir neutralized
+    (TERMINAL_JAIL_INTERRUPTOR_USER_RULES_DIR=/nonexistent TERMINAL_JAIL_INTERRUPTOR_RULES_DIR=/nonexistent
+    or clean HOME) the suite exits 0 with 0 failed (307 passed / 13 skipped on this
+    PID-NS-degraded host)'
+  - Repo docs (README.md or docs/) record the canonical layout including intentional
+    exceptions (.vfs/, .gitreins/, .coding-hermes/, .memory-bank/, skills/, and the
+    e2e-output decision)
+  status: complete
+  created_at: '2026-09-11T01:29:54.610230+00:00'
+  completed_at: '2026-09-11T01:42:05.333185+00:00'
