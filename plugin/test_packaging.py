@@ -134,6 +134,64 @@ def test_shipped_rules_yaml_mirrors_engine_builtin_ids() -> None:
     )
 
 
+def test_shipped_rules_yaml_patterns_match_engine_builtins() -> None:
+    """Every shipped YAML pattern must equal its engine builtin pattern.
+
+    TJ-GAP-051: install.sh copies 00-builtins.yaml into
+    ~/.config/terminal-jail/rules.d/, the engine loads that dir as USER rules,
+    and same-id override REPLACES the builtin in its layer. So the YAML
+    patterns ARE the live engine on any host that ran the documented install
+    path. Three patterns (auto-script, builtin-fork-bomb, builtin-mkfs) had
+    drifted WEAKER than their Python counterparts and flipped 12 verdicts from
+    block/modify to allow — invisible to the id/count assertions above.
+
+    The comparison is done on values produced by the engine's own RuleLoader
+    (PyYAML escaping applied once, by the loader). Never compare by manually
+    un-escaping YAML source: double-unescaping fabricates false mismatches.
+    """
+    from terminal_jail.interruptor.allowlist import BUILTIN_ALLOWLIST
+    from terminal_jail.interruptor.blocklist import BUILTIN_BLOCKLIST
+    from terminal_jail.interruptor.rules import RuleLoader
+    from terminal_jail.interruptor.sandbox import BUILTIN_SANDBOX
+    engine_rules = {
+        rule.id: rule
+        for rule in (
+            list(BUILTIN_BLOCKLIST)
+            + list(BUILTIN_SANDBOX)
+            + list(BUILTIN_ALLOWLIST)
+        )
+    }
+    rules_dir = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules"
+    # user_dir is pinned to a non-existent path so this probe can never be
+    # fooled by a stale copy in the host's real user rules dir.
+    loaded = RuleLoader(system_dir=str(rules_dir), user_dir="/nonexistent").load_all()
+
+    missing = sorted(set(engine_rules) - {r.id for r in loaded.rules})
+    assert not missing, f"shipped YAML is missing engine rule ids: {missing}"
+    assert len(loaded.rules) == len(engine_rules), (
+        f"shipped YAML loaded {len(loaded.rules)} rules, engine has "
+        f"{len(engine_rules)}"
+    )
+
+    drift = []
+    for rule_id in sorted(engine_rules):
+        engine_pattern = engine_rules[rule_id].match.get("pattern", "")
+        yaml_rule = loaded.by_id(rule_id)
+        assert yaml_rule is not None  # covered by `missing` above
+        yaml_pattern = yaml_rule.match.get("pattern", "")
+        if yaml_pattern != engine_pattern:
+            drift.append(
+                f"{rule_id}:\n"
+                f"      engine={engine_pattern!r}\n"
+                f"      yaml  ={yaml_pattern!r}"
+            )
+    assert not drift, (
+        "shipped YAML pattern drift vs engine BUILTIN_* constants — the YAML "
+        "same-id override replaces the builtin, so a weaker mirror silently "
+        "weakens live verdicts:\n  " + "\n  ".join(drift)
+    )
+
+
 def test_pidns_capability_probe_is_host_agnostic() -> None:
     """The battery's capability classifier must run on ANY host (TJ-GAP-042).
 

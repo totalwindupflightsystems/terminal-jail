@@ -39,7 +39,7 @@ The `--kill-child=SIGKILL` flag ensures that when the namespace init exits, ever
 | Hermes Plugin | `plugin/terminal_jail/` | Observability: `pre_tool_call` and `transform_terminal_output` hooks. Metrics, logging (command length). Does NOT wrap commands. |
 | Standalone CLI | `standalone/terminal-jail` | Portable `unshare` wrapper for use outside Hermes or without systemd |
 | Deploy Shim | `standalone/terminal-jail-sh` | SHELL replacement for the Hermes gateway: wraps every shell invocation with `setpriv --no-new-privs` + `--user --seccomp` + the interruptor. Deploy-specific — paths configurable via `TERMINAL_JAIL_HOME` / `TERMINAL_JAIL_BRIDGE` / `TERMINAL_JAIL_CLI` (defaults target `/usr/local/lib/terminal-jail`). See `docs/deploy-to-karahermes.md` |
-| Interruptor Engine | `plugin/terminal_jail/interruptor/` | Bash command firewall — parser, matcher, decider, 29 built-in rules, JSON bridge for CLI integration |
+| Interruptor Engine | `plugin/terminal_jail/interruptor/` | Bash command firewall — parser, matcher, decider, 30 built-in rules, JSON bridge for CLI integration |
 
 ## Interruptor Bash Command Firewall (v1.1.0)
 
@@ -70,13 +70,13 @@ TERMINAL_JAIL_INTERRUPTOR_MODE=disabled ./standalone/terminal-jail --no-interrup
 | **Pattern Matcher** | 9 match types | pattern, command, pipeline, subcommand, path, composite, syscall, network, heredoc |
 | **Decider** | Evaluate priority | Blocklist (first) → allowlist → auto-sandbox → user rules. First match wins |
 
-### Built-in Rules (29 total)
+### Built-in Rules (30 total)
 
 Counts verified from the engine (`BUILTIN_BLOCKLIST` / `BUILTIN_SANDBOX` / `BUILTIN_ALLOWLIST` in
-`plugin/terminal_jail/interruptor/`): **11 critical blocklist, 8 auto-sandbox, 10 always-allow**.
+`plugin/terminal_jail/interruptor/`): **12 critical blocklist, 8 auto-sandbox, 10 always-allow**.
 Rule IDs are stable — tests assert behavior by ID.
 
-- **11 Critical Blocklist** (priority 1000, evaluated first, cannot be removed — only overridden to `warn` by a same-ID user rule):
+- **12 Critical Blocklist** (priority 1000, evaluated first, cannot be removed — only overridden to `warn` by a same-ID user rule):
   - `builtin-kill-all` — mass process kill (`kill -9 -1`)
   - `builtin-killpg-pid1` — process-group kill targeting PID 1 or own process group (`os.killpg(0/1, …)`, `kill(-1/0, …)`)
   - `builtin-fork-bomb` — fork bomb pattern (`:(){ :|:& };:`)
@@ -88,6 +88,7 @@ Rule IDs are stable — tests assert behavior by ID.
   - `builtin-echo-to-system` — redirect output to system paths (`echo … > /etc/…` etc.)
   - `builtin-curl-pipe-shell` — `curl|sh` / `wget|sh` pipe-to-shell
   - `builtin-sudo` — privilege escalation (`sudo`)
+  - `builtin-code-injection` — code-injection vectors in interpreter arguments (`os.system(`, `subprocess.run(`, `eval(`, `exec(`, `__import__(` — scanned in quoted interpreter code too, TJ-GAP-042)
 - **8 Auto-Sandbox** (wrapped in `unshare --user --pid --fork --kill-child=SIGKILL`):
   - `auto-pytest` — `pytest|tox|nose`
   - `auto-npm-test` — `npm test` / `npx vitest|jest`

@@ -3,8 +3,10 @@
 # ~/.config/terminal-jail/rules.d/00-builtins.yaml (user rules dir the engine
 # loads); root-managed deployments may place it in /etc/terminal-jail/rules.d/.
 # Priority 1000 = critical blocklist, 700 = auto-sandbox, 500 = always-allow
-# These reflect the same 29 rules hardcoded in the Python engine
-# (11 blocklist / 8 sandbox / 10 allow).
+# These reflect the same 30 rules hardcoded in the Python engine
+# (12 blocklist / 8 sandbox / 10 allow). Rule ids AND pattern strings must stay
+# byte-identical to the engine constants: install.sh copies this file into the
+# user rules dir, where same-id override REPLACES the builtin.
 
 rules:
   # =============================================================================
@@ -45,7 +47,7 @@ rules:
     block_message: "Fork bomb pattern detected and blocked."
     match:
       type: pattern
-      pattern: ":\\s*\\(\\)\\s*\\{.*:\\|:&\\s*\\}"
+      pattern: ":\\s*\\(\\)\\s*\\{.*?:\\s*\\|\\s*:\\s*&\\s*\\}"
 
   - id: "builtin-rm-rf-root"
     description: "Recursive root filesystem removal"
@@ -62,7 +64,7 @@ rules:
       # (plain \b never sits between a space and a dash); IGNORECASE covers -R.
       # TJ-GAP-042: target boundary extended to quotes/parens/backtick so
       # quoted/embedded forms (python3 -c "...", bash -c '...') also match.
-      pattern: "\\brm\\s+(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*f[a-z]*|--force)\\b)[^|;&]*\\s*/(?:\\*)?(?:\\s|$|[\"')`])"
+      pattern: "\\brm\\s+(?=[^|;&]*(?<!\\S)(?:-[a-z]*r[a-z]*|--recursive)\\b)(?=[^|;&]*(?<!\\S)(?:-[a-z]*f[a-z]*|--force)\\b)[^|;&]*\\s*/(?:\\*)?(?:\\s|$|[\\\"')`])"
 
   - id: "builtin-dd-root"
     description: "Raw device write via dd"
@@ -80,7 +82,7 @@ rules:
     block_message: "Filesystem creation commands (mkfs.*) are blocked."
     match:
       type: pattern
-      pattern: "mkfs\\."
+      pattern: "mkfs(?:\\.|\\s+\\.)"
 
   - id: "builtin-fdisk"
     description: "Partition manipulation"
@@ -221,7 +223,7 @@ rules:
     block_message: "Auto-sandboxed: script execution in isolated namespace."
     match:
       type: pattern
-      pattern: "\\.(sh|py|rb)\\s"
+      pattern: "\\./(.+\\.(sh|py|rb|zsh|bash|ksh)|[^/]+\\.(sh|py|rb|zsh|bash|ksh))|\\b(bash|sh|dash|zsh|python3?|ksh)\\s+[^\\s|;&]+\\.(sh|py|rb|zsh|bash|ksh)"
 
   # =============================================================================
   # Always-Allow (priority 500) — never block, never sandbox
