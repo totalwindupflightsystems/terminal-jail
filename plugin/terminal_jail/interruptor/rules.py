@@ -179,7 +179,14 @@ class RuleLoader:
         try:
             import yaml  # type: ignore[import-untyped]
 
-            data = yaml.safe_load(content)
+            # Prefer libyaml's C loader when available: identical safe-load
+            # semantics, ~10x faster. The pure-Python loader costs ~9ms per
+            # call once install.sh ships the full builtins file into the user
+            # rules dir, regressing the warm-start benchmark (E2E-001-GAP-07).
+            if hasattr(yaml, "CSafeLoader"):
+                data = yaml.load(content, Loader=yaml.CSafeLoader)
+            else:
+                data = yaml.safe_load(content)
         except ImportError:
             # Fall back to json
             import json

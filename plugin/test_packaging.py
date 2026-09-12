@@ -217,3 +217,38 @@ def test_pidns_capability_probe_is_host_agnostic() -> None:
     assert verdict in ("FULL", "DEGRADED") or verdict.startswith("UNKNOWN"), (
         f"probe printed unexpected verdict: {verdict!r}"
     )
+
+
+RULES_SOURCE = PROJECT_ROOT / "plugin" / "terminal_jail" / "interruptor" / "rules.py"
+SHIPPED_RULES = PROJECT_ROOT / "plugin" / "terminal_jail" / "rules" / "00-builtins.yaml"
+
+
+def test_rules_loader_prefers_libyaml_c_loader() -> None:
+    """The rules loader must use yaml.CSafeLoader when libyaml is available.
+
+    Regression guard for E2E-001-GAP-07: install.sh ships the full builtins
+    file into the user rules dir, and every intercept() call re-parses it.
+    The pure-Python safe_load costs ~9ms per call (warm-start benchmark
+    threshold is 5ms); the C loader parses the same document in <1ms with
+    identical safe-load semantics.
+    """
+    yaml = pytest.importorskip("yaml")
+    if not hasattr(yaml, "CSafeLoader"):
+        pytest.skip("libyaml not available in this environment")
+
+    source = RULES_SOURCE.read_text()
+    assert "CSafeLoader" in source, (
+        "rules.py must prefer yaml.CSafeLoader when available (E2E-001-GAP-07)"
+    )
+
+    # Behavioral parity: the fast path must construct identical rules.
+    import sys
+
+    sys.path.insert(0, str(PROJECT_ROOT / "plugin"))
+    from terminal_jail.interruptor.rules import RuleLoader
+
+    via_loader = RuleLoader()._parse_file(str(SHIPPED_RULES))
+    import yaml as _yaml
+
+    via_reference = _yaml.safe_load(SHIPPED_RULES.read_text())["rules"]
+    assert [r.id for r in via_loader] == [r["id"] for r in via_reference]
