@@ -544,3 +544,16 @@ tasks:
   status: complete
   created_at: '2026-09-11T17:37:59.062117+00:00'
   completed_at: '2026-09-11T17:41:19.900991+00:00'
+- id: E2E-001-GAP-07
+  title: 'Warm-start benchmark regression: rules loader re-parses 11KB builtins YAML
+    with pure-Python safe_load on every intercept'
+  criteria:
+  - plugin/terminal_jail/interruptor/rules.py prefers yaml.CSafeLoader when available
+    with safe_load fallback
+  - warm-start benchmark (scripts/benchmark-interruptor.py) passes < 5ms with the
+    full shipped builtins file in the user rules dir
+  - full suite passes (309+ passed, 13 skipped) and YAML/engine parity probe stays
+    30/30
+  status: complete
+  created_at: '2026-09-12T11:45:46.500336+00:00'
+  completed_at: '2026-09-12T11:47:45.349288+00:00'
