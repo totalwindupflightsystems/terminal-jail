@@ -557,3 +557,16 @@ tasks:
   status: complete
   created_at: '2026-09-12T11:45:46.500336+00:00'
   completed_at: '2026-09-12T11:47:45.349288+00:00'
+- id: DEPS-001
+  title: Close false-premise dep-refresh row (host pip scan, not repo deps)
+  criteria:
+  - "Evidence in board foreman_note: repo declares PyYAML>=6.0 + dev pytest>=8 only;\
+    \ uv.lock pins pyyaml 6.0.3 + pytest 9.1.1 and uv lock --check passes; venv has\
+    \ PyYAML 6.0.3 with libyaml; the 66-outdated count is host system python3 (anthropic/boto3/click\
+    \ \u2014 none imported by repo); CI installs pytest/pyyaml/ruff/pip-audit unpinned\
+    \ latest"
+  - tasks.jsonl DEPS-001 row closed status=completed with verification evidence; no
+    code change required
+  status: complete
+  created_at: '2026-09-13T00:18:01.297179+00:00'
+  completed_at: '2026-09-13T00:18:51.919069+00:00'
